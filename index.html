@@ -1747,7 +1747,16 @@ function MehrDatenView({ ext }) {
 // =============================================
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loginDaten, setLoginDaten] = useState({ leiter:"", ort:"", email:"", passwort:"", whatsapp:"" });
+  const [loginDaten, setLoginDaten] = useState(() => {
+    try {
+      const gespeichert = localStorage.getItem("isuv_profil");
+      if (gespeichert) {
+        const d = JSON.parse(gespeichert);
+        return { leiter:d.leiter||"", ort:d.ort||"", email:d.email||"", passwort:d.passwort||"", whatsapp:d.whatsapp||"", supabaseUrl:d.supabaseUrl||"", supabaseKey:d.supabaseKey||"" };
+      }
+    } catch(e) {}
+    return { leiter:"", ort:"", email:"", passwort:"", whatsapp:"", supabaseUrl:"", supabaseKey:"" };
+  });
   const [showProfil, setShowProfil] = useState(false);
   const [formularVersandDialogNeu, setFormularVersandDialogNeu] = useState(null);
   const [view, setView] = useState("dashboard");
@@ -1900,7 +1909,7 @@ function App() {
   const sbLadeEingaenge = async () => {
     if (!sbReady()) return;
     try {
-      const res = await fetch(loginDaten.supabaseUrl + "/rest/v1/formulare?status=eq.beantwortet&order=beantwortet_am.desc", {
+      const res = await fetch(loginDaten.supabaseUrl + "/formulare?status=eq.beantwortet&order=beantwortet_am.desc", {
         headers: sbHeaders()
       });
       if (!res.ok) return;
@@ -3011,7 +3020,7 @@ function App() {
               </div>
             )}
 
-            <button onClick={() => setView("dashboard")} style={{ ...styles.btnPrimary, marginTop:"16px" }}>✓ Speichern & Zurück</button>
+            <button onClick={() => { try { localStorage.setItem("isuv_profil", JSON.stringify(loginDaten)); } catch(e) {} setView("dashboard"); }} style={{ ...styles.btnPrimary, marginTop:"16px" }}>✓ Speichern & Zurück</button>
           </div>
         )}
 
