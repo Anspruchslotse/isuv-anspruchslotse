@@ -38,52 +38,61 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="logo">I</div>
-    <h1>ISUV Anspruchslotse</h1>
-    <p id="form-subtitle">Formular wird geladen...</p>
+<div class="header">
+  <div class="logo">I</div>
+  <h1>ISUV Anspruchslotse</h1>
+  <p id="form-subtitle">Formular wird geladen...</p>
+</div>
+<div class="container">
+  <div id="loading" class="card loading">
+    <div class="spinner"></div>
+    <p>Formular wird geladen...</p>
   </div>
-
-  <div class="container">
-    <div id="loading" class="card loading">
-      <div class="spinner"></div>
-      <p>Formular wird geladen...</p>
-    </div>
-    <div id="error-container" style="display:none"></div>
-    <div id="form-container" style="display:none"></div>
-    <div id="success-container" style="display:none">
-      <div class="success">
-        <div class="icon">✅</div>
-        <h2>Vielen Dank!</h2>
-        <p>Ihr Formular wurde erfolgreich übermittelt.<br/>Der ISUV wird sich bei Ihnen melden.</p>
-      </div>
+  <div id="error-container" style="display:none"></div>
+  <div id="form-container" style="display:none"></div>
+  <div id="success-container" style="display:none">
+    <div class="success">
+      <div class="icon">✅</div>
+      <h2>Vielen Dank!</h2>
+      <p>Ihr Formular wurde erfolgreich übermittelt.<br/>Der ISUV wird sich bei Ihnen melden.</p>
     </div>
   </div>
+</div>
 
 <script>
-// Get formular_id from URL
 var params = new URLSearchParams(window.location.search);
 var formularId = params.get('id');
-var supabaseUrl = params.get('sb');
-var supabaseKey = params.get('key');
+var sbParam = params.get('sb') || '';
+var supabaseKey = params.get('key') || '';
 
-if (!formularId || !supabaseUrl || !supabaseKey) {
+// Normalize: always use base URL + /rest/v1
+var supabaseBase = sbParam.replace(/\/rest\/v1.*$/, '').replace(/\/$/, '');
+var apiBase = supabaseBase + '/rest/v1';
+
+function showError(msg) {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('error-container').style.display = 'block';
-  document.getElementById('error-container').innerHTML = '<div class="card error-box">⚠️ Ungültiger Formular-Link. Bitte wenden Sie sich an Ihren ISUV-Berater.</div>';
+  document.getElementById('error-container').innerHTML = '<div class="card error-box">⚠️ ' + msg + '</div>';
+}
+
+if (!formularId || !supabaseBase || !supabaseKey) {
+  showError('Ungültiger Formular-Link. Bitte wenden Sie sich an Ihren ISUV-Berater.');
 } else {
   loadFormular();
 }
 
 async function loadFormular() {
   try {
-    var apiUrl = supabaseUrl.replace(/\/rest\/v1.*$/, '').replace(/\/$/, '') + '/rest/v1/formulare?formular_id=eq.' + formularId;
-    var res = await fetch(apiUrl, {
+    var url = apiBase + '/formulare?formular_id=eq.' + encodeURIComponent(formularId);
+    var res = await fetch(url, {
       headers: { 'apikey': supabaseKey, 'Authorization': 'Bearer ' + supabaseKey }
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + await res.text());
+    if (!res.ok) {
+      var txt = await res.text();
+      throw new Error('HTTP ' + res.status + ' – ' + txt.slice(0, 150));
+    }
     var rows = await res.json();
-    if (!rows || rows.length === 0) throw new Error('Formular nicht gefunden (ID: ' + formularId + ')');
+    if (!rows || rows.length === 0) throw new Error('Formular nicht gefunden.');
     var row = rows[0];
     document.getElementById('form-subtitle').textContent = row.label || 'Formular ausfüllen';
     document.getElementById('loading').style.display = 'none';
@@ -91,122 +100,144 @@ async function loadFormular() {
       document.getElementById('success-container').style.display = 'block';
       return;
     }
-    var vorausgefuellt = {};
-    try { vorausgefuellt = JSON.parse(row.vorausgefuellt || '{}'); } catch(e) {}
-    renderFormular(row, vorausgefuellt);
+    var vf = {};
+    try { vf = JSON.parse(row.vorausgefuellt || '{}'); } catch(e) {}
+    renderFormular(row, vf);
   } catch(e) {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('error-container').style.display = 'block';
-    document.getElementById('error-container').innerHTML = '<div class="card error-box">⚠️ Fehler beim Laden: ' + e.message + '</div>';
+    showError('Fehler beim Laden: ' + e.message);
   }
 }
 
-function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
-
 function renderFormular(row, vf) {
-  var container = document.getElementById('form-container');
-  container.style.display = 'block';
+  var c = document.getElementById('form-container');
+  c.style.display = 'block';
 
   if (row.typ === 'stammdaten') {
-    container.innerHTML = buildStammdatenForm(vf);
-    // Add/remove Kinder
+    c.innerHTML = buildStammdatenForm(vf);
     document.getElementById('btn-add-kind').onclick = function() {
       var list = document.getElementById('kinder-list');
       var idx = list.children.length;
       var div = document.createElement('div');
       div.className = 'kind-box';
-      div.id = 'kind-' + idx;
       div.innerHTML = buildKindBlock(idx, {});
       list.appendChild(div);
     };
   } else if (row.typ === 'tbg') {
-    container.innerHTML = buildTbgForm(vf);
+    c.innerHTML = buildTbgForm(vf);
+  } else {
+    c.innerHTML = buildStammdatenForm(vf);
+    document.getElementById('btn-add-kind').onclick = function() {
+      var list = document.getElementById('kinder-list');
+      var idx = list.children.length;
+      var div = document.createElement('div');
+      div.className = 'kind-box';
+      div.innerHTML = buildKindBlock(idx, {});
+      list.appendChild(div);
+    };
   }
 
   document.getElementById('btn-submit').onclick = function() { submitFormular(row); };
 }
 
+function v(id, fallback) {
+  return (fallback || '');
+}
+
+function sel(val, opt) {
+  return val === opt ? ' selected' : '';
+}
+
 function buildStammdatenForm(vf) {
-  return '''
-    <div class="card">
-      <span class="section-label">Persönliche Daten</span>
-      <div class="info-box">ℹ️ Bitte füllen Sie alle Felder aus. Pflichtfelder sind mit <span class="required">*</span> markiert.</div>
-      <div class="row">
-        <div><label>Vorname <span class="required">*</span></label><input id="vorname" value="''' + (vf.vorname||'') + '''" /></div>
-        <div><label>Nachname <span class="required">*</span></label><input id="name" value="''' + (vf.name||'') + '''" /></div>
-      </div>
-      <label>Telefon</label><input id="tel" type="tel" value="''' + (vf.tel||'') + '''" placeholder="+49170 1234567"/>
-      <label>E-Mail <span class="required">*</span></label><input id="mail" type="email" value="''' + (vf.mail||'') + '''" placeholder="name@beispiel.de"/>
-      <label>Straße & Hausnummer</label><input id="strasse" value="''' + (vf.strasse||'') + '''"/>
-      <div class="row">
-        <div style="width:90px"><label>PLZ</label><input id="plz" value="''' + (vf.plz||'') + '''"/></div>
-        <div><label>Ort</label><input id="ort" value="''' + (vf.ort||'') + '''"/></div>
-      </div>
-      <label>Familienstand</label>
-      <select id="familienstand">
-        <option value="">– bitte wählen –</option>
-        <option value="ledig">ledig</option>
-        <option value="verheiratet">verheiratet</option>
-        <option value="getrennt lebend" ''' + (vf.familienstand==='getrennt lebend'?'selected':'') + '''>getrennt lebend</option>
-        <option value="geschieden" ''' + (vf.familienstand==='geschieden'?'selected':'') + '''>geschieden</option>
-        <option value="verwitwet">verwitwet</option>
-      </select>
-    </div>
-    <div class="card">
-      <span class="section-label">Einkommen & Wohnen</span>
-      <label>Nettoeinkommen (€/Monat)</label><input id="einkommenNetto" type="number" value="''' + (vf.einkommenNetto||'') + '''" placeholder="z.B. 1500"/>
-      <label>Bruttomiete warm (€/Monat)</label><input id="mieteWarm" type="number" value="''' + (vf.mieteWarm||'') + '''" placeholder="z.B. 800"/>
-    </div>
-    <div class="card">
-      <span class="section-label">Kinder</span>
-      <div id="kinder-list"></div>
-      <button class="btn-add" id="btn-add-kind">+ Kind hinzufügen</button>
-    </div>
-    <div class="card">
-      <span class="section-label">Notizen / Anliegen</span>
-      <textarea id="notizen" placeholder="Was ist Ihr Anliegen? Gibt es besondere Umstände?"></textarea>
-    </div>
-    <button class="btn-primary" id="btn-submit">✓ Formular absenden</button>
-    <p style="font-size:10px;color:#999;text-align:center;margin-top:10px">Ihre Daten werden sicher übermittelt und nur für die ISUV-Beratung verwendet.</p>
-  ''';
+  var html = '';
+  html += '<div class="card">';
+  html += '<span class="section-label">Persönliche Daten</span>';
+  html += '<div class="info-box">ℹ️ Pflichtfelder sind mit <span class="required">*</span> markiert.</div>';
+  html += '<div class="row">';
+  html += '<div><label>Vorname <span class="required">*</span></label><input id="vorname" value="' + esc(vf.vorname) + '"/></div>';
+  html += '<div><label>Nachname <span class="required">*</span></label><input id="name" value="' + esc(vf.name) + '"/></div>';
+  html += '</div>';
+  html += '<label>Telefon</label><input id="tel" type="tel" value="' + esc(vf.tel) + '" placeholder="+49170 1234567"/>';
+  html += '<label>E-Mail <span class="required">*</span></label><input id="mail" type="email" value="' + esc(vf.mail) + '" placeholder="name@beispiel.de"/>';
+  html += '<label>Straße & Hausnummer</label><input id="strasse" value="' + esc(vf.strasse) + '"/>';
+  html += '<div class="row">';
+  html += '<div style="width:90px"><label>PLZ</label><input id="plz" value="' + esc(vf.plz) + '"/></div>';
+  html += '<div><label>Ort</label><input id="ort" value="' + esc(vf.ort) + '"/></div>';
+  html += '</div>';
+  html += '<label>Familienstand</label>';
+  html += '<select id="familienstand">';
+  html += '<option value="">– bitte wählen –</option>';
+  html += '<option value="ledig"' + sel(vf.familienstand,'ledig') + '>ledig</option>';
+  html += '<option value="verheiratet"' + sel(vf.familienstand,'verheiratet') + '>verheiratet</option>';
+  html += '<option value="getrennt lebend"' + sel(vf.familienstand,'getrennt lebend') + '>getrennt lebend</option>';
+  html += '<option value="geschieden"' + sel(vf.familienstand,'geschieden') + '>geschieden</option>';
+  html += '<option value="verwitwet"' + sel(vf.familienstand,'verwitwet') + '>verwitwet</option>';
+  html += '</select>';
+  html += '</div>';
+  html += '<div class="card">';
+  html += '<span class="section-label">Einkommen & Wohnen</span>';
+  html += '<label>Nettoeinkommen (€/Monat)</label><input id="einkommenNetto" type="number" value="' + esc(vf.einkommenNetto) + '" placeholder="z.B. 1500"/>';
+  html += '<label>Bruttomiete warm (€/Monat)</label><input id="mieteWarm" type="number" value="' + esc(vf.mieteWarm) + '" placeholder="z.B. 800"/>';
+  html += '</div>';
+  html += '<div class="card">';
+  html += '<span class="section-label">Kinder</span>';
+  html += '<div id="kinder-list"></div>';
+  html += '<button class="btn-add" id="btn-add-kind" type="button">+ Kind hinzufügen</button>';
+  html += '</div>';
+  html += '<div class="card">';
+  html += '<span class="section-label">Notizen / Anliegen</span>';
+  html += '<textarea id="notizen" placeholder="Was ist Ihr Anliegen?"></textarea>';
+  html += '</div>';
+  html += '<button class="btn-primary" id="btn-submit" type="button">✓ Formular absenden</button>';
+  html += '<p style="font-size:10px;color:#999;text-align:center;margin-top:10px">Ihre Daten werden sicher übermittelt.</p>';
+  return html;
 }
 
 function buildKindBlock(idx, k) {
-  return '<div class="kind-header"><strong style="font-size:13px">Kind ' + (idx+1) + '</strong><button class="btn-del" onclick="this.closest(.kind-box).remove()">✕</button></div>' +
-    '<label>Vorname</label><input id="k_vorname_' + idx + '" value="' + (k.vorname||'') + '"/>' +
-    '<label>Nachname</label><input id="k_nachname_' + idx + '" value="' + (k.nachname||'') + '"/>' +
-    '<label>Geburtsdatum</label><input id="k_geburt_' + idx + '" type="date" value="' + (k.geburt||'') + '"/>';
+  var html = '';
+  html += '<div class="kind-header">';
+  html += '<strong style="font-size:13px">Kind ' + (idx+1) + '</strong>';
+  html += '<button class="btn-del" type="button" onclick="this.closest(\'.kind-box\').remove()">✕</button>';
+  html += '</div>';
+  html += '<label>Vorname</label><input id="k_vorname_' + idx + '" value="' + esc(k.vorname) + '"/>';
+  html += '<label>Nachname</label><input id="k_nachname_' + idx + '" value="' + esc(k.nachname) + '"/>';
+  html += '<label>Geburtsdatum</label><input id="k_geburt_' + idx + '" type="date" value="' + esc(k.geburt) + '"/>';
+  return html;
 }
 
 function buildTbgForm(vf) {
-  return '''
-    <div class="card">
-      <span class="section-label">Anlage TBG – Temporäre Bedarfsgemeinschaft</span>
-      <div class="info-box">ℹ️ Bitte füllen Sie alle relevanten Felder aus.</div>
-      <div class="row">
-        <div><label>Nachname <span class="required">*</span></label><input id="name" value="''' + (vf.name||'') + '''"/></div>
-        <div><label>Vorname <span class="required">*</span></label><input id="vorname" value="''' + (vf.vorname||'') + '''"/></div>
-      </div>
-      <label>Straße, Hausnummer</label><input id="strasse" value="''' + (vf.strasse||'') + '''"/>
-      <div class="row">
-        <div style="width:90px"><label>PLZ</label><input id="plz" value="''' + (vf.plz||'') + '''"/></div>
-        <div><label>Ort</label><input id="ort" value="''' + (vf.ort||'') + '''"/></div>
-      </div>
-      <label>BG-Nummer (falls vorhanden)</label><input id="bg_nummer" placeholder="optional"/>
-      <label>E-Mail</label><input id="mail" type="email" value="''' + (vf.mail||'') + '''"/>
-      <label>Telefon</label><input id="tel" type="tel" value="''' + (vf.tel||'') + '''"/>
-    </div>
-    <div class="card">
-      <span class="section-label">Betreuungsmodell</span>
-      <label><input type="radio" name="modell" value="paritaetisch"/> Paritätisch (ca. 50:50)</label><br/><br/>
-      <label><input type="radio" name="modell" value="asymmetrisch"/> Asymmetrisch / Residenz</label>
-    </div>
-    <div class="card">
-      <span class="section-label">Notizen</span>
-      <textarea id="notizen" placeholder="Weitere Angaben..."></textarea>
-    </div>
-    <button class="btn-primary" id="btn-submit">✓ Formular absenden</button>
-  ''';
+  var html = '';
+  html += '<div class="card">';
+  html += '<span class="section-label">Anlage TBG – Temporäre Bedarfsgemeinschaft</span>';
+  html += '<div class="info-box">ℹ️ Bitte füllen Sie alle relevanten Felder aus.</div>';
+  html += '<div class="row">';
+  html += '<div><label>Nachname <span class="required">*</span></label><input id="name" value="' + esc(vf.name) + '"/></div>';
+  html += '<div><label>Vorname <span class="required">*</span></label><input id="vorname" value="' + esc(vf.vorname) + '"/></div>';
+  html += '</div>';
+  html += '<label>Straße, Hausnummer</label><input id="strasse" value="' + esc(vf.strasse) + '"/>';
+  html += '<div class="row">';
+  html += '<div style="width:90px"><label>PLZ</label><input id="plz" value="' + esc(vf.plz) + '"/></div>';
+  html += '<div><label>Ort</label><input id="ort" value="' + esc(vf.ort) + '"/></div>';
+  html += '</div>';
+  html += '<label>BG-Nummer (falls vorhanden)</label><input id="bg_nummer" placeholder="optional"/>';
+  html += '<label>E-Mail</label><input id="mail" type="email" value="' + esc(vf.mail) + '"/>';
+  html += '<label>Telefon</label><input id="tel" type="tel" value="' + esc(vf.tel) + '"/>';
+  html += '</div>';
+  html += '<div class="card">';
+  html += '<span class="section-label">Betreuungsmodell</span>';
+  html += '<label><input type="radio" name="modell" value="paritaetisch"/> Paritätisch (ca. 50:50)</label><br/><br/>';
+  html += '<label><input type="radio" name="modell" value="asymmetrisch"/> Asymmetrisch / Residenz</label>';
+  html += '</div>';
+  html += '<div class="card">';
+  html += '<span class="section-label">Notizen</span>';
+  html += '<textarea id="notizen" placeholder="Weitere Angaben..."></textarea>';
+  html += '</div>';
+  html += '<button class="btn-primary" id="btn-submit" type="button">✓ Formular absenden</button>';
+  return html;
+}
+
+function esc(val) {
+  if (!val) return '';
+  return String(val).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 async function submitFormular(row) {
@@ -214,31 +245,32 @@ async function submitFormular(row) {
   btn.disabled = true;
   btn.textContent = 'Wird gesendet...';
 
-  // Collect data
   var daten = {};
-  var ids = ['vorname','name','tel','mail','strasse','plz','ort','familienstand','einkommenNetto','mieteWarm','notizen','bg_nummer'];
-  ids.forEach(function(id) { var el = document.getElementById(id); if(el) daten[id] = el.value; });
+  ['vorname','name','tel','mail','strasse','plz','ort','familienstand','einkommenNetto','mieteWarm','notizen','bg_nummer'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) daten[id] = el.value;
+  });
 
-  // Radio buttons
   var modell = document.querySelector('input[name="modell"]:checked');
   if (modell) daten.modell = modell.value;
 
-  // Kinder
   var kinderList = document.getElementById('kinder-list');
   if (kinderList) {
     var kinder = [];
     var boxes = kinderList.querySelectorAll('.kind-box');
     boxes.forEach(function(box, idx) {
       var k = {};
-      var vn = box.querySelector('#k_vorname_' + idx); if(vn) k.vorname = vn.value;
-      var nn = box.querySelector('#k_nachname_' + idx); if(nn) k.nachname = nn.value;
-      var gb = box.querySelector('#k_geburt_' + idx); if(gb) k.geburt = gb.value;
-      if(k.vorname || k.nachname) kinder.push(k);
+      var vn = document.getElementById('k_vorname_' + idx);
+      var nn = document.getElementById('k_nachname_' + idx);
+      var gb = document.getElementById('k_geburt_' + idx);
+      if (vn) k.vorname = vn.value;
+      if (nn) k.nachname = nn.value;
+      if (gb) k.geburt = gb.value;
+      if (k.vorname || k.nachname) kinder.push(k);
     });
     if (kinder.length > 0) daten.kinder = kinder;
   }
 
-  // Validate
   if (!daten.vorname || !daten.name) {
     btn.disabled = false;
     btn.textContent = '✓ Formular absenden';
@@ -247,7 +279,8 @@ async function submitFormular(row) {
   }
 
   try {
-    var res = await fetch(supabaseUrl.replace(/\/rest\/v1.*$/, '').replace(/\/$/, '') + '/rest/v1/formulare?formular_id=eq.' + formularId, {
+    var url = apiBase + '/formulare?formular_id=eq.' + encodeURIComponent(formularId);
+    var res = await fetch(url, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -261,14 +294,14 @@ async function submitFormular(row) {
         beantwortet_am: new Date().toISOString()
       })
     });
-    if (!res.ok) throw new Error('Fehler beim Senden');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     document.getElementById('form-container').style.display = 'none';
     document.getElementById('success-container').style.display = 'block';
     document.getElementById('form-subtitle').textContent = 'Erfolgreich gesendet';
   } catch(e) {
     btn.disabled = false;
     btn.textContent = '✓ Formular absenden';
-    alert('Fehler beim Senden: ' + e.message + '. Bitte versuchen Sie es erneut.');
+    alert('Fehler beim Senden: ' + e.message);
   }
 }
 </script>
