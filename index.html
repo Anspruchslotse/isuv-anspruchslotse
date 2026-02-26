@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISUV Anspruchslotse</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: sans-serif; background: #f4f7f9; }
+    #root { min-height: 100vh; }
+    #loading {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100vh;
+      font-family: sans-serif; color: #003366;
+    }
+    #loading .logo {
+      width: 60px; height: 60px; background: #003366; color: #fff;
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-weight: bold; font-size: 20px;
+      margin-bottom: 16px;
+    }
+    #loading p { font-size: 14px; color: #666; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="logo">I</div>
+    <strong>ISUV Anspruchslotse</strong>
+    <p>wird geladen...</p>
+  </div>
+  <div id="root"></div>
+
+  <!-- React + Babel über CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <script type="text/babel" src="isuv_v13.jsx" data-type="module"></script>
+
+  <script>
+    // Ladescreen ausblenden sobald React startet
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        var loading = document.getElementById('loading');
+        if (loading) loading.style.display = 'none';
+        // React App mounten
+        var root = document.getElementById('root');
+        if (window.App && root) {
+          ReactDOM.render(React.createElement(window.App), root);
+        }
+      }, 500);
+    });
+  </script>
+</body>
+</html>
