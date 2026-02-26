@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ISUV – Formular ausfüllen</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:sans-serif; background:#f4f7f9; min-height:100vh; }
+    .header { background:#003366; color:#fff; padding:16px 20px; text-align:center; }
+    .header .logo { width:40px; height:40px; background:#00afad; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:bold; font-size:16px; margin-bottom:8px; }
+    .header h1 { font-size:16px; }
+    .header p { font-size:11px; opacity:0.8; margin-top:4px; }
+    .container { max-width:500px; margin:0 auto; padding:16px; }
+    .card { background:#fff; border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+    .section-label { font-size:10px; font-weight:bold; color:#003366; text-transform:uppercase; background:#e8f0fb; border-radius:4px; padding:4px 8px; margin-bottom:12px; letter-spacing:0.5px; display:block; }
+    label { font-size:12px; font-weight:bold; display:block; margin-bottom:4px; color:#333; }
+    input, select, textarea { width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #ddd; font-size:13px; box-sizing:border-box; font-family:sans-serif; }
+    textarea { height:80px; resize:vertical; }
+    .row { display:flex; gap:10px; }
+    .row > div { flex:1; }
+    .btn-primary { width:100%; padding:14px; background:#003366; color:#fff; border:none; border-radius:10px; font-weight:bold; font-size:14px; cursor:pointer; margin-top:8px; }
+    .btn-primary:hover { background:#00254d; }
+    .btn-add { background:#00afad; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; margin-bottom:10px; }
+    .btn-del { background:#ff4d4d; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px; }
+    .kind-box { background:#f9f9f9; border-radius:8px; padding:12px; margin-bottom:10px; border-left:3px solid #00afad; }
+    .kind-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .info-box { background:#e8f4fd; border:1px solid #bee5f8; border-radius:6px; padding:10px; font-size:11px; color:#0c5460; margin-bottom:12px; }
+    .success { background:#e8f5e9; border:1px solid #a5d6a7; border-radius:10px; padding:30px 20px; text-align:center; }
+    .success .icon { font-size:48px; margin-bottom:12px; }
+    .success h2 { color:#2e7d32; margin-bottom:8px; }
+    .success p { font-size:13px; color:#555; }
+    .error-box { background:#ffebee; border:1px solid #ef9a9a; border-radius:6px; padding:10px; font-size:12px; color:#c62828; margin-bottom:12px; }
+    .loading { text-align:center; padding:40px; color:#003366; }
+    .spinner { width:40px; height:40px; border:3px solid #e0e0e0; border-top-color:#00afad; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 16px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .required { color:#e53935; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">I</div>
+    <h1>ISUV Anspruchslotse</h1>
+    <p id="form-subtitle">Formular wird geladen...</p>
+  </div>
+
+  <div class="container">
+    <div id="loading" class="card loading">
+      <div class="spinner"></div>
+      <p>Formular wird geladen...</p>
+    </div>
+    <div id="error-container" style="display:none"></div>
+    <div id="form-container" style="display:none"></div>
+    <div id="success-container" style="display:none">
+      <div class="success">
+        <div class="icon">✅</div>
+        <h2>Vielen Dank!</h2>
+        <p>Ihr Formular wurde erfolgreich übermittelt.<br/>Der ISUV wird sich bei Ihnen melden.</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+// Get formular_id from URL
+var params = new URLSearchParams(window.location.search);
+var formularId = params.get('id');
+var supabaseUrl = params.get('sb');
+var supabaseKey = params.get('key');
+
+if (!formularId || !supabaseUrl || !supabaseKey) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error-container').style.display = 'block';
+  document.getElementById('error-container').innerHTML = '<div class="card error-box">⚠️ Ungültiger Formular-Link. Bitte wenden Sie sich an Ihren ISUV-Berater.</div>';
+} else {
+  loadFormular();
+}
+
+async function loadFormular() {
+  try {
+    var res = await fetch(supabaseUrl + '/rest/v1/formulare?formular_id=eq.' + formularId, {
+      headers: { 'apikey': supabaseKey, 'Authorization': 'Bearer ' + supabaseKey }
+    });
+    var rows = await res.json();
+    if (!rows || rows.length === 0) throw new Error('Formular nicht gefunden');
+    var row = rows[0];
+    document.getElementById('form-subtitle').textContent = row.label || 'Formular ausfüllen';
+    document.getElementById('loading').style.display = 'none';
+    if (row.status === 'beantwortet') {
+      document.getElementById('success-container').style.display = 'block';
+      return;
+    }
+    var vorausgefuellt = {};
+    try { vorausgefuellt = JSON.parse(row.vorausgefuellt || '{}'); } catch(e) {}
+    renderFormular(row, vorausgefuellt);
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-container').style.display = 'block';
+    document.getElementById('error-container').innerHTML = '<div class="card error-box">⚠️ Fehler beim Laden: ' + e.message + '</div>';
+  }
+}
+
+function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+
+function renderFormular(row, vf) {
+  var container = document.getElementById('form-container');
+  container.style.display = 'block';
+
+  if (row.typ === 'stammdaten') {
+    container.innerHTML = buildStammdatenForm(vf);
+    // Add/remove Kinder
+    document.getElementById('btn-add-kind').onclick = function() {
+      var list = document.getElementById('kinder-list');
+      var idx = list.children.length;
+      var div = document.createElement('div');
+      div.className = 'kind-box';
+      div.id = 'kind-' + idx;
+      div.innerHTML = buildKindBlock(idx, {});
+      list.appendChild(div);
+    };
+  } else if (row.typ === 'tbg') {
+    container.innerHTML = buildTbgForm(vf);
+  }
+
+  document.getElementById('btn-submit').onclick = function() { submitFormular(row); };
+}
+
+function buildStammdatenForm(vf) {
+  return '''
+    <div class="card">
+      <span class="section-label">Persönliche Daten</span>
+      <div class="info-box">ℹ️ Bitte füllen Sie alle Felder aus. Pflichtfelder sind mit <span class="required">*</span> markiert.</div>
+      <div class="row">
+        <div><label>Vorname <span class="required">*</span></label><input id="vorname" value="''' + (vf.vorname||'') + '''" /></div>
+        <div><label>Nachname <span class="required">*</span></label><input id="name" value="''' + (vf.name||'') + '''" /></div>
+      </div>
+      <label>Telefon</label><input id="tel" type="tel" value="''' + (vf.tel||'') + '''" placeholder="+49170 1234567"/>
+      <label>E-Mail <span class="required">*</span></label><input id="mail" type="email" value="''' + (vf.mail||'') + '''" placeholder="name@beispiel.de"/>
+      <label>Straße & Hausnummer</label><input id="strasse" value="''' + (vf.strasse||'') + '''"/>
+      <div class="row">
+        <div style="width:90px"><label>PLZ</label><input id="plz" value="''' + (vf.plz||'') + '''"/></div>
+        <div><label>Ort</label><input id="ort" value="''' + (vf.ort||'') + '''"/></div>
+      </div>
+      <label>Familienstand</label>
+      <select id="familienstand">
+        <option value="">– bitte wählen –</option>
+        <option value="ledig">ledig</option>
+        <option value="verheiratet">verheiratet</option>
+        <option value="getrennt lebend" ''' + (vf.familienstand==='getrennt lebend'?'selected':'') + '''>getrennt lebend</option>
+        <option value="geschieden" ''' + (vf.familienstand==='geschieden'?'selected':'') + '''>geschieden</option>
+        <option value="verwitwet">verwitwet</option>
+      </select>
+    </div>
+    <div class="card">
+      <span class="section-label">Einkommen & Wohnen</span>
+      <label>Nettoeinkommen (€/Monat)</label><input id="einkommenNetto" type="number" value="''' + (vf.einkommenNetto||'') + '''" placeholder="z.B. 1500"/>
+      <label>Bruttomiete warm (€/Monat)</label><input id="mieteWarm" type="number" value="''' + (vf.mieteWarm||'') + '''" placeholder="z.B. 800"/>
+    </div>
+    <div class="card">
+      <span class="section-label">Kinder</span>
+      <div id="kinder-list"></div>
+      <button class="btn-add" id="btn-add-kind">+ Kind hinzufügen</button>
+    </div>
+    <div class="card">
+      <span class="section-label">Notizen / Anliegen</span>
+      <textarea id="notizen" placeholder="Was ist Ihr Anliegen? Gibt es besondere Umstände?"></textarea>
+    </div>
+    <button class="btn-primary" id="btn-submit">✓ Formular absenden</button>
+    <p style="font-size:10px;color:#999;text-align:center;margin-top:10px">Ihre Daten werden sicher übermittelt und nur für die ISUV-Beratung verwendet.</p>
+  ''';
+}
+
+function buildKindBlock(idx, k) {
+  return '<div class="kind-header"><strong style="font-size:13px">Kind ' + (idx+1) + '</strong><button class="btn-del" onclick="this.closest(.kind-box).remove()">✕</button></div>' +
+    '<label>Vorname</label><input id="k_vorname_' + idx + '" value="' + (k.vorname||'') + '"/>' +
+    '<label>Nachname</label><input id="k_nachname_' + idx + '" value="' + (k.nachname||'') + '"/>' +
+    '<label>Geburtsdatum</label><input id="k_geburt_' + idx + '" type="date" value="' + (k.geburt||'') + '"/>';
+}
+
+function buildTbgForm(vf) {
+  return '''
+    <div class="card">
+      <span class="section-label">Anlage TBG – Temporäre Bedarfsgemeinschaft</span>
+      <div class="info-box">ℹ️ Bitte füllen Sie alle relevanten Felder aus.</div>
+      <div class="row">
+        <div><label>Nachname <span class="required">*</span></label><input id="name" value="''' + (vf.name||'') + '''"/></div>
+        <div><label>Vorname <span class="required">*</span></label><input id="vorname" value="''' + (vf.vorname||'') + '''"/></div>
+      </div>
+      <label>Straße, Hausnummer</label><input id="strasse" value="''' + (vf.strasse||'') + '''"/>
+      <div class="row">
+        <div style="width:90px"><label>PLZ</label><input id="plz" value="''' + (vf.plz||'') + '''"/></div>
+        <div><label>Ort</label><input id="ort" value="''' + (vf.ort||'') + '''"/></div>
+      </div>
+      <label>BG-Nummer (falls vorhanden)</label><input id="bg_nummer" placeholder="optional"/>
+      <label>E-Mail</label><input id="mail" type="email" value="''' + (vf.mail||'') + '''"/>
+      <label>Telefon</label><input id="tel" type="tel" value="''' + (vf.tel||'') + '''"/>
+    </div>
+    <div class="card">
+      <span class="section-label">Betreuungsmodell</span>
+      <label><input type="radio" name="modell" value="paritaetisch"/> Paritätisch (ca. 50:50)</label><br/><br/>
+      <label><input type="radio" name="modell" value="asymmetrisch"/> Asymmetrisch / Residenz</label>
+    </div>
+    <div class="card">
+      <span class="section-label">Notizen</span>
+      <textarea id="notizen" placeholder="Weitere Angaben..."></textarea>
+    </div>
+    <button class="btn-primary" id="btn-submit">✓ Formular absenden</button>
+  ''';
+}
+
+async function submitFormular(row) {
+  var btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = 'Wird gesendet...';
+
+  // Collect data
+  var daten = {};
+  var ids = ['vorname','name','tel','mail','strasse','plz','ort','familienstand','einkommenNetto','mieteWarm','notizen','bg_nummer'];
+  ids.forEach(function(id) { var el = document.getElementById(id); if(el) daten[id] = el.value; });
+
+  // Radio buttons
+  var modell = document.querySelector('input[name="modell"]:checked');
+  if (modell) daten.modell = modell.value;
+
+  // Kinder
+  var kinderList = document.getElementById('kinder-list');
+  if (kinderList) {
+    var kinder = [];
+    var boxes = kinderList.querySelectorAll('.kind-box');
+    boxes.forEach(function(box, idx) {
+      var k = {};
+      var vn = box.querySelector('#k_vorname_' + idx); if(vn) k.vorname = vn.value;
+      var nn = box.querySelector('#k_nachname_' + idx); if(nn) k.nachname = nn.value;
+      var gb = box.querySelector('#k_geburt_' + idx); if(gb) k.geburt = gb.value;
+      if(k.vorname || k.nachname) kinder.push(k);
+    });
+    if (kinder.length > 0) daten.kinder = kinder;
+  }
+
+  // Validate
+  if (!daten.vorname || !daten.name) {
+    btn.disabled = false;
+    btn.textContent = '✓ Formular absenden';
+    alert('Bitte Vor- und Nachname ausfüllen.');
+    return;
+  }
+
+  try {
+    var res = await fetch(supabaseUrl + '/rest/v1/formulare?formular_id=eq.' + formularId, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': 'Bearer ' + supabaseKey,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        antwort_daten: JSON.stringify(daten),
+        status: 'beantwortet',
+        beantwortet_am: new Date().toISOString()
+      })
+    });
+    if (!res.ok) throw new Error('Fehler beim Senden');
+    document.getElementById('form-container').style.display = 'none';
+    document.getElementById('success-container').style.display = 'block';
+    document.getElementById('form-subtitle').textContent = 'Erfolgreich gesendet';
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '✓ Formular absenden';
+    alert('Fehler beim Senden: ' + e.message + '. Bitte versuchen Sie es erneut.');
+  }
+}
+</script>
+</body>
+</html>

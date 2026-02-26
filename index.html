@@ -26,7 +26,7 @@
     <div class="logo">I</div>
     <strong style="color:#003366;font-size:16px">ISUV Anspruchslotse</strong>
     <div class="spinner"></div>
-    <p id="status">App wird geladen...</p>
+    <p>App wird geladen...</p>
   </div>
   <div id="root"></div>
 
@@ -1880,6 +1880,7 @@ function App() {
   const sbSaveFormular = async (formTyp, formLabel, member, vorausgefuellt) => {
     if (!sbReady()) return null;
     const id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    const baseUrl = loginDaten.supabaseUrl.replace("/rest/v1", "");
     const payload = {
       formular_id: id,
       typ: formTyp,
@@ -1892,13 +1893,15 @@ function App() {
       erstellt_am: new Date().toISOString()
     };
     try {
-      const res = await fetch(loginDaten.supabaseUrl + "/rest/v1/formulare", {
+      const res = await fetch(loginDaten.supabaseUrl + "/formulare", {
         method: "POST", headers: { ...sbHeaders(), "Prefer": "return=representation" },
         body: JSON.stringify(payload)
       });
       if (!res.ok) { console.error("Supabase save error", await res.text()); return null; }
-      const url = loginDaten.supabaseUrl.replace("/rest/v1","") + "?formular=" + id;
-      return { id, url };
+      const formularUrl = "https://anspruchslotse.github.io/isuv-anspruchslotse/formular.html?id=" + id +
+        "&sb=" + encodeURIComponent(baseUrl) +
+        "&key=" + encodeURIComponent(loginDaten.supabaseKey);
+      return { id, url: formularUrl };
     } catch(e) { console.error("Supabase error", e); return null; }
   };
 
