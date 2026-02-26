@@ -7,16 +7,9 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: sans-serif; background: #f4f7f9; }
-    #loading {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; height: 100vh; color: #003366; gap: 12px;
-    }
-    .logo { width: 60px; height: 60px; background: #003366; color: #fff;
-      border-radius: 50%; display: flex; align-items: center;
-      justify-content: center; font-weight: bold; font-size: 20px; }
-    .spinner { width: 32px; height: 32px; border: 3px solid #e0e0e0;
-      border-top-color: #00afad; border-radius: 50%;
-      animation: spin 0.8s linear infinite; }
+    #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: #003366; gap: 12px; }
+    .logo { width: 60px; height: 60px; background: #003366; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #e0e0e0; border-top-color: #00afad; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #loading p { font-size: 13px; color: #999; }
   </style>
@@ -29,11 +22,9 @@
     <p>App wird geladen...</p>
   </div>
   <div id="root"></div>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-
   <script type="text/babel" data-presets="react">
 const { useState } = React;
 
@@ -3111,17 +3102,25 @@ function App() {
                             onChange={e => setFormularVersandDialogNeu(p => ({...p, empfaengerMail: e.target.value}))}
                           />
                           <button
-                            onClick={function() {
+                            onClick={async function() {
                               var empfMail = formularVersandDialogNeu.empfaengerMail || (m && m.mail ? m.mail : "");
                               if (!empfMail || !empfMail.includes("@")) { alert("Bitte gültige E-Mail-Adresse eingeben."); return; }
+                              var formLink = "";
+                              var sbResult = null;
+                              if (sbReady()) {
+                                sbResult = await sbSaveFormular(fTyp, fLabel, m, {});
+                                if (sbResult) {
+                                  formLink = "\n\n🔗 Formular-Link (direkt im Browser ausfüllen):\n" + sbResult.url;
+                                }
+                              }
                               var betreff = "ISUV Anspruchslotse – " + fLabel + (m ? " für " + m.vorname + " " + m.name : "");
-                              var body = linkText + "\n\nMit freundlichen Grüßen\n" + (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
+                              var body = linkText + formLink + "\n\nMit freundlichen Grüßen\n" + (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
                               var mailtoUrl = "mailto:" + encodeURIComponent(empfMail) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(body);
                               window.open(mailtoUrl);
                               var jetzt = new Date();
                               var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
                               setAusgangFormulare(function(prev) {
-                                return prev.concat([{ id: Date.now(), typ: fLabel, empfaenger: empfMail, mitglied: m ? m.vorname + " " + m.name : null, datum: ds, status:"unbeantwortet", kanal:"✉️ E-Mail" }]);
+                                return prev.concat([{ id: sbResult ? sbResult.id : Date.now(), typ: fLabel, empfaenger: empfMail, mitglied: m ? m.vorname + " " + m.name : null, datum: ds, status:"unbeantwortet", kanal:"✉️ E-Mail", formLink: sbResult ? sbResult.url : null }]);
                               });
                               setFormularVersandDialogNeu(null);
                               setShowAusgang(true);
