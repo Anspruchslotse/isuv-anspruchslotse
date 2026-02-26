@@ -3110,6 +3110,12 @@ function App() {
                             value={formularVersandDialogNeu.empfaengerMail || (m && m.mail ? m.mail : "")}
                             onChange={e => setFormularVersandDialogNeu(p => ({...p, empfaengerMail: e.target.value}))}
                           />
+                          {/* Debug: Supabase Status */}
+                          <div style={{ fontSize:"10px", padding:"6px 8px", borderRadius:"5px", marginBottom:"6px",
+                            backgroundColor: sbReady() ? "#e8f5e9" : "#fff3e0",
+                            color: sbReady() ? "#2e7d32" : "#e65100" }}>
+                            {sbReady() ? "✅ Supabase verbunden – Link wird generiert" : "⚠️ Kein Supabase – E-Mail wird ohne Link gesendet. Bitte Profil → Supabase einrichten & Speichern."}
+                          </div>
                           <button
                             onClick={async function() {
                               var empfMail = formularVersandDialogNeu.empfaengerMail || (m && m.mail ? m.mail : "");
@@ -3117,9 +3123,16 @@ function App() {
                               var formLink = "";
                               var sbResult = null;
                               if (sbReady()) {
-                                sbResult = await sbSaveFormular(fTyp, fLabel, m, {});
+                                try {
+                                  sbResult = await sbSaveFormular(fTyp, fLabel, m, {});
+                                } catch(err) {
+                                  alert("Supabase Fehler: " + err.message);
+                                }
                                 if (sbResult) {
                                   formLink = "\n\n🔗 Formular-Link (direkt im Browser ausfüllen):\n" + sbResult.url;
+                                } else if (sbReady()) {
+                                  alert("Supabase konnte Formular nicht speichern. Prüfen Sie URL und Key im Profil.");
+                                  return;
                                 }
                               }
                               var betreff = "ISUV Anspruchslotse – " + fLabel + (m ? " für " + m.vorname + " " + m.name : "");
