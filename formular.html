@@ -77,11 +77,13 @@ if (!formularId || !supabaseUrl || !supabaseKey) {
 
 async function loadFormular() {
   try {
-    var res = await fetch(supabaseUrl + '/rest/v1/formulare?formular_id=eq.' + formularId, {
+    var apiUrl = supabaseUrl.replace(/\/rest\/v1.*$/, '').replace(/\/$/, '') + '/rest/v1/formulare?formular_id=eq.' + formularId;
+    var res = await fetch(apiUrl, {
       headers: { 'apikey': supabaseKey, 'Authorization': 'Bearer ' + supabaseKey }
     });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + await res.text());
     var rows = await res.json();
-    if (!rows || rows.length === 0) throw new Error('Formular nicht gefunden');
+    if (!rows || rows.length === 0) throw new Error('Formular nicht gefunden (ID: ' + formularId + ')');
     var row = rows[0];
     document.getElementById('form-subtitle').textContent = row.label || 'Formular ausfüllen';
     document.getElementById('loading').style.display = 'none';
@@ -245,7 +247,7 @@ async function submitFormular(row) {
   }
 
   try {
-    var res = await fetch(supabaseUrl + '/rest/v1/formulare?formular_id=eq.' + formularId, {
+    var res = await fetch(supabaseUrl.replace(/\/rest\/v1.*$/, '').replace(/\/$/, '') + '/rest/v1/formulare?formular_id=eq.' + formularId, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
