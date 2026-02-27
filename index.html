@@ -2,16 +2,31 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="ISUV Lotse" />
+  <meta name="theme-color" content="#003366" />
   <title>ISUV Anspruchslotse</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: sans-serif; background: #f4f7f9; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f7f9;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+    #root { padding-bottom: env(safe-area-inset-bottom); }
+    button, select, textarea { -webkit-appearance: none; }
+    input, select, textarea { font-size: 16px !important; }
+    .modal-scroll { -webkit-overflow-scrolling: touch; overflow-y: auto; }
     #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: #003366; gap: 12px; }
     .logo { width: 60px; height: 60px; background: #003366; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; }
     .spinner { width: 32px; height: 32px; border: 3px solid #e0e0e0; border-top-color: #00afad; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #loading p { font-size: 13px; color: #999; }
+    @media (min-width: 600px) { .app-main { max-width: 560px !important; padding: 20px !important; } }
   </style>
 </head>
 <body>
@@ -26,8 +41,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
-const { useState } = React;
-
+const { useState, useEffect, useRef } = React;
 
 // =============================================
 // MODUL 1: KINDESUNTERHALT (isoliert)
@@ -1770,12 +1784,24 @@ function App() {
   const [activeMember, setActiveMember] = useState(null);
   const [selectedTerminId, setSelectedTerminId] = useState(null);
 
-  const [members, setMembers] = useState([
+  const defaultMembers = [
     { id: 1, vorname: "Sabine", name: "Landgraf", tel: "01701234567", mail: "s.landgraf@gmx.de", strasse: "Musterweg 1", plz: "12345", ort: "Musterstadt" },
     { id: 2, vorname: "Markus", name: "Siedler", tel: "01729876543", mail: "m.siedler@web.de", strasse: "Feldstr. 12", plz: "54321", ort: "Beispielort" },
     { id: 3, vorname: "Wolfgang", name: "Wechsel", tel: "01755556677", mail: "wolf@wechsel.de", strasse: "Hauptstr. 5", plz: "99887", ort: "Testdorf" },
     { id: 4, vorname: "Susanne", name: "Vogel", tel: "01512223344", mail: "s.vogel@icloud.com", strasse: "Wiesenstr. 3", plz: "10203", ort: "Berlin" }
-  ]);
+  ];
+  const [members, setMembers] = useState(() => {
+    try {
+      const saved = localStorage.getItem("isuv_members");
+      if (saved) return JSON.parse(saved);
+    } catch(e) {}
+    return defaultMembers;
+  });
+
+  // Mitglieder persistent speichern
+  useEffect(() => {
+    try { localStorage.setItem("isuv_members", JSON.stringify(members)); } catch(e) {}
+  }, [members]);
 
   const [memberExtras, setMemberExtras] = useState({
     1: {
@@ -1848,6 +1874,9 @@ function App() {
   const [showAusgang, setShowAusgang] = useState(false);
   const [formulareVersandDialog, setFormulareVersandDialog] = useState(null);
 
+  const [openEingangMenuId, setOpenEingangMenuId] = useState(null);
+  const [eingangDatenTransferDialog, setEingangDatenTransferDialog] = useState(null);
+
   const [termine, setTermine] = useState([
     { id: 101, tag: 18, monat: new Date().getMonth(), zeit: "17:00", text: "Beratung: Anlage TBG", notiz: "Wichtiges Erstgespräch" }
   ]);
@@ -1911,6 +1940,11 @@ function App() {
     } catch(e) { alert("Netzwerkfehler: " + e.message); return null; }
   };
 
+  const [neueEingaengeCount, setNeueEingaengeCount] = useState(0);
+  const [geseheneEingangIds, setGeseheneEingangIds] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("isuv_gesehen_ids") || "[]")); } catch(e) { return new Set(); }
+  });
+
   // Ausgefüllte Formulare aus Supabase laden
   const sbLadeEingaenge = async () => {
     if (!sbReady()) return;
@@ -1931,10 +1965,24 @@ function App() {
       setEingangFormulare(prev => {
         const existIds = new Set(prev.map(x => x.id));
         const wirklichNeu = neu.filter(x => !existIds.has(x.id));
+        if (wirklichNeu.length > 0) {
+          setNeueEingaengeCount(c => c + wirklichNeu.length);
+        }
         return wirklichNeu.length > 0 ? [...wirklichNeu, ...prev] : prev;
       });
     } catch(e) { console.error("Supabase load error", e); }
   };
+
+  // Auto-Polling: alle 60 Sekunden neue Eingänge prüfen wenn Supabase konfiguriert
+  useEffect(() => {
+    if (!sbReady()) return;
+    // Sofort beim Start laden
+    sbLadeEingaenge();
+    const interval = setInterval(() => {
+      sbLadeEingaenge();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [loginDaten.supabaseUrl, loginDaten.supabaseKey]);
 
   if (!isLoggedIn) return (
     <div style={styles.loginPage}>
@@ -1978,12 +2026,18 @@ function App() {
           </div>
         </div>
         <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+          {eingangFormulare.filter(f => !geseheneEingangIds.has(f.id)).length > 0 && (
+            <div onClick={() => { setView("dashboard"); setShowFormulare(true); setShowEingang(true); setGeseheneEingangIds(prev => { const next = new Set([...prev, ...eingangFormulare.map(f => f.id)]); try { localStorage.setItem("isuv_gesehen_ids", JSON.stringify([...next])); } catch(e){} return next; }); }}
+              style={{ cursor:"pointer", backgroundColor:"#e53935", color:"#fff", borderRadius:"20px", padding:"5px 10px", fontSize:"11px", fontWeight:"bold" }}>
+              📥 {eingangFormulare.filter(f => !geseheneEingangIds.has(f.id)).length}
+            </div>
+          )}
           <button onClick={() => setView("profil")} style={{ ...styles.btnLogout, backgroundColor:"#e8f0fb", color:"#003366" }}>⚙️ Profil</button>
           <button onClick={() => setIsLoggedIn(false)} style={styles.btnLogout}>Abmelden</button>
         </div>
       </header>
 
-      <main style={styles.main}>
+      <main style={styles.main} className="app-main">
         {view === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
 
@@ -2015,7 +2069,7 @@ function App() {
                             <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("akte"); setOpenActionMenuId(null); }}>📋 Akte</div>
                             <div style={styles.menuItem} onClick={() => { setFormularVersandDialogNeu({ member: m, formTyp: "stammdaten" }); setOpenActionMenuId(null); }}>✉️ Formular senden</div>
                             <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("berechnung"); setBerechnungRechner(null); setBerechnungKategorie(null); setOpenActionMenuId(null); }}>🧮 Berechnung</div>
-                            <div style={styles.menuItem} onClick={() => setOpenActionMenuId(null)}>❌ Schließen</div>
+                            <div style={{ ...styles.menuItem, color:"#e53935", borderBottom:"none" }} onClick={() => { if(window.confirm("Mitglied " + m.vorname + " " + m.name + " wirklich löschen?")) { setMembers(prev => prev.filter(x => x.id !== m.id)); setOpenActionMenuId(null); } }}>🗑️ Löschen</div>
                           </div>
                         )}
                       </div>
@@ -2132,24 +2186,87 @@ function App() {
                           <div style={{ fontSize:"12px", color:"#999", textAlign:"center", padding:"12px 0" }}>Keine eingegangenen Formulare.</div>
                         )}
                         {eingangFormulare.map(f => (
-                          <div key={f.id} style={{ backgroundColor:"#f0fdfd", borderRadius:"8px", padding:"12px", marginBottom:"8px", borderLeft:"4px solid #00afad" }}>
+                          <div key={f.id} style={{ backgroundColor:"#f0fdfd", borderRadius:"8px", padding:"12px", marginBottom:"8px", borderLeft:"4px solid #00afad", position:"relative" }}>
                             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                              <div>
+                              <div style={{ flex:1 }}>
                                 <div style={{ fontWeight:"bold", fontSize:"13px" }}>{f.typ}</div>
                                 <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Von: {f.name}</div>
                                 <div style={{ fontSize:"10px", color:"#999", marginTop:"1px" }}>{f.datum}</div>
+                                {!geseheneEingangIds.has(f.id) && <span style={{ backgroundColor:"#e53935", color:"#fff", borderRadius:"10px", padding:"1px 7px", fontSize:"9px", fontWeight:"bold", display:"inline-block", marginTop:"4px" }}>NEU</span>}
                               </div>
-                              <button
-                                onClick={() => { setAktivesEingangFormular(f); setView("eingang_detail"); }}
-                                style={{ backgroundColor:"#00afad", color:"#fff", border:"none", borderRadius:"6px", padding:"6px 12px", fontSize:"11px", cursor:"pointer", fontWeight:"bold" }}>
-                                Öffnen
-                              </button>
+                              <button onClick={() => setOpenEingangMenuId(openEingangMenuId === f.id ? null : f.id)}
+                                style={{ background:"none", border:"none", fontSize:"22px", cursor:"pointer", padding:"0 4px", lineHeight:1, color:"#666", fontWeight:"bold" }}>⋮</button>
                             </div>
+                            {openEingangMenuId === f.id && (
+                              <div style={{ position:"absolute", right:"8px", top:"40px", backgroundColor:"#fff", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", borderRadius:"8px", zIndex:200, minWidth:"180px", overflow:"hidden", border:"1px solid #eee" }}>
+                                <div style={{ padding:"10px 14px", cursor:"pointer", fontSize:"12px", borderBottom:"1px solid #f0f0f0" }}
+                                  onClick={() => { setAktivesEingangFormular(f); setView("eingang_detail"); setOpenEingangMenuId(null); setGeseheneEingangIds(prev => { const next = new Set([...prev, f.id]); try { localStorage.setItem("isuv_gesehen_ids", JSON.stringify([...next])); } catch(e){} return next; }); }}>
+                                  📋 Öffnen
+                                </div>
+                                <div style={{ padding:"10px 14px", cursor:"pointer", fontSize:"12px", borderBottom:"1px solid #f0f0f0" }}
+                                  onClick={() => { setEingangDatenTransferDialog(f); setOpenEingangMenuId(null); }}>
+                                  👤 Daten übertragen (Akte)
+                                </div>
+                                <div style={{ padding:"10px 14px", cursor:"pointer", fontSize:"12px", color:"#e53935" }}
+                                  onClick={() => { if(window.confirm("Eingang von " + f.name + " löschen?")) { setEingangFormulare(prev => prev.filter(x => x.id !== f.id)); setOpenEingangMenuId(null); } }}>
+                                  🗑️ Löschen
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
+
+                  {/* EINGANG DATEN-TRANSFER DIALOG */}
+                  {eingangDatenTransferDialog && (
+                    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, backgroundColor:"rgba(0,0,0,0.5)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+                      <div style={{ backgroundColor:"#fff", borderRadius:"12px", padding:"20px", width:"100%", maxWidth:"380px", maxHeight:"80vh", overflowY:"auto" }} className="modal-scroll">
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
+                          <div style={{ fontWeight:"bold", fontSize:"14px", color:"#003366" }}>👤 Daten übertragen in Akte</div>
+                          <button onClick={() => setEingangDatenTransferDialog(null)} style={{ background:"none", border:"none", fontSize:"20px", cursor:"pointer", color:"#999" }}>×</button>
+                        </div>
+                        <div style={{ backgroundColor:"#e8f0fb", borderRadius:"8px", padding:"10px", marginBottom:"14px", fontSize:"12px" }}>
+                          <strong>Formular von:</strong> {eingangDatenTransferDialog.name}<br/>
+                          <strong>Typ:</strong> {eingangDatenTransferDialog.typ}
+                        </div>
+                        <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", marginBottom:"8px" }}>In welche Akte übertragen?</div>
+                        {members.map(function(m) {
+                          return (
+                            <button key={m.id}
+                              onClick={function() {
+                                var f = eingangDatenTransferDialog.felder || {};
+                                var updates = {};
+                                if (f.familienstand) updates.familienstand = f.familienstand;
+                                if (f.einkommenNetto) updates.einkommenNetto = parseFloat(f.einkommenNetto);
+                                if (f.mieteWarm) updates.mieteWarm = parseFloat(f.mieteWarm);
+                                if (f.notizen) updates.notizen = f.notizen;
+                                if (f.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
+                                if (f.kinder && f.kinder.length > 0) {
+                                  updates.alleinerziehend = true;
+                                  updates.kinder = f.kinder.map(function(k) {
+                                    var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
+                                    var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
+                                    var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
+                                    return { name:(k.nachname||f.name||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:true };
+                                  });
+                                }
+                                setMemberExtras(function(prev) { var next=Object.assign({},prev); next[m.id]=Object.assign({},prev[m.id]||{},updates); return next; });
+                                setEingangFormulare(function(prev) { return prev.filter(function(x) { return x.id !== eingangDatenTransferDialog.id; }); });
+                                setEingangDatenTransferDialog(null);
+                                setActiveMember(m);
+                                setView("akte");
+                              }}
+                              style={{ width:"100%", padding:"10px 14px", backgroundColor:"#f9f9f9", border:"1px solid #ddd", borderRadius:"8px", cursor:"pointer", textAlign:"left", fontSize:"13px", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                              <span>👤 {m.name}, {m.vorname}</span>
+                              <span style={{ color:"#003366", fontSize:"11px", fontWeight:"bold" }}>→ Akte öffnen</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* AUSGANG – Unterkategorie */}
                   <div style={{ marginTop:"14px", borderTop:"2px solid #e8f0fb", paddingTop:"12px" }}>
@@ -2879,7 +2996,7 @@ function App() {
                 if (formFelderDaten.notizen) { zeilen.push(""); zeilen.push("Notizen: " + formFelderDaten.notizen); }
                 var absender = (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " " + loginDaten.ort : "");
                 var betreff = "ISUV Formular: " + (formFelderDaten.vorname||"") + " " + (formFelderDaten.name||"");
-                var mailtoUrl = "mailto:" + encodeURIComponent(empfMail) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(zeilen.join("\r\n"));
+                var mailtoUrl = "mailto:" + encodeURIComponent(empfMail) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(zeilen.join("\n"));
                 window.location.href = mailtoUrl;
                 setFormFelderDaten({});
                 setShowFormulare(true);
@@ -3130,7 +3247,16 @@ function App() {
                               var sbResult = null;
                               if (sbReady()) {
                                 try {
-                                  sbResult = await sbSaveFormular(fTyp, fLabel, m, {});
+                                  var ext_m = m ? (memberExtras[m.id] || {}) : {};
+                                  var vorausgefuellt_data = m ? {
+                                    vorname: m.vorname || "", name: m.name || "", tel: m.tel || "", mail: m.mail || "",
+                                    strasse: m.strasse || "", plz: m.plz || "", ort: m.ort || "",
+                                    familienstand: ext_m.familienstand || "", einkommenNetto: ext_m.einkommenNetto ? String(ext_m.einkommenNetto) : "",
+                                    mieteWarm: ext_m.mieteWarm ? String(ext_m.mieteWarm) : "",
+                                    hatKinder: (ext_m.kinder && ext_m.kinder.length > 0) ? "ja" : "",
+                                    kinder: (ext_m.kinder || []).map(function(k) { return { vorname:(k.name||"").split(", ")[1]||"", nachname:(k.name||"").split(", ")[0]||"", geburt:k.geburt||"", wohnort:k.wohnort||"", uvg:k.uvg?"ja":"nein" }; })
+                                  } : {};
+                                  sbResult = await sbSaveFormular(fTyp, fLabel, m, vorausgefuellt_data);
                                 } catch(err) {
                                   alert("Supabase Fehler: " + err.message);
                                 }
@@ -3184,7 +3310,16 @@ function App() {
                               var formLink = "";
                               var sbResult = null;
                               if (sbReady()) {
-                                sbResult = await sbSaveFormular(fTyp, fLabel, m, {});
+                                var ext_m2 = m ? (memberExtras[m.id] || {}) : {};
+                                var vorausgefuellt_wa = m ? {
+                                  vorname: m.vorname || "", name: m.name || "", tel: m.tel || "", mail: m.mail || "",
+                                  strasse: m.strasse || "", plz: m.plz || "", ort: m.ort || "",
+                                  familienstand: ext_m2.familienstand || "", einkommenNetto: ext_m2.einkommenNetto ? String(ext_m2.einkommenNetto) : "",
+                                  mieteWarm: ext_m2.mieteWarm ? String(ext_m2.mieteWarm) : "",
+                                  hatKinder: (ext_m2.kinder && ext_m2.kinder.length > 0) ? "ja" : "",
+                                  kinder: (ext_m2.kinder || []).map(function(k) { return { vorname:(k.name||"").split(", ")[1]||"", nachname:(k.name||"").split(", ")[0]||"", geburt:k.geburt||"", wohnort:k.wohnort||"", uvg:k.uvg?"ja":"nein" }; })
+                                } : {};
+                                sbResult = await sbSaveFormular(fTyp, fLabel, m, vorausgefuellt_wa);
                                 if (sbResult) {
                                   formLink = "\n\n🔗 Formular-Link (direkt im Browser ausfüllen):\n" + sbResult.url;
                                 }
@@ -3223,9 +3358,9 @@ function App() {
 }
 
 const styles = {
-  appFrame: { minHeight: "100vh", backgroundColor: "#f4f7f9", fontFamily: "sans-serif" },
-  header: { display: "flex", justifyContent: "space-between", padding: "15px", backgroundColor: "#fff", borderBottom: "3px solid #00afad", alignItems: "center" },
-  main: { padding: "15px", maxWidth: "500px", margin: "0 auto" },
+  appFrame: { minHeight: "100dvh", backgroundColor: "#f4f7f9", fontFamily: "sans-serif" },
+  header: { display: "flex", justifyContent: "space-between", padding: "15px", backgroundColor: "#fff", borderBottom: "3px solid #00afad", alignItems: "center", position: "sticky", top: 0, zIndex: 50 },
+  main: { padding: "15px", maxWidth: "500px", margin: "0 auto", paddingBottom: "40px" },
   card: { backgroundColor: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: "10px" },
   reiterHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" },
   input: { width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "13px", boxSizing: "border-box" },
@@ -3258,9 +3393,19 @@ const styles = {
   menuItem: { fontSize: "12px", cursor: "pointer", padding: "8px", borderBottom: "1px solid #eee" }
 };
 
-
-document.getElementById('loading').style.display = 'none';
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+// App starten
+const domContainer = document.getElementById("root");
+const root = ReactDOM.createRoot(domContainer);
+root.render(<App />);
+  </script>
+  <script>
+    // Verstecke Ladescreen sobald React bereit ist
+    document.addEventListener("DOMContentLoaded", function() {
+      setTimeout(function() {
+        var loading = document.getElementById("loading");
+        if (loading) loading.style.display = "none";
+      }, 800);
+    });
   </script>
 </body>
 </html>
