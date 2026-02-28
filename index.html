@@ -1856,6 +1856,7 @@ function App() {
   }, [members]);
 
   // Pinned persistent speichern
+  const [pinnedIds, setPinnedIds] = useState(() => { try { return JSON.parse(localStorage.getItem("isuv_pinned")||"[]"); } catch(e) { return []; } });
   useEffect(() => {
     try { localStorage.setItem("isuv_pinned", JSON.stringify(pinnedIds)); } catch(e) {}
   }, [pinnedIds]);
@@ -1936,7 +1937,6 @@ function App() {
   const [versandFelder, setVersandFelder] = useState(null);
   const [editMemberMode, setEditMemberMode] = useState(false);
   const [editMemberDaten, setEditMemberDaten] = useState({});
-  const [pinnedIds, setPinnedIds] = useState(() => { try { return JSON.parse(localStorage.getItem("isuv_pinned")||"[]"); } catch(e) { return []; } });
   const [terminTyp, setTerminTyp] = useState("beratung");
 
   const [termine, setTermine] = useState([
@@ -2693,58 +2693,59 @@ function App() {
                   var m = activeMember;
                   var berechnungText = "ISUV Anspruchslotse – Berechnungsergebnis\n\nMitglied: " + m.vorname + " " + m.name + "\nDatum: " + letzte.datum + "\n\n" + letzte.typ + "\nErgebnis: " + letzte.ergebnis + (letzte.details ? "\n(" + letzte.details + ")" : "") + "\n\nHinweis: Dies ist eine Orientierungsberechnung. Für rechtssichere Auskunft bitte Rechtsberatung in Anspruch nehmen.\n\n" + (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
                   return (
-                    <div style={{ display:"flex", gap:"8px", marginTop:"8px" }}>
-                      {m.mail && loginDaten.email && (
-                        <button
-                          onClick={function() {
-                            var betreff = encodeURIComponent("ISUV Anspruchslotse – Ihre Berechnung (" + letzte.typ + ")");
-                            var body = encodeURIComponent(berechnungText);
-                            window.open("mailto:" + encodeURIComponent(m.mail) + "?subject=" + betreff + "&body=" + body);
-                          }}
-                          style={{ flex:1, padding:"9px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
-                          ✉️ Berechnung per Mail senden
-                        </button>
-                      )}
-                      {m.tel && loginDaten.whatsapp && (
-                        <button
-                          onClick={function() {
-                            var tel = m.tel.replace(/[\s\-()]/g,"").replace(/^0/, "+49");
-                            var msg = encodeURIComponent(berechnungText);
-                            window.open("https://wa.me/" + tel.replace("+","") + "?text=" + msg);
-                          }}
-                          style={{ flex:1, padding:"9px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
-                          📱 Per WhatsApp senden
-                        </button>
-                      )}
-                      {!m.mail && !m.tel && (
-                        <div style={{ fontSize:"11px", color:"#999", padding:"8px" }}>Keine Kontaktdaten für Versand vorhanden.</div>
-                      )}
+                    <div style={{ marginTop:"8px" }}>
+                      <div style={{ display:"flex", gap:"8px" }}>
+                        {m.mail && loginDaten.email && (
+                          <button
+                            onClick={function() {
+                              var betreff = encodeURIComponent("ISUV Anspruchslotse – Ihre Berechnung (" + letzte.typ + ")");
+                              var body = encodeURIComponent(berechnungText);
+                              window.open("mailto:" + encodeURIComponent(m.mail) + "?subject=" + betreff + "&body=" + body);
+                            }}
+                            style={{ flex:1, padding:"9px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
+                            ✉️ Berechnung per Mail senden
+                          </button>
+                        )}
+                        {m.tel && loginDaten.whatsapp && (
+                          <button
+                            onClick={function() {
+                              var tel = m.tel.replace(/[\s\-()]/g,"").replace(/^0/, "+49");
+                              var msg = encodeURIComponent(berechnungText);
+                              window.open("https://wa.me/" + tel.replace("+","") + "?text=" + msg);
+                            }}
+                            style={{ flex:1, padding:"9px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
+                            📱 Per WhatsApp senden
+                          </button>
+                        )}
+                        {!m.mail && !m.tel && (
+                          <div style={{ fontSize:"11px", color:"#999", padding:"8px" }}>Keine Kontaktdaten für Versand vorhanden.</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={function() {
+                          var alle = [...memberErgebnisse[activeMember.id]].reverse();
+                          var text = "ISUV Anspruchslotse - Berechnungshistorie\n" +
+                            "Mitglied: " + m.vorname + " " + m.name + "\n" +
+                            "Erstellt: " + new Date().toLocaleDateString("de-DE") + "\n" +
+                            "----------------------------\n\n" +
+                            alle.map(function(e, idx) {
+                              return (idx+1) + ". " + e.typ + "\n   Ergebnis: " + e.ergebnis + (e.details ? "\n   (" + e.details + ")" : "") + "\n   Datum: " + e.datum;
+                            }).join("\n\n") +
+                            "\n\n----------------------------\n" +
+                            "Hinweis: Orientierungswerte. Keine Rechtsberatung.\n" +
+                            (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " - " + loginDaten.ort : "");
+                          var el = document.createElement("textarea");
+                          el.value = text;
+                          document.body.appendChild(el);
+                          el.select();
+                          document.execCommand("copy");
+                          document.body.removeChild(el);
+                          alert("Berechnungshistorie (" + alle.length + " Eintraege) in Zwischenablage kopiert!");
+                        }}
+                        style={{ width:"100%", marginTop:"6px", padding:"8px", backgroundColor:"#f0f4f7", color:"#003366", border:"1px solid #003366", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
+                        📋 Alle {[...memberErgebnisse[activeMember.id]].length} Berechnungen kopieren
+                      </button>
                     </div>
-                    {/* Alle Berechnungen exportieren */}
-                    <button
-                      onClick={function() {
-                        var alle = [...memberErgebnisse[activeMember.id]].reverse();
-                        var text = "ISUV Anspruchslotse – Berechnungshistorie\n" +
-                          "Mitglied: " + m.vorname + " " + m.name + "\n" +
-                          "Erstellt: " + new Date().toLocaleDateString("de-DE") + "\n" +
-                          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-                          alle.map(function(e, i) {
-                            return (i+1) + ". " + e.typ + "\n   Ergebnis: " + e.ergebnis + (e.details ? "\n   (" + e.details + ")" : "") + "\n   Datum: " + e.datum;
-                          }).join("\n\n") +
-                          "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                          "Hinweis: Orientierungswerte. Keine Rechtsberatung.\n" +
-                          (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
-                        var el = document.createElement("textarea");
-                        el.value = text;
-                        document.body.appendChild(el);
-                        el.select();
-                        document.execCommand("copy");
-                        document.body.removeChild(el);
-                        alert("Berechnungshistorie (" + alle.length + " Einträge) in Zwischenablage kopiert!");
-                      }}
-                      style={{ width:"100%", marginTop:"6px", padding:"8px", backgroundColor:"#f0f4f7", color:"#003366", border:"1px solid #003366", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
-                      📋 Alle {[...memberErgebnisse[activeMember.id]].length} Berechnungen kopieren
-                    </button>
                   );
                 })()}
               </div>
