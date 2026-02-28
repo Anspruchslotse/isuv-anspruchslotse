@@ -44,6 +44,28 @@
 const { useState, useEffect, useRef } = React;
 
 // =============================================
+// DÜSSELDORFER TABELLE – Stand 01.01.2025
+// Hier zentral anpassen wenn neue Tabelle gilt
+// =============================================
+const DUESSELDORFER_TABELLE = {
+  stand: "01.01.2025",
+  stufen: {
+    1: { "0": 480,  "6": 551,  "12": 645,  "18": 706 },
+    2: { "0": 504,  "6": 579,  "12": 678,  "18": 742 },
+    3: { "0": 528,  "6": 607,  "12": 710,  "18": 777 },
+  }
+};
+
+// Termin-Typen mit Farben
+const TERMIN_TYPEN = [
+  { id: "erstgespraech",  label: "Erstgespräch",         farbe: "#003366" },
+  { id: "beratung",       label: "Folgeberatung",         farbe: "#00afad" },
+  { id: "frist",          label: "Fristtermin",           farbe: "#e53935" },
+  { id: "telefon",        label: "Telefonat",             farbe: "#7b1fa2" },
+];
+const terminFarbe = (typ) => { var t = TERMIN_TYPEN.find(function(x){return x.id===typ;}); return t ? t.farbe : "#00afad"; };
+
+// =============================================
 // MODUL 1: KINDESUNTERHALT (isoliert)
 // =============================================
 function KindesunterhaltsRechner() {
@@ -98,7 +120,7 @@ function KindesunterhaltsRechner() {
     const ü1 = Math.max(0, berN1 - 1450);
     const ü2 = Math.max(0, berN2 - 1450);
     const quoteIch = (ü1 + ü2) > 0 ? ü1 / (ü1 + ü2) : 1;
-    const tabelle = { 1: { "0": 480, "6": 551, "12": 645, "18": 706 }, 2: { "0": 504, "6": 579, "12": 678, "18": 742 }, 3: { "0": 528, "6": 607, "12": 710, "18": 777 } };
+    const tabelle = DUESSELDORFER_TABELLE.stufen;
     let gesamtSoll = 0;
     const raw = kinderUnterhalt.map(k => {
       const basis = tabelle[stufe][k.alter];
@@ -115,7 +137,7 @@ function KindesunterhaltsRechner() {
   const u = rStyles;
   return (
     <div>
-      <h4 style={u.modTitle}>⚖️ Kindesunterhaltsrechner</h4>
+      <h4 style={u.modTitle}>⚖️ Kindesunterhaltsrechner <span style={{ fontSize:"9px", fontWeight:"normal", color:"#999", float:"right" }}>Düsseldorfer Tabelle Stand: {DUESSELDORFER_TABELLE.stand}</span></h4>
       <label style={u.labelMini}>Nettoeinkommen:</label>
       <div style={u.row}>
         <input type="number" style={u.input} placeholder="Mein Netto (€)" value={einkommenSelbst} onChange={e => setEinkommenSelbst(e.target.value)} />
@@ -1334,13 +1356,13 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis }
     let stufe = berN1 > 2500 ? 3 : berN1 > 2100 ? 2 : 1;
     const sb = 1450;
     const masse = Math.max(0, berN1 - sb);
-    const tab = {1:{"0":480,"6":551,"12":645,"18":706},2:{"0":504,"6":579,"12":678,"18":742},3:{"0":528,"6":607,"12":710,"18":777}};
+    const tab = DUESSELDORFER_TABELLE.stufen;
     const ue1 = Math.max(0, berN1-sb); const ue2 = Math.max(0, berN2-sb);
     let soll = 0;
     const details = kuKinder.map(k => { const bar = Math.max(0,(tab[stufe][k.alter]||551)-(k.alter==="18"?250:125)); soll+=bar; return {...k,bar}; });
     const faktor = masse < soll && soll > 0 ? masse/soll : 1;
     const gesamt = (soll*faktor).toFixed(2);
-    const res = { berN1:berN1.toFixed(2), n1:n1.toFixed(2), pauschale:pauschale.toFixed(2), sb, masse:masse.toFixed(2), gesamt, mangelfall:faktor<1, details:details.map(d=>({...d,z:(d.bar*faktor).toFixed(2)})) };
+    const res = { berN1:berN1.toFixed(2), n1:n1.toFixed(2), pauschale:pauschale.toFixed(2), sb, masse:masse.toFixed(2), gesamt, mangelfall:faktor<1, stufe, details:details.map(d=>({...d,z:(d.bar*faktor).toFixed(2)})) };
     setKuResult(res);
     const neueFelder = {};
     if (!ext || !ext.einkommenNetto) neueFelder.einkommenNetto = parseFloat(kuEinSelbst||0);
@@ -1505,7 +1527,15 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis }
           <div style={u.calcStep}><span>– Selbstbehalt:</span><span>{kuResult.sb} €</span></div>
           <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #00afad",paddingTop:"4px",marginTop:"4px"}}><span>Verfügbare Masse:</span><span>{kuResult.masse} €</span></div>
           <div style={u.compositionBox}>
-            {kuResult.details.map((d,i) => <div key={i} style={u.resRow}><span>{d.name || ("Kind "+(i+1))} ({d.alter} J.):</span><span>{d.z} €</span></div>)}
+            <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", marginBottom:"6px", textTransform:"uppercase" }}>Unterhalt je Kind (Düsseldorfer Tabelle {DUESSELDORFER_TABELLE.stand}):</div>
+            {kuResult.details.map((d,i) => (
+              <div key={i} style={{ marginBottom:"8px", paddingBottom:"8px", borderBottom: i < kuResult.details.length-1 ? "1px dashed #ddd" : "none" }}>
+                <div style={{ fontWeight:"bold", fontSize:"12px", color:"#003366", marginBottom:"3px" }}>{d.name || ("Kind "+(i+1))} <span style={{ fontWeight:"normal", color:"#888" }}>({d.alter} J.{d.geburt ? " · Geb. "+d.geburt : ""})</span></div>
+                <div style={u.resRow}><span style={{ color:"#666" }}>Tabellenbetrag:</span><span>{(DUESSELDORFER_TABELLE.stufen[kuResult.stufe||1] || {})[d.alter] || "–"} €</span></div>
+                <div style={u.resRow}><span style={{ color:"#666" }}>– Kindergeld-Anrechnung:</span><span>{d.alter==="18" ? "250" : "125"} €</span></div>
+                <div style={{...u.resRow, fontWeight:"bold", color:"#003366"}}><span>Zahlbetrag:</span><span style={{ color:"#00afad" }}>{d.z} €</span></div>
+              </div>
+            ))}
             <div style={{...u.resRow,fontWeight:"bold",fontSize:"16px",borderTop:"2px solid #003366",paddingTop:"4px",marginTop:"4px"}}><span>Gesamt / Monat:</span><span>{kuResult.gesamt} €</span></div>
           </div>
           <div style={{...u.infoBox,marginTop:"8px",color:"#0a4a0a",backgroundColor:"#e8f5e9",borderColor:"#a5d6a7"}}>✅ Ergebnis wurde in der Akte gespeichert.</div>
@@ -1825,6 +1855,11 @@ function App() {
     try { localStorage.setItem("isuv_members", JSON.stringify(members)); } catch(e) {}
   }, [members]);
 
+  // Pinned persistent speichern
+  useEffect(() => {
+    try { localStorage.setItem("isuv_pinned", JSON.stringify(pinnedIds)); } catch(e) {}
+  }, [pinnedIds]);
+
   const [memberExtras, setMemberExtras] = useState({
     1: {
       familienstand: "getrennt lebend", alleinerziehend: true,
@@ -1899,6 +1934,10 @@ function App() {
   const [openEingangMenuId, setOpenEingangMenuId] = useState(null);
   const [eingangDatenTransferDialog, setEingangDatenTransferDialog] = useState(null);
   const [versandFelder, setVersandFelder] = useState(null);
+  const [editMemberMode, setEditMemberMode] = useState(false);
+  const [editMemberDaten, setEditMemberDaten] = useState({});
+  const [pinnedIds, setPinnedIds] = useState(() => { try { return JSON.parse(localStorage.getItem("isuv_pinned")||"[]"); } catch(e) { return []; } });
+  const [terminTyp, setTerminTyp] = useState("beratung");
 
   const [termine, setTermine] = useState([
     { id: 101, tag: 18, monat: new Date().getMonth(), zeit: "17:00", text: "Beratung: Anlage TBG", notiz: "Wichtiges Erstgespräch" }
@@ -1910,9 +1949,9 @@ function App() {
   ]);
 
   const addKind = () => setTbgKinder([...tbgKinder, { id: Date.now(), kNachname: "", kVorname: "", kGeburt: "", pNachname: "", pVorname: "", pStrasse: "", pPlz: "", pOrt: "", modell: "", tageMutter: Array(12).fill(""), tageVater: Array(12).fill("") }]);
-  const handleAddTermin = (day) => setNewTerminDialog({ day, text: "" });
+  const handleAddTermin = (day) => setNewTerminDialog({ day, text: "", typ: "beratung" });
   const confirmAddTermin = () => {
-    if (newTerminDialog && newTerminDialog.text.trim()) setTermine([...termine, { id: Date.now(), tag: newTerminDialog.day, monat: monthOffset, zeit: "10:00", text: newTerminDialog.text.trim(), notiz: "" }]);
+    if (newTerminDialog && newTerminDialog.text.trim()) setTermine([...termine, { id: Date.now(), tag: newTerminDialog.day, monat: monthOffset, zeit: "10:00", text: newTerminDialog.text.trim(), typ: newTerminDialog.typ || "beratung", notiz: "" }]);
     setNewTerminDialog(null);
   };
   const updateTermin = (id, field, value) => setTermine(termine.map(t => t.id === id ? { ...t, [field]: value } : t));
@@ -2094,26 +2133,45 @@ function App() {
               </div>
               {showMemberList && (
                 <div style={{ marginTop: "10px" }}>
-                  <input style={styles.input} placeholder="Suchen..." onChange={e => setSearchTerm(e.target.value)} />
-                  {members.filter(m => (m.vorname + " " + m.name).toLowerCase().includes(searchTerm.toLowerCase())).map(m => (
-                    <div key={m.id} style={styles.memberRow}>
-                      <div onClick={() => { setActiveMember(m); setView("akte"); }} style={{ flex: 1, cursor: "pointer" }}>
-                        <strong>{m.name}, {m.vorname}</strong>
-                        <div style={{ fontSize: "11px", color: "#666" }}>📞 {m.tel} | ✉️ {m.mail}</div>
-                      </div>
-                      <div style={{ position: "relative" }}>
-                        <button style={styles.btnDots} onClick={() => setOpenActionMenuId(openActionMenuId === m.id ? null : m.id)}>⋮</button>
-                        {openActionMenuId === m.id && (
-                          <div style={styles.actionMenu}>
-                            <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("akte"); setOpenActionMenuId(null); }}>📋 Akte</div>
-                            <div style={styles.menuItem} onClick={() => { setFormularVersandDialogNeu({ member: m, formTyp: "stammdaten" }); setOpenActionMenuId(null); }}>✉️ Formular senden</div>
-                            <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("berechnung"); setBerechnungRechner(null); setBerechnungKategorie(null); setOpenActionMenuId(null); }}>🧮 Berechnung</div>
-                            <div style={{ ...styles.menuItem, color:"#e53935", borderBottom:"none" }} onClick={() => { if(window.confirm("Mitglied " + m.vorname + " " + m.name + " wirklich löschen?")) { setMembers(prev => prev.filter(x => x.id !== m.id)); setOpenActionMenuId(null); } }}>🗑️ Löschen</div>
+                  <input style={styles.input} placeholder="Suchen nach Name, Ort, Tel..." onChange={e => setSearchTerm(e.target.value)} />
+                  {(function() {
+                    var term = searchTerm.toLowerCase();
+                    var filtered = members.filter(function(m) {
+                      return (m.vorname + " " + m.name + " " + m.ort + " " + m.tel + " " + m.plz).toLowerCase().includes(term) ||
+                        ((memberExtras[m.id] && memberExtras[m.id].familienstand || "").toLowerCase().includes(term));
+                    });
+                    var pinned = filtered.filter(function(m) { return pinnedIds.includes(m.id); });
+                    var unpinned = filtered.filter(function(m) { return !pinnedIds.includes(m.id); });
+                    var sortedMembers = pinned.concat(unpinned);
+                    return sortedMembers.map(function(m) {
+                      var isPinned = pinnedIds.includes(m.id);
+                      return (
+                      <div key={m.id} style={{ ...styles.memberRow, backgroundColor: isPinned ? "#fff8e1" : "#fff", borderLeft: isPinned ? "3px solid #f57c00" : "3px solid transparent" }}>
+                        <div onClick={() => { setActiveMember(m); setView("akte"); }} style={{ flex: 1, cursor: "pointer" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                            {isPinned && <span style={{ fontSize:"10px" }}>📌</span>}
+                            <strong>{m.name}, {m.vorname}</strong>
                           </div>
-                        )}
+                          <div style={{ fontSize: "11px", color: "#666" }}>📞 {m.tel} | ✉️ {m.mail}{m.ort ? " | 📍 "+m.ort : ""}</div>
+                        </div>
+                        <div style={{ position: "relative" }}>
+                          <button style={styles.btnDots} onClick={() => setOpenActionMenuId(openActionMenuId === m.id ? null : m.id)}>⋮</button>
+                          {openActionMenuId === m.id && (
+                            <div style={styles.actionMenu}>
+                              <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("akte"); setOpenActionMenuId(null); }}>📋 Akte</div>
+                              <div style={styles.menuItem} onClick={() => { setFormularVersandDialogNeu({ member: m, formTyp: "stammdaten" }); setOpenActionMenuId(null); }}>✉️ Formular senden</div>
+                              <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("berechnung"); setBerechnungRechner(null); setBerechnungKategorie(null); setOpenActionMenuId(null); }}>🧮 Berechnung</div>
+                              <div style={styles.menuItem} onClick={function() { setPinnedIds(function(prev) { return isPinned ? prev.filter(function(x){return x!==m.id;}) : [...prev,m.id]; }); setOpenActionMenuId(null); }}>
+                                {isPinned ? "📌 Entpinnen" : "📌 Anpinnen"}
+                              </div>
+                              <div style={{ ...styles.menuItem, color:"#e53935", borderBottom:"none" }} onClick={() => { if(window.confirm("Mitglied " + m.vorname + " " + m.name + " wirklich löschen?")) { setMembers(prev => prev.filter(x => x.id !== m.id)); setOpenActionMenuId(null); } }}>🗑️ Löschen</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
               )}
             </div>
@@ -2411,6 +2469,17 @@ function App() {
                     <div style={{ backgroundColor: "#f0fdfd", border: "1px solid #00afad", borderRadius: "8px", padding: "10px", marginBottom: "10px" }}>
                       <div style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "6px" }}>Neuer Termin am {newTerminDialog.day}.{monthOffset + 1}.:</div>
                       <input style={{ ...styles.input, marginBottom: "6px" }} placeholder="Terminbezeichnung..." value={newTerminDialog.text} autoFocus onChange={e => setNewTerminDialog({ ...newTerminDialog, text: e.target.value })} onKeyDown={e => { if (e.key === "Enter") confirmAddTermin(); if (e.key === "Escape") setNewTerminDialog(null); }} />
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:"5px", marginBottom:"8px" }}>
+                        {TERMIN_TYPEN.map(function(tt) {
+                          var sel = (newTerminDialog.typ||"beratung") === tt.id;
+                          return (
+                            <div key={tt.id} onClick={function() { setNewTerminDialog(function(p){ return Object.assign({},p,{typ:tt.id}); }); }}
+                              style={{ padding:"4px 10px", borderRadius:"12px", fontSize:"10px", cursor:"pointer", fontWeight:"bold", backgroundColor: sel ? tt.farbe : "#eee", color: sel ? "#fff" : "#555", border: sel ? "none" : "1px solid #ddd" }}>
+                              {tt.label}
+                            </div>
+                          );
+                        })}
+                      </div>
                       <div style={{ display: "flex", gap: "8px" }}>
                         <button onClick={confirmAddTermin} style={{ ...styles.btnPrimary, width: "auto", padding: "6px 14px", fontSize: "12px" }}>✓ Speichern</button>
                         <button onClick={() => setNewTerminDialog(null)} style={{ ...styles.btnSecondary, padding: "6px 14px", fontSize: "12px" }}>Abbrechen</button>
@@ -2420,16 +2489,22 @@ function App() {
                   <div style={styles.dayGrid}>
                     {[...Array(new Date(2026, monthOffset + 1, 0).getDate())].map((_, i) => {
                       const day = i + 1;
-                      const hasTermin = termine.some(t => t.tag === day && t.monat === monthOffset);
-                      return (<div key={i} onClick={() => handleAddTermin(day)} style={{ ...styles.day, backgroundColor: hasTermin ? "#00afad" : "#eee", color: hasTermin ? "#fff" : "#333" }}>{day}</div>);
+                      const dayTermine = termine.filter(t => t.tag === day && t.monat === monthOffset);
+                      const hasTermin = dayTermine.length > 0;
+                      const dayFarbe = hasTermin ? terminFarbe(dayTermine[0].typ) : "#eee";
+                      return (<div key={i} onClick={() => handleAddTermin(day)} style={{ ...styles.day, backgroundColor: dayFarbe, color: hasTermin ? "#fff" : "#333", position:"relative" }}>
+                        {day}
+                        {dayTermine.length > 1 && <span style={{ position:"absolute", top:"1px", right:"2px", fontSize:"7px", fontWeight:"bold" }}>+{dayTermine.length-1}</span>}
+                      </div>);
                     })}
                   </div>
                   <div style={{ marginTop: "15px", borderTop: "1px solid #eee", paddingTop: "10px" }}>
                     <h4 style={{ fontSize: "12px", color: "#003366", margin: "0 0 8px 0" }}>Bevorstehende Termine:</h4>
                     {termine.filter(t => t.monat === monthOffset).map(t => (
                       <div key={t.id} onClick={() => { setSelectedTerminId(t.id); setView("termin_detail"); }} style={styles.terminItem}>
-                        <span style={styles.terminTag}>{t.tag}.</span>
+                        <span style={{ ...styles.terminTag, backgroundColor: terminFarbe(t.typ) }}>{t.tag}.</span>
                         <span style={{ flex: 1 }}>{t.text}</span>
+                        <span style={{ fontSize: "9px", backgroundColor: terminFarbe(t.typ)+"22", color: terminFarbe(t.typ), borderRadius:"4px", padding:"1px 5px", fontWeight:"bold" }}>{(TERMIN_TYPEN.find(function(x){return x.id===t.typ;})||{label:"Beratung"}).label}</span>
                         <span style={{ fontSize: "10px", color: "#999" }}>{t.zeit} Uhr</span>
                       </div>
                     ))}
@@ -2454,6 +2529,18 @@ function App() {
             <button onClick={() => setView("dashboard")} style={styles.btnBack}>‹ Zurück</button>
             <h2 style={{ color: "#003366", fontSize: "18px" }}>Termin bearbeiten</h2>
             <div style={styles.formSection}>
+              <label style={styles.label}>Typ:</label>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"5px", marginBottom:"10px" }}>
+                {TERMIN_TYPEN.map(function(tt) {
+                  var sel = (activeTermin.typ||"beratung") === tt.id;
+                  return (
+                    <div key={tt.id} onClick={function() { updateTermin(activeTermin.id, "typ", tt.id); }}
+                      style={{ padding:"5px 12px", borderRadius:"12px", fontSize:"11px", cursor:"pointer", fontWeight:"bold", backgroundColor: sel ? tt.farbe : "#eee", color: sel ? "#fff" : "#555" }}>
+                      {tt.label}
+                    </div>
+                  );
+                })}
+              </div>
               <label style={styles.label}>Titel:</label>
               <input style={styles.input} value={activeTermin.text} onChange={e => updateTermin(activeTermin.id, "text", e.target.value)} />
               <label style={styles.label}>Uhrzeit:</label>
@@ -2466,16 +2553,89 @@ function App() {
         )}
 
         {/* MITGLIEDER-AKTE */}
-        {view === "akte" && activeMember && (
+        {view === "akte" && activeMember && (function() {
+          var mid = activeMember.id;
+          var isEditing = editMemberMode;
+          var editDaten = editMemberDaten;
+          return (
           <div style={styles.formPage}>
-            <button onClick={() => { setView("dashboard"); setShowMehrDaten(false); }} style={styles.btnBack}>‹ Zurück</button>
-            <h2 style={{ color: "#003366", marginBottom: "4px" }}>Mitglieder-Stammdaten</h2>
-            <div style={styles.dataRow}><span>Vorname:</span><strong>{activeMember.vorname}</strong></div>
-            <div style={styles.dataRow}><span>Nachname:</span><strong>{activeMember.name}</strong></div>
-            <div style={styles.dataRow}><span>Telefon:</span><strong>{activeMember.tel}</strong></div>
-            <div style={styles.dataRow}><span>E-Mail:</span><strong>{activeMember.mail}</strong></div>
-            <div style={styles.dataRow}><span>Straße:</span><strong>{activeMember.strasse}</strong></div>
-            <div style={styles.dataRow}><span>PLZ/Ort:</span><strong>{activeMember.plz} {activeMember.ort}</strong></div>
+            <button onClick={() => { setView("dashboard"); setShowMehrDaten(false); setEditMemberMode(false); }} style={styles.btnBack}>‹ Zurück</button>
+
+            {/* Tab-Navigation */}
+            <div style={{ display:"flex", gap:"0", marginBottom:"16px", borderRadius:"8px", overflow:"hidden", border:"1px solid #ddd", backgroundColor:"#f0f4f7" }}>
+              {[
+                { id:"akte", label:"📋 Akte" },
+                { id:"berechnung", label:"🧮 Rechnung" },
+                { id:"formular_versand", label:"📤 Formular" },
+              ].map(function(tab) {
+                var isActive = tab.id === "akte";
+                if (tab.id === "formular_versand") {
+                  return (
+                    <div key={tab.id} onClick={function() { setFormularVersandDialogNeu({ member: activeMember, formTyp: "stammdaten" }); }}
+                      style={{ flex:1, padding:"8px 4px", textAlign:"center", fontSize:"10px", fontWeight:"bold", cursor:"pointer", backgroundColor:"#fff", color:"#003366", borderLeft:"1px solid #ddd" }}>
+                      {tab.label}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={tab.id} onClick={function() { if (tab.id !== "akte") { setView(tab.id); setBerechnungRechner(null); setBerechnungKategorie(null); } }}
+                    style={{ flex:1, padding:"8px 4px", textAlign:"center", fontSize:"10px", fontWeight:"bold", cursor: isActive ? "default" : "pointer", backgroundColor: isActive ? "#003366" : "#fff", color: isActive ? "#fff" : "#003366", borderLeft: tab.id !== "akte" ? "1px solid #ddd" : "none" }}>
+                    {tab.label}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+              <h2 style={{ color:"#003366", margin:0, fontSize:"17px" }}>Mitglieder-Stammdaten</h2>
+              {!isEditing ? (
+                <button onClick={function() { setEditMemberDaten({ vorname:activeMember.vorname, name:activeMember.name, tel:activeMember.tel, mail:activeMember.mail, strasse:activeMember.strasse, plz:activeMember.plz, ort:activeMember.ort }); setEditMemberMode(true); }}
+                  style={{ fontSize:"11px", padding:"5px 12px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px solid #003366", borderRadius:"6px", cursor:"pointer", fontWeight:"bold" }}>
+                  ✏️ Bearbeiten
+                </button>
+              ) : (
+                <div style={{ display:"flex", gap:"6px" }}>
+                  <button onClick={function() {
+                    setMembers(function(prev) { return prev.map(function(m) { return m.id === mid ? Object.assign({}, m, editDaten) : m; }); });
+                    setActiveMember(function(prev) { return Object.assign({}, prev, editDaten); });
+                    setEditMemberMode(false);
+                  }} style={{ fontSize:"11px", padding:"5px 12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"6px", cursor:"pointer", fontWeight:"bold" }}>
+                    ✓ Speichern
+                  </button>
+                  <button onClick={function() { setEditMemberMode(false); }}
+                    style={{ fontSize:"11px", padding:"5px 10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"6px", cursor:"pointer" }}>
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {!isEditing ? (
+              <>
+                <div style={styles.dataRow}><span>Vorname:</span><strong>{activeMember.vorname}</strong></div>
+                <div style={styles.dataRow}><span>Nachname:</span><strong>{activeMember.name}</strong></div>
+                <div style={styles.dataRow}><span>Telefon:</span><strong>{activeMember.tel}</strong></div>
+                <div style={styles.dataRow}><span>E-Mail:</span><strong>{activeMember.mail}</strong></div>
+                <div style={styles.dataRow}><span>Straße:</span><strong>{activeMember.strasse}</strong></div>
+                <div style={styles.dataRow}><span>PLZ/Ort:</span><strong>{activeMember.plz} {activeMember.ort}</strong></div>
+              </>
+            ) : (
+              <div style={{ backgroundColor:"#f9f9f9", borderRadius:"10px", padding:"12px", marginBottom:"10px", border:"1px solid #003366" }}>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <div style={{ flex:1 }}><label style={styles.label}>Vorname</label><input style={styles.input} value={editDaten.vorname} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{vorname:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={editDaten.name} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{name:v}); }); }} /></div>
+                </div>
+                <label style={styles.label}>Telefon</label>
+                <input style={styles.input} value={editDaten.tel} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{tel:v}); }); }} />
+                <label style={styles.label}>E-Mail</label>
+                <input style={styles.input} value={editDaten.mail} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{mail:v}); }); }} />
+                <label style={styles.label}>Straße</label>
+                <input style={styles.input} value={editDaten.strasse} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{strasse:v}); }); }} />
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} value={editDaten.plz} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{plz:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} value={editDaten.ort} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{ort:v}); }); }} /></div>
+                </div>
+              </div>
+            )}
             <button onClick={() => setShowMehrDaten(!showMehrDaten)}
               style={{ width:"100%", marginTop:"14px", padding:"10px", backgroundColor: showMehrDaten ? "#003366" : "#f0f4f7", color: showMehrDaten ? "#fff" : "#003366", border:"1px solid #003366", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px" }}>
               {showMehrDaten ? "▲ Mehr Daten ausblenden" : "▼ Mehr Daten"}
@@ -2483,6 +2643,35 @@ function App() {
             {showMehrDaten && memberExtras[activeMember.id] && (
               <MehrDatenView ext={memberExtras[activeMember.id]} />
             )}
+
+            {/* Formular-Status */}
+            {(function() {
+              var mid = activeMember.id;
+              var memberName = activeMember.vorname + " " + activeMember.name;
+              var relevanteAusgang = ausgangFormulare.filter(function(af) { return af.mitglied === memberName; });
+              if (relevanteAusgang.length === 0) return null;
+              return (
+                <div style={{ marginTop:"14px" }}>
+                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>
+                    📤 Gesendete Formulare
+                  </div>
+                  {relevanteAusgang.map(function(af, i) {
+                    var statusFarbe = af.status === "beantwortet" ? "#2e7d32" : af.status === "geoeffnet" ? "#f57c00" : "#666";
+                    var statusIcon = af.status === "beantwortet" ? "✅" : af.status === "geoeffnet" ? "👁️" : "📬";
+                    var statusLabel = af.status === "beantwortet" ? "Beantwortet" : af.status === "geoeffnet" ? "Geöffnet" : "Unbeantwortet";
+                    return (
+                      <div key={i} style={{ backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"10px", marginBottom:"6px", display:"flex", justifyContent:"space-between", alignItems:"center", borderLeft:"3px solid "+statusFarbe }}>
+                        <div>
+                          <div style={{ fontSize:"12px", fontWeight:"bold" }}>{af.typ}</div>
+                          <div style={{ fontSize:"10px", color:"#999" }}>Gesendet: {af.datum}</div>
+                        </div>
+                        <span style={{ backgroundColor:statusFarbe+"22", color:statusFarbe, borderRadius:"10px", padding:"3px 8px", fontSize:"10px", fontWeight:"bold" }}>{statusIcon} {statusLabel}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {memberErgebnisse[activeMember.id] && memberErgebnisse[activeMember.id].length > 0 && (
               <div style={{ marginTop:"14px" }}>
@@ -2531,6 +2720,31 @@ function App() {
                         <div style={{ fontSize:"11px", color:"#999", padding:"8px" }}>Keine Kontaktdaten für Versand vorhanden.</div>
                       )}
                     </div>
+                    {/* Alle Berechnungen exportieren */}
+                    <button
+                      onClick={function() {
+                        var alle = [...memberErgebnisse[activeMember.id]].reverse();
+                        var text = "ISUV Anspruchslotse – Berechnungshistorie\n" +
+                          "Mitglied: " + m.vorname + " " + m.name + "\n" +
+                          "Erstellt: " + new Date().toLocaleDateString("de-DE") + "\n" +
+                          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                          alle.map(function(e, i) {
+                            return (i+1) + ". " + e.typ + "\n   Ergebnis: " + e.ergebnis + (e.details ? "\n   (" + e.details + ")" : "") + "\n   Datum: " + e.datum;
+                          }).join("\n\n") +
+                          "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                          "Hinweis: Orientierungswerte. Keine Rechtsberatung.\n" +
+                          (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
+                        var el = document.createElement("textarea");
+                        el.value = text;
+                        document.body.appendChild(el);
+                        el.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(el);
+                        alert("Berechnungshistorie (" + alle.length + " Einträge) in Zwischenablage kopiert!");
+                      }}
+                      style={{ width:"100%", marginTop:"6px", padding:"8px", backgroundColor:"#f0f4f7", color:"#003366", border:"1px solid #003366", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
+                      📋 Alle {[...memberErgebnisse[activeMember.id]].length} Berechnungen kopieren
+                    </button>
                   );
                 })()}
               </div>
@@ -2553,12 +2767,38 @@ function App() {
               />
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* BERECHNUNG – Rechnerauswahl */}
         {view === "berechnung" && activeMember && !berechnungRechner && (
           <div style={styles.formPage}>
             <button onClick={() => { setView("dashboard"); setBerechnungKategorie(null); }} style={styles.btnBack}>‹ Zurück</button>
+
+            {/* Tab-Navigation */}
+            <div style={{ display:"flex", gap:"0", marginBottom:"16px", borderRadius:"8px", overflow:"hidden", border:"1px solid #ddd", backgroundColor:"#f0f4f7" }}>
+              {[
+                { id:"akte", label:"📋 Akte" },
+                { id:"berechnung", label:"🧮 Rechnung" },
+                { id:"formular_versand", label:"📤 Formular" },
+              ].map(function(tab) {
+                var isActive = tab.id === "berechnung";
+                if (tab.id === "formular_versand") {
+                  return (
+                    <div key={tab.id} onClick={function() { setFormularVersandDialogNeu({ member: activeMember, formTyp: "stammdaten" }); }}
+                      style={{ flex:1, padding:"8px 4px", textAlign:"center", fontSize:"10px", fontWeight:"bold", cursor:"pointer", backgroundColor:"#fff", color:"#003366", borderLeft:"1px solid #ddd" }}>
+                      {tab.label}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={tab.id} onClick={function() { if (!isActive) { setView(tab.id); if (tab.id==="akte") { setBerechnungKategorie(null); setBerechnungRechner(null); } } }}
+                    style={{ flex:1, padding:"8px 4px", textAlign:"center", fontSize:"10px", fontWeight:"bold", cursor: isActive ? "default" : "pointer", backgroundColor: isActive ? "#003366" : "#fff", color: isActive ? "#fff" : "#003366", borderLeft: tab.id !== "akte" ? "1px solid #ddd" : "none" }}>
+                    {tab.label}
+                  </div>
+                );
+              })}
+            </div>
             <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"14px" }}>
               <div style={{ width:"40px", height:"40px", backgroundColor:"#003366", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:"bold", fontSize:"15px" }}>
                 {activeMember.vorname[0]}{activeMember.name[0]}
@@ -3367,27 +3607,58 @@ function App() {
                 })}
               </div>
 
-              {formularVersandDialogNeu.formTyp && formularVersandDialogNeu.formTyp === "stammdaten" && (function() {
-                var alleFelder = [
-                  { id:"titel", label:"Titel" },
-                  { id:"vorname_name", label:"Vor- und Nachname" },
-                  { id:"tel", label:"Telefon" },
-                  { id:"mail", label:"E-Mail" },
-                  { id:"adresse", label:"Adresse (Straße, PLZ, Ort)" },
-                  { id:"familienstand", label:"Familienstand & Trennungsdatum" },
-                  { id:"gegenseite", label:"Angaben zur Gegenseite" },
-                  { id:"beschaeftigung", label:"Beschäftigung & Arbeitgeber" },
-                  { id:"einkommen", label:"Einkommen (Brutto, Netto, Steuerklasse)" },
-                  { id:"wohnen", label:"Wohnsituation (Miete, Fläche, Heizkosten)" },
-                  { id:"kinder", label:"Kinder (Geburt, Wohnort, UVG)" },
-                  { id:"notizen", label:"Anmerkungen / Notizen" },
+              {formularVersandDialogNeu.formTyp && (function() {
+                var m = formularVersandDialogNeu.member;
+                var ext = m ? (memberExtras[m.id] || {}) : {};
+                var fTyp = formularVersandDialogNeu.formTyp;
+
+                // Warnung: bereits offenes Formular?
+                var memberName = m ? m.vorname + " " + m.name : null;
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : "Anlage TBG";
+                var offenes = memberName ? ausgangFormulare.find(function(af) { return af.mitglied === memberName && af.typ === fLabel && af.status !== "beantwortet"; }) : null;
+
+                var alleFelder = fTyp === "stammdaten" ? [
+                  { id:"titel",          label:"Titel",                               hatDaten: !!(ext.titel) },
+                  { id:"vorname_name",   label:"Vor- und Nachname",                   hatDaten: !!(m && m.vorname && m.name) },
+                  { id:"tel",            label:"Telefon",                             hatDaten: !!(m && m.tel) },
+                  { id:"mail",           label:"E-Mail",                              hatDaten: !!(m && m.mail) },
+                  { id:"adresse",        label:"Adresse (Straße, PLZ, Ort)",          hatDaten: !!(m && m.strasse) },
+                  { id:"familienstand",  label:"Familienstand & Trennungsdatum",      hatDaten: !!(ext.familienstand) },
+                  { id:"gegenseite",     label:"Angaben zur Gegenseite",              hatDaten: !!(ext.gegenseiteVorname || ext.gegenseiteName) },
+                  { id:"beschaeftigung", label:"Beschäftigung & Arbeitgeber",         hatDaten: !!(ext.beschaeftigungsart || ext.einkommenArt) },
+                  { id:"einkommen",      label:"Einkommen (Brutto, Netto, Steuerklasse)", hatDaten: !!(ext.einkommenNetto) },
+                  { id:"wohnen",         label:"Wohnsituation (Miete, Fläche, Heizkosten)", hatDaten: !!(ext.mieteWarm) },
+                  { id:"kinder",         label:"Kinder (Geburt, Wohnort, UVG)",       hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"notizen",        label:"Anmerkungen / Notizen",               hatDaten: !!(ext.notizen) },
+                ] : [
+                  { id:"tbg_antragsteller", label:"Persönliche Daten Antragsteller*in", hatDaten: !!(m && m.vorname) },
+                  { id:"tbg_adresse",       label:"Adresse",                            hatDaten: !!(m && m.strasse) },
+                  { id:"tbg_betreuungsmodell", label:"Betreuungsmodell",               hatDaten: !!(ext.betreuungsmodell) },
+                  { id:"tbg_kind_name",     label:"Name & Geburtsdatum Kind",           hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"tbg_anderer_et",    label:"Andere*r Erziehungsberechtigte*r",   hatDaten: false },
+                  { id:"tbg_kalender",      label:"Kalender (Tage pro Monat)",          hatDaten: false },
+                  { id:"tbg_kindergeld",    label:"Kindergeld (Empfänger & Betrag)",    hatDaten: !!(ext.kindergeldBetrag) },
+                  { id:"tbg_einkommen_kind",label:"Einkommen des Kindes (UVG etc.)",    hatDaten: !!(ext.uvgBetrag) },
                 ];
+
                 var aktiveFelder = versandFelder !== null ? versandFelder : alleFelder.map(function(f){ return f.id; });
                 var alleAktiv = aktiveFelder.length === alleFelder.length;
+                var hatDatenCount = alleFelder.filter(function(f){ return f.hatDaten; }).length;
+
                 return (
                   <div style={{ marginBottom:"14px" }}>
+                    {offenes && (
+                      <div style={{ backgroundColor:"#fff9e6", border:"1px solid #ffc107", borderRadius:"8px", padding:"10px", marginBottom:"10px", fontSize:"11px", color:"#856404" }}>
+                        ⚠️ <strong>Achtung:</strong> Es gibt bereits ein unbeantwortet gesendetes <em>{fLabel}</em> vom {offenes.datum}. Wirklich erneut senden?
+                      </div>
+                    )}
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                      <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px" }}>Welche Felder abfragen?</div>
+                      <div>
+                        <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px" }}>Welche Felder abfragen?</div>
+                        {hatDatenCount > 0 && (
+                          <div style={{ fontSize:"10px", color:"#2e7d32", marginTop:"2px" }}>🟢 = Daten bereits in Akte vorhanden</div>
+                        )}
+                      </div>
                       <button
                         onClick={function() {
                           if (alleAktiv) {
@@ -3396,24 +3667,35 @@ function App() {
                             setVersandFelder(alleFelder.map(function(f){ return f.id; }));
                           }
                         }}
-                        style={{ fontSize:"11px", padding:"4px 10px", backgroundColor: alleAktiv ? "#003366" : "#eee", color: alleAktiv ? "#fff" : "#333", border:"none", borderRadius:"6px", cursor:"pointer", fontWeight:"bold" }}>
+                        style={{ fontSize:"11px", padding:"4px 10px", backgroundColor: alleAktiv ? "#003366" : "#eee", color: alleAktiv ? "#fff" : "#333", border:"none", borderRadius:"6px", cursor:"pointer", fontWeight:"bold", flexShrink:0 }}>
                         {alleAktiv ? "✓ Alles ausgewählt" : "Alles auswählen"}
                       </button>
                     </div>
                     <div style={{ backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"10px", border:"1px solid #eee" }}>
-                      {alleFelder.map(function(f) {
-                        var aktiv = aktiveFelder.includes(f.id);
+                      {alleFelder.map(function(feld) {
+                        var aktiv = aktiveFelder.includes(feld.id);
+                        var checkboxBg = aktiv ? (feld.hatDaten ? "#2e7d32" : "#003366") : "#fff";
+                        var checkboxBorder = aktiv ? (feld.hatDaten ? "#2e7d32" : "#003366") : "#ccc";
                         return (
-                          <label key={f.id} style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"12px", cursor:"pointer", marginBottom:"6px", userSelect:"none" }}>
-                            <input type="checkbox" checked={aktiv} onChange={function() {
+                          <div key={feld.id}
+                            onClick={function() {
                               if (aktiv) {
-                                setVersandFelder(aktiveFelder.filter(function(x){ return x !== f.id; }));
+                                setVersandFelder(aktiveFelder.filter(function(x){ return x !== feld.id; }));
                               } else {
-                                setVersandFelder([...aktiveFelder, f.id]);
+                                setVersandFelder([...aktiveFelder, feld.id]);
                               }
-                            }} style={{ width:"16px", height:"16px", cursor:"pointer" }} />
-                            {f.label}
-                          </label>
+                            }}
+                            style={{ display:"flex", alignItems:"center", gap:"10px", fontSize:"12px", cursor:"pointer", marginBottom:"7px", userSelect:"none" }}>
+                            <div style={{
+                              width:"18px", height:"18px", borderRadius:"4px", border:"2px solid " + checkboxBorder,
+                              backgroundColor: checkboxBg, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
+                              transition:"background 0.1s"
+                            }}>
+                              {aktiv && <span style={{ color:"#fff", fontSize:"12px", lineHeight:1, fontWeight:"bold" }}>✓</span>}
+                            </div>
+                            <span style={{ flex:1 }}>{feld.label}</span>
+                            {feld.hatDaten && <span style={{ fontSize:"10px", color:"#2e7d32", fontWeight:"bold", backgroundColor:"#e8f5e9", borderRadius:"4px", padding:"1px 5px" }}>✓ in Akte</span>}
+                          </div>
                         );
                       })}
                     </div>
@@ -3447,6 +3729,21 @@ function App() {
 
                 return (
                   <div>
+                    {/* Versand-Vorschau */}
+                    {(function() {
+                      var aktiveFelder2 = versandFelder !== null ? versandFelder : null;
+                      var felderCount = aktiveFelder2 ? aktiveFelder2.length : (fTyp === "stammdaten" ? 12 : 8);
+                      return (
+                        <div style={{ backgroundColor:"#f0faf0", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px", marginBottom:"12px", fontSize:"11px" }}>
+                          <div style={{ fontWeight:"bold", color:"#2e7d32", marginBottom:"5px" }}>📋 Versand-Zusammenfassung</div>
+                          <div style={{ color:"#555" }}>Empfänger: <strong>{m ? m.vorname + " " + m.name : "Kein Mitglied"}</strong></div>
+                          <div style={{ color:"#555" }}>Formular: <strong>{fLabel}</strong></div>
+                          <div style={{ color:"#555" }}>Felder: <strong>{felderCount} abgefragt</strong>{aktiveFelder2 && felderCount < (fTyp === "stammdaten" ? 12 : 8) ? <span style={{ color:"#f57c00" }}> (angepasst)</span> : ""}</div>
+                          {m && m.mail && <div style={{ color:"#555" }}>E-Mail: <strong>{m.mail}</strong></div>}
+                          {m && m.tel && <div style={{ color:"#555" }}>WhatsApp: <strong>{m.tel}</strong></div>}
+                        </div>
+                      );
+                    })()}
                     <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.5px" }}>Versandweg wählen:</div>
                     <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
 
