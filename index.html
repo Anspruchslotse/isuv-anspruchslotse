@@ -2351,6 +2351,8 @@ function App() {
                                 onClick={function() {
                                   var felder = eingangDatenTransferDialog.felder || {};
                                   var updates = {};
+
+                                  // Stammdaten-Felder (Stammdaten-Fragebogen)
                                   if (felder.familienstand) updates.familienstand = felder.familienstand;
                                   if (felder.einkommenNetto) updates.einkommenNetto = parseFloat(felder.einkommenNetto);
                                   if (felder.mieteWarm) updates.mieteWarm = parseFloat(felder.mieteWarm);
@@ -2376,6 +2378,34 @@ function App() {
                                       return { name:(k.nachname||f.name||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:true };
                                     });
                                   }
+
+                                  // Bürgergeld-Felder (bgXxx)
+                                  if (felder.bgFamilienstand) updates.familienstand = felder.bgFamilienstand;
+                                  if (felder.bgTrennungSeit) updates.trennungSeit = felder.bgTrennungSeit;
+                                  if (felder.bgErwerbsstatus) updates.beschaeftigungsart = felder.bgErwerbsstatus;
+                                  if (felder.bgArbeitgeber) updates.arbeitgeber = felder.bgArbeitgeber;
+                                  if (felder.bgEinkommenNetto) updates.einkommenNetto = parseFloat(felder.bgEinkommenNetto);
+                                  if (felder.bgMieteKalt) updates.mieteKalt = parseFloat(felder.bgMieteKalt);
+                                  if (felder.bgHeizkosten) updates.heizkosten = parseFloat(felder.bgHeizkosten);
+                                  if (felder.bgNebenkosten) updates.nebenkosten = parseFloat(felder.bgNebenkosten);
+                                  if (felder.bgWohnflaeche) updates.wohnungGroesse = parseFloat(felder.bgWohnflaeche);
+                                  if (felder.bgNotizen) updates.notizen = felder.bgNotizen;
+                                  if (felder.bgJobcenter) updates.jobcenter = felder.bgJobcenter;
+                                  if (felder.bgBescheidArt) updates.bgBescheidArt = felder.bgBescheidArt;
+                                  if (felder.bgBescheidDatum) updates.bgBescheidDatum = felder.bgBescheidDatum;
+                                  if (felder.bgWiderspruch) updates.bgWiderspruch = felder.bgWiderspruch;
+                                  if (felder.bgAnliegen && felder.bgAnliegen.length > 0) updates.bgAnliegen = felder.bgAnliegen;
+                                  if (felder.bgHatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
+                                  if (felder.bgKinder && felder.bgKinder.length > 0) {
+                                    updates.alleinerziehend = true;
+                                    updates.kinder = felder.bgKinder.map(function(k) {
+                                      var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
+                                      var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
+                                      var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
+                                      return { name:(k.nachname||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:k.kindergeld==="ja" };
+                                    });
+                                  }
+
                                   setMemberExtras(function(prev) { var next=Object.assign({},prev); next[passendesMitglied.id]=Object.assign({},prev[passendesMitglied.id]||{},updates); return next; });
                                   setEingangDatenTransferDialog(null);
                                   setEingangFormulare(function(prev) { return prev.filter(function(x) { return x.id !== eingangDatenTransferDialog.id; }); });
@@ -3081,10 +3111,21 @@ function App() {
               var doTransfer = function(m) {
                 var fd = f.felder;
                 var updates = {};
+
+                // Stammdaten-Felder
                 if (fd.familienstand) updates.familienstand = fd.familienstand;
                 if (fd.einkommenNetto) updates.einkommenNetto = parseFloat(fd.einkommenNetto);
                 if (fd.mieteWarm) updates.mieteWarm = parseFloat(fd.mieteWarm);
+                if (fd.mieteKalt) updates.mieteKalt = parseFloat(fd.mieteKalt);
+                if (fd.heizkosten) updates.heizkosten = parseFloat(fd.heizkosten);
+                if (fd.wohnungGroesse) updates.wohnungGroesse = parseFloat(fd.wohnungGroesse);
                 if (fd.notizen) updates.notizen = fd.notizen;
+                if (fd.titel) updates.titel = fd.titel;
+                if (fd.beschaeftigungsart) updates.beschaeftigungsart = fd.beschaeftigungsart;
+                if (fd.arbeitgeber) updates.arbeitgeber = fd.arbeitgeber;
+                if (fd.einkommenBrutto) updates.einkommenBrutto = parseFloat(fd.einkommenBrutto);
+                if (fd.steuerklasse) updates.steuerklasse = fd.steuerklasse;
+                if (fd.trennungSeit) updates.trennungSeit = fd.trennungSeit;
                 if (fd.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                 if (fd.kinder && fd.kinder.length > 0) {
                   updates.alleinerziehend = true;
@@ -3095,6 +3136,33 @@ function App() {
                     return { name:(k.nachname||fd.name||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:true };
                   });
                 }
+
+                // Bürgergeld-Felder (bgXxx)
+                if (fd.bgFamilienstand) updates.familienstand = fd.bgFamilienstand;
+                if (fd.bgTrennungSeit) updates.trennungSeit = fd.bgTrennungSeit;
+                if (fd.bgErwerbsstatus) updates.beschaeftigungsart = fd.bgErwerbsstatus;
+                if (fd.bgArbeitgeber) updates.arbeitgeber = fd.bgArbeitgeber;
+                if (fd.bgEinkommenNetto) updates.einkommenNetto = parseFloat(fd.bgEinkommenNetto);
+                if (fd.bgMieteKalt) updates.mieteKalt = parseFloat(fd.bgMieteKalt);
+                if (fd.bgHeizkosten) updates.heizkosten = parseFloat(fd.bgHeizkosten);
+                if (fd.bgNebenkosten) updates.nebenkosten = parseFloat(fd.bgNebenkosten);
+                if (fd.bgWohnflaeche) updates.wohnungGroesse = parseFloat(fd.bgWohnflaeche);
+                if (fd.bgNotizen) updates.notizen = fd.bgNotizen;
+                if (fd.bgJobcenter) updates.jobcenter = fd.bgJobcenter;
+                if (fd.bgBescheidArt) updates.bgBescheidArt = fd.bgBescheidArt;
+                if (fd.bgWiderspruch) updates.bgWiderspruch = fd.bgWiderspruch;
+                if (fd.bgAnliegen && fd.bgAnliegen.length > 0) updates.bgAnliegen = fd.bgAnliegen;
+                if (fd.bgHatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
+                if (fd.bgKinder && fd.bgKinder.length > 0) {
+                  updates.alleinerziehend = true;
+                  updates.kinder = fd.bgKinder.map(function(k) {
+                    var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
+                    var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
+                    var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
+                    return { name:(k.nachname||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:k.kindergeld==="ja" };
+                  });
+                }
+
                 setMemberExtras(function(prev) { var next=Object.assign({},prev); next[m.id]=Object.assign({},prev[m.id]||{},updates); return next; });
                 setEingangFormulare(function(prev) { return prev.filter(function(x) { return x.id !== f.id; }); });
                 setGeloeschteEingangIds(function(prev) { var next=new Set([...prev,f.id]); try{localStorage.setItem("isuv_geloeschte_ids",JSON.stringify([...next]));}catch(e){} return next; });
@@ -4171,10 +4239,8 @@ function App() {
                   tbg_kindergeld: "Kindergeld",
                   tbg_einkommen_kind: "Einkommen des Kindes"
                 };
-                var aktiveFeldIds = versandFelder !== null ? versandFelder : Object.keys(alleFeldLabels);
-                var feldListeText = aktiveFeldIds.length > 0
-                  ? "\n\nBitte folgende Angaben ausfüllen:\n" + aktiveFeldIds.map(function(id) { return "  • " + (alleFeldLabels[id] || id); }).join("\n")
-                  : "";
+                var aktiveFeldIds = (versandFelder !== null && versandFelder.length > 0) ? versandFelder : Object.keys(alleFeldLabels);
+                var feldListeText = "\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { return "  - " + (alleFeldLabels[id] || id); }).join("\n");
 
                 var linkText = "Guten Tag" + (m ? " " + m.vorname + " " + m.name : "") + ",\n\n" +
                   "der ISUV Anspruchslotse hat fuer Sie ein Formular bereitgestellt:\n" +
