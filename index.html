@@ -2006,6 +2006,9 @@ function App() {
   const [geseheneEingangIds, setGeseheneEingangIds] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem("isuv_gesehen_ids") || "[]")); } catch(e) { return new Set(); }
   });
+  const [geloeschteEingangIds, setGeloeschteEingangIds] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("isuv_geloeschte_ids") || "[]")); } catch(e) { return new Set(); }
+  });
 
   // Ausgefüllte Formulare aus Supabase laden
   const sbLadeEingaenge = async () => {
@@ -2026,7 +2029,7 @@ function App() {
       }));
       setEingangFormulare(prev => {
         const existIds = new Set(prev.map(x => x.id));
-        const wirklichNeu = neu.filter(x => !existIds.has(x.id));
+        const wirklichNeu = neu.filter(x => !existIds.has(x.id) && !geloeschteEingangIds.has(x.id));
         if (wirklichNeu.length > 0) {
           setNeueEingaengeCount(c => c + wirklichNeu.length);
         }
@@ -2191,6 +2194,7 @@ function App() {
                 <div style={{ marginTop:"10px" }}>
                   {[
                     { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Wohnen" },
+                    { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen" },
                     { id:"tbg", label:"📋 Anlage TBG (Bürgergeld)", desc:"Temporäre Bedarfsgemeinschaft" },
                   ].map(function(f) {
                     return (
@@ -2202,7 +2206,11 @@ function App() {
                           </div>
                           <div style={{ display:"flex", gap:"6px" }}>
                             <button
-                              onClick={function() { setView(f.id === "stammdaten" ? "formular_ausfuellen" : "tbg_form"); if(f.id === "stammdaten") setFormFelderDaten({}); }}
+                              onClick={function() {
+                                if (f.id === "stammdaten") { setView("formular_ausfuellen"); setFormFelderDaten({}); }
+                                else if (f.id === "buergergeld") { setView("buergergeld_form"); setFormFelderDaten({}); }
+                                else { setView("tbg_form"); }
+                              }}
                               style={{ backgroundColor:"#e8f0fb", color:"#003366", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:"bold", padding:"5px 10px", borderRadius:"5px" }}>
                               Öffnen
                             </button>
@@ -2279,7 +2287,8 @@ function App() {
                           <div style={{ fontSize:"12px", color:"#999", textAlign:"center", padding:"12px 0" }}>Keine eingegangenen Formulare.</div>
                         )}
                         {eingangFormulare.map(f => (
-                          <div key={f.id} style={{ backgroundColor:"#f0fdfd", borderRadius:"8px", padding:"12px", marginBottom:"8px", borderLeft:"4px solid #00afad", position:"relative" }}>
+                          <div key={f.id} style={{ backgroundColor:"#f0fdfd", borderRadius:"8px", padding:"12px", marginBottom:"8px", borderLeft:"4px solid #00afad", position:"relative", cursor:"pointer" }}
+                            onClick={() => { setAktivesEingangFormular(f); setView("eingang_detail"); setGeseheneEingangIds(prev => { const next = new Set([...prev, f.id]); try { localStorage.setItem("isuv_gesehen_ids", JSON.stringify([...next])); } catch(e){} return next; }); }}>
                             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                               <div style={{ flex:1 }}>
                                 <div style={{ fontWeight:"bold", fontSize:"13px" }}>{f.typ}</div>
@@ -2287,21 +2296,17 @@ function App() {
                                 <div style={{ fontSize:"10px", color:"#999", marginTop:"1px" }}>{f.datum}</div>
                                 {!geseheneEingangIds.has(f.id) && <span style={{ backgroundColor:"#e53935", color:"#fff", borderRadius:"10px", padding:"1px 7px", fontSize:"9px", fontWeight:"bold", display:"inline-block", marginTop:"4px" }}>NEU</span>}
                               </div>
-                              <button onClick={() => setOpenEingangMenuId(openEingangMenuId === f.id ? null : f.id)}
+                              <button onClick={e => { e.stopPropagation(); setOpenEingangMenuId(openEingangMenuId === f.id ? null : f.id); }}
                                 style={{ background:"none", border:"none", fontSize:"22px", cursor:"pointer", padding:"0 4px", lineHeight:1, color:"#666", fontWeight:"bold" }}>⋮</button>
                             </div>
                             {openEingangMenuId === f.id && (
-                              <div style={{ position:"absolute", right:"8px", top:"40px", backgroundColor:"#fff", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", borderRadius:"8px", zIndex:200, minWidth:"180px", overflow:"hidden", border:"1px solid #eee" }}>
-                                <div style={{ padding:"10px 14px", cursor:"pointer", fontSize:"12px", borderBottom:"1px solid #f0f0f0" }}
-                                  onClick={() => { setAktivesEingangFormular(f); setView("eingang_detail"); setOpenEingangMenuId(null); setGeseheneEingangIds(prev => { const next = new Set([...prev, f.id]); try { localStorage.setItem("isuv_gesehen_ids", JSON.stringify([...next])); } catch(e){} return next; }); }}>
-                                  📋 Öffnen
-                                </div>
+                              <div onClick={e => e.stopPropagation()} style={{ position:"absolute", right:"8px", top:"40px", backgroundColor:"#fff", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", borderRadius:"8px", zIndex:200, minWidth:"180px", overflow:"hidden", border:"1px solid #eee" }}>
                                 <div style={{ padding:"10px 14px", cursor:"pointer", fontSize:"12px", borderBottom:"1px solid #f0f0f0" }}
                                   onClick={() => { setEingangDatenTransferDialog(f); setOpenEingangMenuId(null); }}>
-                                  👤 Daten übertragen (Akte)
+                                  👤 In Akte übertragen
                                 </div>
                                 <div style={{ padding:"10px 14px", cursor:"pointer", fontSize:"12px", color:"#e53935" }}
-                                  onClick={() => { setOpenEingangMenuId(null); if(window.confirm("Eingang von " + f.name + " löschen?")) { setEingangFormulare(prev => prev.filter(x => x.id !== f.id)); } }}>
+                                  onClick={() => { setOpenEingangMenuId(null); if(window.confirm("Eingang von " + f.name + " löschen?")) { setGeloeschteEingangIds(prev => { const next = new Set([...prev, f.id]); try { localStorage.setItem("isuv_geloeschte_ids", JSON.stringify([...next])); } catch(e){} return next; }); setEingangFormulare(prev => prev.filter(x => x.id !== f.id)); } }}>
                                   🗑️ Löschen
                                 </div>
                               </div>
@@ -2373,6 +2378,8 @@ function App() {
                                   }
                                   setMemberExtras(function(prev) { var next=Object.assign({},prev); next[passendesMitglied.id]=Object.assign({},prev[passendesMitglied.id]||{},updates); return next; });
                                   setEingangDatenTransferDialog(null);
+                                  setEingangFormulare(function(prev) { return prev.filter(function(x) { return x.id !== eingangDatenTransferDialog.id; }); });
+                                  setGeloeschteEingangIds(function(prev) { var next = new Set([...prev, eingangDatenTransferDialog.id]); try { localStorage.setItem("isuv_geloeschte_ids", JSON.stringify([...next])); } catch(e){} return next; });
                                   setActiveMember(passendesMitglied);
                                   setView("akte");
                                 }}
@@ -3065,78 +3072,97 @@ function App() {
             )}
 
             {/* Übertragen in Akte */}
-            <div style={{ marginTop:"16px" }}>
-              <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", marginBottom:"6px" }}>📋 In Mitgliederakte übertragen:</div>
-              {members.map(function(m) {
-                return (
-                  <button key={m.id}
-                    onClick={function() {
-                      var f = aktivesEingangFormular.felder;
-                      var updates = {};
-                      if (f.familienstand) updates.familienstand = f.familienstand;
-                      if (f.einkommenNetto) updates.einkommenNetto = parseFloat(f.einkommenNetto);
-                      if (f.mieteWarm) updates.mieteWarm = parseFloat(f.mieteWarm);
-                      if (f.notizen) updates.notizen = f.notizen;
-                      if (f.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
-                      if (f.kinder && f.kinder.length > 0) {
-                        updates.alleinerziehend = true;
-                        updates.kinder = f.kinder.map(function(k) {
-                          var heute = new Date();
-                          var geb = k.geburt ? new Date(k.geburt) : null;
-                          var alterJahre = geb ? Math.floor((heute - geb) / (365.25*24*3600*1000)) : 0;
-                          var alterGruppe = alterJahre >= 18 ? "18+ J." : alterJahre >= 12 ? "12-17 J." : alterJahre >= 6 ? "6-11 J." : "0-5 J.";
-                          return { name: (k.nachname||f.name||"") + ", " + (k.vorname||""), geburt: k.geburt||"", alter: alterGruppe, wohnort: k.wohnort||"bei Antragsteller", uvg: k.uvg==="ja", kg: true, andererElternteil: k.andererElternteil==="ja" ? ((k.epVorname||"")+" "+(k.epNachname||"")).trim() : "" };
-                        });
-                      }
-                      setMemberExtras(function(prev) {
-                        var next = Object.assign({}, prev);
-                        next[m.id] = Object.assign({}, prev[m.id] || {}, updates);
-                        return next;
-                      });
-                      setEingangFormulare(function(prev) { return prev.filter(function(x) { return x.id !== aktivesEingangFormular.id; }); });
-                      setActiveMember(m);
-                      setView("akte");
-                    }}
-                    style={{ width:"100%", padding:"10px 14px", backgroundColor:"#f9f9f9", border:"1px solid #ddd", borderRadius:"8px", cursor:"pointer", textAlign:"left", fontSize:"13px", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                    <span>👤 {m.name}, {m.vorname}</span>
-                    <span style={{ color:"#003366", fontSize:"11px", fontWeight:"bold" }}>→ Akte öffnen</span>
-                  </button>
-                );
-              })}
-            </div>
+            {(function() {
+              var f = aktivesEingangFormular;
+              var passendesMitglied = members.find(function(m) {
+                return (m.mail && f.absender && m.mail.toLowerCase() === f.absender.toLowerCase()) ||
+                  (m.vorname + " " + m.name).toLowerCase() === (f.name||"").toLowerCase();
+              });
+              var doTransfer = function(m) {
+                var fd = f.felder;
+                var updates = {};
+                if (fd.familienstand) updates.familienstand = fd.familienstand;
+                if (fd.einkommenNetto) updates.einkommenNetto = parseFloat(fd.einkommenNetto);
+                if (fd.mieteWarm) updates.mieteWarm = parseFloat(fd.mieteWarm);
+                if (fd.notizen) updates.notizen = fd.notizen;
+                if (fd.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
+                if (fd.kinder && fd.kinder.length > 0) {
+                  updates.alleinerziehend = true;
+                  updates.kinder = fd.kinder.map(function(k) {
+                    var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
+                    var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
+                    var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
+                    return { name:(k.nachname||fd.name||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:true };
+                  });
+                }
+                setMemberExtras(function(prev) { var next=Object.assign({},prev); next[m.id]=Object.assign({},prev[m.id]||{},updates); return next; });
+                setEingangFormulare(function(prev) { return prev.filter(function(x) { return x.id !== f.id; }); });
+                setGeloeschteEingangIds(function(prev) { var next=new Set([...prev,f.id]); try{localStorage.setItem("isuv_geloeschte_ids",JSON.stringify([...next]));}catch(e){} return next; });
+                setActiveMember(m);
+                setView("akte");
+              };
+              return (
+                <div style={{ marginTop:"16px" }}>
+                  {passendesMitglied ? (
+                    <button onClick={function() { doTransfer(passendesMitglied); }}
+                      style={{ width:"100%", padding:"12px 14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <span>✅ In Akte übertragen: {passendesMitglied.name}, {passendesMitglied.vorname}</span>
+                      <span style={{ fontSize:"11px", opacity:0.8 }}>→ Akte öffnen</span>
+                    </button>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize:"11px", color:"#856404", backgroundColor:"#fff9e6", border:"1px solid #ffeeba", borderRadius:"8px", padding:"10px", marginBottom:"8px" }}>
+                        ⚠️ Kein Mitglied automatisch erkannt (E-Mail / Name stimmt nicht überein). Bitte manuell zuordnen:
+                      </div>
+                      {members.map(function(m) {
+                        return (
+                          <button key={m.id} onClick={function() { doTransfer(m); }}
+                            style={{ width:"100%", padding:"10px 14px", backgroundColor:"#f9f9f9", border:"1px solid #ddd", borderRadius:"8px", cursor:"pointer", textAlign:"left", fontSize:"13px", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                            <span>👤 {m.name}, {m.vorname}</span>
+                            <span style={{ color:"#003366", fontSize:"11px", fontWeight:"bold" }}>→ Akte öffnen</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Weiterleiten an Rechner */}
-            <div style={{ marginTop:"14px" }}>
-              <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", marginBottom:"6px" }}>🧮 Direkt zu Berechnung weiterleiten:</div>
-              {members.map(function(m) {
-                return (
-                  <button key={m.id}
-                    onClick={function() {
-                      var f = aktivesEingangFormular.felder;
-                      var updates = {};
-                      if (f.einkommenNetto) updates.einkommenNetto = parseFloat(f.einkommenNetto);
-                      if (f.mieteWarm) updates.mieteWarm = parseFloat(f.mieteWarm);
-                      if (f.familienstand) updates.familienstand = f.familienstand;
-                      if (f.kinder && f.kinder.length > 0) {
-                        updates.kinder = f.kinder.map(function(k) {
-                          var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
-                          var j = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
-                          return { name: (k.vorname||""), geburt: k.geburt||"", alter: j>=18?"18+ J.":j>=12?"12-17 J.":j>=6?"6-11 J.":"0-5 J.", wohnort: k.wohnort||"", uvg: k.uvg==="ja", kg: true };
-                        });
-                      }
-                      setMemberExtras(function(prev) { var n=Object.assign({},prev); n[m.id]=Object.assign({},prev[m.id]||{},updates); return n; });
-                      setActiveMember(m);
-                      setBerechnungRechner(null);
-                      setBerechnungKategorie(null);
-                      setView("berechnung");
-                    }}
-                    style={{ width:"100%", padding:"10px 14px", backgroundColor:"#e8f4fd", border:"1px solid #bee5f8", borderRadius:"8px", cursor:"pointer", textAlign:"left", fontSize:"13px", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                    <span>🧮 {m.name}, {m.vorname}</span>
-                    <span style={{ color:"#00afad", fontSize:"11px", fontWeight:"bold" }}>→ Berechnung</span>
+            {(function() {
+              var f = aktivesEingangFormular;
+              var passendesMitglied = members.find(function(m) {
+                return (m.mail && f.absender && m.mail.toLowerCase() === f.absender.toLowerCase()) ||
+                  (m.vorname + " " + m.name).toLowerCase() === (f.name||"").toLowerCase();
+              });
+              if (!passendesMitglied) return null;
+              var doBerechnung = function(m) {
+                var fd = f.felder;
+                var updates = {};
+                if (fd.einkommenNetto) updates.einkommenNetto = parseFloat(fd.einkommenNetto);
+                if (fd.mieteWarm) updates.mieteWarm = parseFloat(fd.mieteWarm);
+                if (fd.familienstand) updates.familienstand = fd.familienstand;
+                if (fd.kinder && fd.kinder.length > 0) {
+                  updates.kinder = fd.kinder.map(function(k) {
+                    var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
+                    var j = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
+                    return { name:(k.vorname||""), geburt:k.geburt||"", alter:j>=18?"18+ J.":j>=12?"12-17 J.":j>=6?"6-11 J.":"0-5 J.", wohnort:k.wohnort||"", uvg:k.uvg==="ja", kg:true };
+                  });
+                }
+                setMemberExtras(function(prev) { var n=Object.assign({},prev); n[m.id]=Object.assign({},prev[m.id]||{},updates); return n; });
+                setActiveMember(m); setBerechnungRechner(null); setBerechnungKategorie(null); setView("berechnung");
+              };
+              return (
+                <div style={{ marginTop:"10px" }}>
+                  <button onClick={function() { doBerechnung(passendesMitglied); }}
+                    style={{ width:"100%", padding:"10px 14px", backgroundColor:"#e8f4fd", border:"1px solid #bee5f8", borderRadius:"8px", cursor:"pointer", fontSize:"13px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span>🧮 Direkt zur Berechnung: {passendesMitglied.name}, {passendesMitglied.vorname}</span>
+                    <span style={{ color:"#00afad", fontSize:"11px", fontWeight:"bold" }}>→</span>
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })()}
 
             {/* Rückantwort senden */}
             <div style={{ marginTop:"14px", backgroundColor:"#f0f4f7", borderRadius:"10px", padding:"12px" }}>
@@ -3168,7 +3194,7 @@ function App() {
             </div>
 
             <button
-              onClick={function() { setEingangFormulare(function(prev) { return prev.filter(function(x) { return x.id !== aktivesEingangFormular.id; }); }); setView("dashboard"); }}
+              onClick={function() { setGeloeschteEingangIds(function(prev) { var next = new Set([...prev, aktivesEingangFormular.id]); try { localStorage.setItem("isuv_geloeschte_ids", JSON.stringify([...next])); } catch(e){} return next; }); setEingangFormulare(function(prev) { return prev.filter(function(x) { return x.id !== aktivesEingangFormular.id; }); }); setView("dashboard"); }}
               style={{ width:"100%", marginTop:"10px", padding:"10px", backgroundColor:"#d9534f", color:"#fff", border:"none", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px" }}>
               🗑️ Formular löschen
             </button>
@@ -3566,6 +3592,399 @@ function App() {
         )}
 
         {/* ============================================= */}
+        {/* BÜRGERGELD-FRAGEBOGEN */}
+        {/* ============================================= */}
+        {view === "buergergeld_form" && (function() {
+          var upd = function(feld, wert) { setFormFelderDaten(function(p) { return Object.assign({}, p, {[feld]: wert}); }); };
+          var updKind = function(idx, feld, wert) {
+            setFormFelderDaten(function(p) {
+              var k = (p.bgKinder||[]).map(function(c,i){ return i===idx ? Object.assign({},c,{[feld]:wert}) : c; });
+              return Object.assign({},p,{bgKinder:k});
+            });
+          };
+          var sectionHead = function(txt) {
+            return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"16px", marginBottom:"10px", letterSpacing:"0.5px" }}>{txt}</div>;
+          };
+          var f = formFelderDaten;
+          return (
+            <div style={styles.formPage}>
+              <div style={{ backgroundColor:"#003366", color:"#fff", borderRadius:"10px", padding:"14px 16px", marginBottom:"16px", textAlign:"center" }}>
+                <div style={{ fontWeight:"bold", fontSize:"16px" }}>ISUV Anspruchslotse</div>
+                <div style={{ fontSize:"11px", opacity:0.8, marginTop:"2px" }}>Bürgergeld-Fragebogen (ALG II / SGB II)</div>
+              </div>
+              <button onClick={function(){ setView("dashboard"); setFormFelderDaten({}); }} style={{ background:"none", border:"none", color:"#003366", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"12px", padding:"0" }}>‹ Abbrechen</button>
+
+              {/* 1. Persönliche Daten */}
+              {sectionHead("1. Persönliche Daten")}
+              <div style={{ display:"flex", gap:"10px" }}>
+                <div style={{ flex:1 }}><label style={styles.label}>Vorname *</label><input style={styles.input} value={f.bgVorname||""} onChange={e=>upd("bgVorname",e.target.value)} placeholder="Vorname" /></div>
+                <div style={{ flex:1 }}><label style={styles.label}>Nachname *</label><input style={styles.input} value={f.bgName||""} onChange={e=>upd("bgName",e.target.value)} placeholder="Nachname" /></div>
+              </div>
+              <label style={styles.label}>Geburtsdatum *</label>
+              <input style={styles.input} type="date" value={f.bgGeburt||""} onChange={e=>upd("bgGeburt",e.target.value)} />
+              <label style={styles.label}>Staatsangehörigkeit</label>
+              <input style={styles.input} value={f.bgStaatsbuergerschaft||""} onChange={e=>upd("bgStaatsbuergerschaft",e.target.value)} placeholder="z.B. deutsch" />
+              <label style={styles.label}>E-Mail *</label>
+              <input style={styles.input} type="email" value={f.bgMail||""} onChange={e=>upd("bgMail",e.target.value)} placeholder="name@beispiel.de" />
+              <label style={styles.label}>Telefon</label>
+              <input style={styles.input} value={f.bgTel||""} onChange={e=>upd("bgTel",e.target.value)} placeholder="0170 1234567" />
+              <label style={styles.label}>Straße & Hausnummer</label>
+              <input style={styles.input} value={f.bgStrasse||""} onChange={e=>upd("bgStrasse",e.target.value)} placeholder="Musterstraße 1" />
+              <div style={{ display:"flex", gap:"10px" }}>
+                <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} value={f.bgPlz||""} onChange={e=>upd("bgPlz",e.target.value)} /></div>
+                <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} value={f.bgOrt||""} onChange={e=>upd("bgOrt",e.target.value)} /></div>
+              </div>
+              <label style={styles.label}>Familienstand</label>
+              <select style={styles.input} value={f.bgFamilienstand||""} onChange={e=>upd("bgFamilienstand",e.target.value)}>
+                <option value="">– bitte wählen –</option>
+                <option value="ledig">ledig</option>
+                <option value="verheiratet">verheiratet</option>
+                <option value="getrennt lebend">getrennt lebend</option>
+                <option value="geschieden">geschieden</option>
+                <option value="verwitwet">verwitwet</option>
+                <option value="eingetragene Lebenspartnerschaft">eingetragene Lebenspartnerschaft</option>
+              </select>
+              {(f.bgFamilienstand==="getrennt lebend"||f.bgFamilienstand==="geschieden") && (
+                <div><label style={styles.label}>Getrennt seit</label><input style={styles.input} type="date" value={f.bgTrennungSeit||""} onChange={e=>upd("bgTrennungSeit",e.target.value)} /></div>
+              )}
+
+              {/* 2. Haushalt & Bedarfsgemeinschaft */}
+              {sectionHead("2. Haushalt & Bedarfsgemeinschaft")}
+              <label style={styles.label}>Wohnsituation</label>
+              <select style={styles.input} value={f.bgWohnsituation||""} onChange={e=>upd("bgWohnsituation",e.target.value)}>
+                <option value="">– bitte wählen –</option>
+                <option value="Allein lebend">Allein lebend</option>
+                <option value="Mit Kindern (alleinerziehend)">Mit Kindern (alleinerziehend)</option>
+                <option value="Mit Partner*in und Kindern">Mit Partner*in und Kindern</option>
+                <option value="Mit Partner*in (keine Kinder)">Mit Partner*in (keine Kinder)</option>
+                <option value="Bei Eltern / Verwandten">Bei Eltern / Verwandten</option>
+                <option value="Wohngemeinschaft">Wohngemeinschaft</option>
+              </select>
+              <label style={styles.label}>Anzahl Personen in der Bedarfsgemeinschaft (inkl. Sie)</label>
+              <input style={styles.input} type="number" min="1" max="10" value={f.bgAnzahlPersonen||""} onChange={e=>upd("bgAnzahlPersonen",e.target.value)} placeholder="z.B. 3" />
+
+              {/* 3. Kinder */}
+              {sectionHead("3. Kinder im Haushalt")}
+              <label style={styles.label}>Leben Kinder bei Ihnen?</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                {["ja","nein"].map(function(v){
+                  return <div key={v} onClick={function(){upd("bgHatKinder",v); if(v==="nein") upd("bgKinder",[]);}}
+                    style={{ padding:"7px 20px", borderRadius:"7px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
+                      backgroundColor:f.bgHatKinder===v?"#003366":"#eee", color:f.bgHatKinder===v?"#fff":"#333" }}>{v==="ja"?"Ja":"Nein"}</div>;
+                })}
+              </div>
+              {f.bgHatKinder==="ja" && (
+                <div>
+                  {(f.bgKinder||[]).map(function(kind, idx){
+                    return (
+                      <div key={idx} style={{ backgroundColor:"#f0fdfd", borderRadius:"8px", padding:"12px", marginBottom:"10px", borderLeft:"3px solid #00afad" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+                          <strong style={{ fontSize:"13px", color:"#003366" }}>Kind {idx+1}</strong>
+                          <button onClick={function(){ setFormFelderDaten(function(p){ var k=(p.bgKinder||[]).filter(function(_,i){return i!==idx;}); return Object.assign({},p,{bgKinder:k}); }); }}
+                            style={{ background:"none", border:"none", color:"#e53935", cursor:"pointer", fontSize:"18px", padding:0 }}>×</button>
+                        </div>
+                        <div style={{ display:"flex", gap:"10px" }}>
+                          <div style={{ flex:1 }}><label style={styles.label}>Vorname</label><input style={styles.input} value={kind.vorname||""} onChange={e=>updKind(idx,"vorname",e.target.value)} /></div>
+                          <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={kind.nachname||""} onChange={e=>updKind(idx,"nachname",e.target.value)} /></div>
+                        </div>
+                        <label style={styles.label}>Geburtsdatum</label>
+                        <input style={styles.input} type="date" value={kind.geburt||""} onChange={e=>updKind(idx,"geburt",e.target.value)} />
+                        <label style={styles.label}>Wohnt das Kind bei Ihnen?</label>
+                        <select style={styles.input} value={kind.wohnort||""} onChange={e=>updKind(idx,"wohnort",e.target.value)}>
+                          <option value="">– bitte wählen –</option>
+                          <option value="ja, vollständig">Ja, vollständig</option>
+                          <option value="Wechselmodell">Wechselmodell (abwechselnd)</option>
+                          <option value="nein">Nein (lebt beim anderen Elternteil)</option>
+                        </select>
+                        <label style={styles.label}>Kindergeld erhalten?</label>
+                        <div style={{ display:"flex", gap:"8px", marginBottom:"6px" }}>
+                          {["ja","nein"].map(function(v){
+                            return <div key={v} onClick={function(){updKind(idx,"kindergeld",v);}}
+                              style={{ padding:"5px 14px", borderRadius:"6px", cursor:"pointer", fontSize:"11px",
+                                backgroundColor:kind.kindergeld===v?"#003366":"#eee", color:kind.kindergeld===v?"#fff":"#333" }}>{v==="ja"?"Ja":"Nein"}</div>;
+                          })}
+                        </div>
+                        <label style={styles.label}>Unterhaltsvorschuss (UVG) beantragt?</label>
+                        <div style={{ display:"flex", gap:"8px" }}>
+                          {["ja","nein","in Beantragung"].map(function(v){
+                            return <div key={v} onClick={function(){updKind(idx,"uvg",v);}}
+                              style={{ padding:"5px 10px", borderRadius:"6px", cursor:"pointer", fontSize:"10px",
+                                backgroundColor:kind.uvg===v?"#003366":"#eee", color:kind.uvg===v?"#fff":"#333" }}>{v}</div>;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button onClick={function(){ setFormFelderDaten(function(p){ var k=(p.bgKinder||[]).concat([{vorname:"",nachname:"",geburt:"",wohnort:"",kindergeld:"",uvg:""}]); return Object.assign({},p,{bgKinder:k}); }); }}
+                    style={{ width:"100%", padding:"10px", backgroundColor:"#e8f4fd", color:"#003366", border:"2px dashed #003366", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"12px", marginBottom:"8px" }}>
+                    + Weiteres Kind hinzufügen
+                  </button>
+                </div>
+              )}
+
+              {/* 4. Beschäftigung */}
+              {sectionHead("4. Beschäftigung & Einkommen")}
+              <label style={styles.label}>Aktueller Erwerbsstatus</label>
+              <select style={styles.input} value={f.bgErwerbsstatus||""} onChange={e=>upd("bgErwerbsstatus",e.target.value)}>
+                <option value="">– bitte wählen –</option>
+                <option value="Arbeitslos (kein ALG I)">Arbeitslos (kein ALG I)</option>
+                <option value="ALG I Bezug">ALG I (Arbeitslosengeld I)</option>
+                <option value="Bürgergeld (laufend)">Bürgergeld (bereits in Bezug)</option>
+                <option value="Geringfügig beschäftigt (Minijob)">Geringfügig beschäftigt (Minijob)</option>
+                <option value="Teilzeit angestellt">Teilzeit angestellt</option>
+                <option value="Vollzeit angestellt">Vollzeit angestellt</option>
+                <option value="Selbständig">Selbständig / Freiberuflich</option>
+                <option value="Elternzeit">Elternzeit / Erziehungsgeld</option>
+                <option value="Ausbildung / Studium">Ausbildung / Studium</option>
+                <option value="Erwerbsminderungsrente">Erwerbsminderungsrente</option>
+                <option value="Krankengeld / AU">Krankengeld / Krankschreibung (AU)</option>
+                <option value="Sonstiges">Sonstiges</option>
+              </select>
+              {(f.bgErwerbsstatus||"").includes("angestellt") || (f.bgErwerbsstatus||"").includes("Vollzeit") || (f.bgErwerbsstatus||"").includes("Teilzeit") || (f.bgErwerbsstatus||"").includes("Minijob") ? (
+                <div>
+                  <label style={styles.label}>Arbeitgeber</label>
+                  <input style={styles.input} value={f.bgArbeitgeber||""} onChange={e=>upd("bgArbeitgeber",e.target.value)} placeholder="Firma / Behörde" />
+                  <label style={styles.label}>Nettoeinkommen (€/Monat)</label>
+                  <input style={styles.input} type="number" value={f.bgEinkommenNetto||""} onChange={e=>upd("bgEinkommenNetto",e.target.value)} placeholder="z.B. 800" />
+                </div>
+              ) : null}
+              {f.bgErwerbsstatus==="ALG I Bezug" && (
+                <div>
+                  <label style={styles.label}>ALG I monatlicher Betrag (€)</label>
+                  <input style={styles.input} type="number" value={f.bgAlg1Betrag||""} onChange={e=>upd("bgAlg1Betrag",e.target.value)} placeholder="z.B. 900" />
+                </div>
+              )}
+              <label style={styles.label}>Weitere Einnahmen (Unterhalt, Rente, Sonstige in €/Monat)</label>
+              <input style={styles.input} type="number" value={f.bgWeitereEinkuenfte||""} onChange={e=>upd("bgWeitereEinkuenfte",e.target.value)} placeholder="0" />
+              <label style={styles.label}>Vermögen (Konten, Sparbücher, Depot in €)</label>
+              <input style={styles.input} type="number" value={f.bgVermoegen||""} onChange={e=>upd("bgVermoegen",e.target.value)} placeholder="z.B. 3500" />
+
+              {/* 5. Wohnen */}
+              {sectionHead("5. Wohnen & Kosten der Unterkunft (KdU)")}
+              <label style={styles.label}>Mietverhältnis</label>
+              <select style={styles.input} value={f.bgMietverhaeltnis||""} onChange={e=>upd("bgMietverhaeltnis",e.target.value)}>
+                <option value="">– bitte wählen –</option>
+                <option value="Mieter (Hauptmietvertrag)">Mieter (Hauptmietvertrag)</option>
+                <option value="Untermieter">Untermieter</option>
+                <option value="Eigentümer">Eigentümer (eigene Immobilie)</option>
+                <option value="Kostenlos untergebracht">Kostenlos untergebracht (Eltern/Familie)</option>
+                <option value="Obdachlos / Notunterkunft">Obdachlos / Notunterkunft</option>
+              </select>
+              {(f.bgMietverhaeltnis==="Mieter (Hauptmietvertrag)"||f.bgMietverhaeltnis==="Untermieter") && (
+                <div>
+                  <label style={styles.label}>Kaltmiete (€/Monat)</label>
+                  <input style={styles.input} type="number" value={f.bgMieteKalt||""} onChange={e=>upd("bgMieteKalt",e.target.value)} placeholder="z.B. 600" />
+                  <label style={styles.label}>Nebenkosten/Betriebskosten (€/Monat)</label>
+                  <input style={styles.input} type="number" value={f.bgNebenkosten||""} onChange={e=>upd("bgNebenkosten",e.target.value)} placeholder="z.B. 150" />
+                  <label style={styles.label}>Heizkosten (€/Monat, falls separat)</label>
+                  <input style={styles.input} type="number" value={f.bgHeizkosten||""} onChange={e=>upd("bgHeizkosten",e.target.value)} placeholder="z.B. 80" />
+                  <label style={styles.label}>Wohnfläche (m²)</label>
+                  <input style={styles.input} type="number" value={f.bgWohnflaeche||""} onChange={e=>upd("bgWohnflaeche",e.target.value)} placeholder="z.B. 55" />
+                </div>
+              )}
+
+              {/* 6. Besondere Bedarfe */}
+              {sectionHead("6. Besondere Bedarfe & Zuschläge")}
+              <label style={styles.label}>Schwerbehinderung (GdB ≥ 50)?</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                {["ja","nein"].map(function(v){
+                  return <div key={v} onClick={function(){upd("bgSchwerbehindert",v);}}
+                    style={{ padding:"7px 20px", borderRadius:"7px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
+                      backgroundColor:f.bgSchwerbehindert===v?"#003366":"#eee", color:f.bgSchwerbehindert===v?"#fff":"#333" }}>{v==="ja"?"Ja":"Nein"}</div>;
+                })}
+              </div>
+              {f.bgSchwerbehindert==="ja" && (
+                <div>
+                  <label style={styles.label}>Grad der Behinderung (GdB)</label>
+                  <input style={styles.input} value={f.bgGdB||""} onChange={e=>upd("bgGdB",e.target.value)} placeholder="z.B. 50, 70, 100" />
+                  <label style={styles.label}>Merkzeichen (z.B. G, aG, H, RF)</label>
+                  <input style={styles.input} value={f.bgMerkzeichen||""} onChange={e=>upd("bgMerkzeichen",e.target.value)} placeholder="z.B. G, H" />
+                </div>
+              )}
+              <label style={styles.label}>Mehrbedarf wegen Erkrankung / Besonderer Diät?</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                {["ja","nein"].map(function(v){
+                  return <div key={v} onClick={function(){upd("bgMehrbedarf",v);}}
+                    style={{ padding:"7px 20px", borderRadius:"7px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
+                      backgroundColor:f.bgMehrbedarf===v?"#003366":"#eee", color:f.bgMehrbedarf===v?"#fff":"#333" }}>{v==="ja"?"Ja":"Nein"}</div>;
+                })}
+              </div>
+              {f.bgMehrbedarf==="ja" && (
+                <div>
+                  <label style={styles.label}>Grund des Mehrbedarfs</label>
+                  <input style={styles.input} value={f.bgMehrbedarfGrund||""} onChange={e=>upd("bgMehrbedarfGrund",e.target.value)} placeholder="z.B. Diabetes, kostspielige Ernährung" />
+                </div>
+              )}
+              <label style={styles.label}>Schulden / Laufende Verbindlichkeiten?</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                {["ja","nein"].map(function(v){
+                  return <div key={v} onClick={function(){upd("bgSchulden",v);}}
+                    style={{ padding:"7px 20px", borderRadius:"7px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
+                      backgroundColor:f.bgSchulden===v?"#003366":"#eee", color:f.bgSchulden===v?"#fff":"#333" }}>{v==="ja"?"Ja":"Nein"}</div>;
+                })}
+              </div>
+              {f.bgSchulden==="ja" && (
+                <div>
+                  <label style={styles.label}>Gesamtbetrag Schulden (€)</label>
+                  <input style={styles.input} type="number" value={f.bgSchuldenBetrag||""} onChange={e=>upd("bgSchuldenBetrag",e.target.value)} placeholder="z.B. 5000" />
+                  <label style={styles.label}>Monatliche Schuldentilgung (€)</label>
+                  <input style={styles.input} type="number" value={f.bgSchuldenRate||""} onChange={e=>upd("bgSchuldenRate",e.target.value)} placeholder="z.B. 100" />
+                </div>
+              )}
+
+              {/* 7. Jobcenter / Verfahren */}
+              {sectionHead("7. Jobcenter & Aktueller Stand")}
+              <label style={styles.label}>Bereits Bürgergeld-Antrag gestellt?</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                {["ja","nein","in Bearbeitung"].map(function(v){
+                  return <div key={v} onClick={function(){upd("bgAntragGestellt",v);}}
+                    style={{ padding:"6px 12px", borderRadius:"7px", cursor:"pointer", fontSize:"11px", fontWeight:"bold",
+                      backgroundColor:f.bgAntragGestellt===v?"#003366":"#eee", color:f.bgAntragGestellt===v?"#fff":"#333" }}>{v}</div>;
+                })}
+              </div>
+              {f.bgAntragGestellt==="ja" && (
+                <div>
+                  <label style={styles.label}>Datum der Antragstellung</label>
+                  <input style={styles.input} type="date" value={f.bgAntragDatum||""} onChange={e=>upd("bgAntragDatum",e.target.value)} />
+                  <label style={styles.label}>Zuständiges Jobcenter</label>
+                  <input style={styles.input} value={f.bgJobcenter||""} onChange={e=>upd("bgJobcenter",e.target.value)} placeholder="z.B. Jobcenter München" />
+                </div>
+              )}
+              <label style={styles.label}>Liegt ein Bescheid / Ablehnung vor?</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                {["ja","nein"].map(function(v){
+                  return <div key={v} onClick={function(){upd("bgBescheid",v);}}
+                    style={{ padding:"7px 20px", borderRadius:"7px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
+                      backgroundColor:f.bgBescheid===v?"#003366":"#eee", color:f.bgBescheid===v?"#fff":"#333" }}>{v==="ja"?"Ja":"Nein"}</div>;
+                })}
+              </div>
+              {f.bgBescheid==="ja" && (
+                <div>
+                  <label style={styles.label}>Art des Bescheids</label>
+                  <select style={styles.input} value={f.bgBescheidArt||""} onChange={e=>upd("bgBescheidArt",e.target.value)}>
+                    <option value="">– bitte wählen –</option>
+                    <option value="Bewilligung">Bewilligung (positiv)</option>
+                    <option value="Ablehnung">Ablehnung</option>
+                    <option value="Teilbewilligung">Teilbewilligung</option>
+                    <option value="Sanktion">Sanktion / Leistungsminderung</option>
+                    <option value="Aufhebung / Erstattung">Aufhebung & Erstattungsforderung</option>
+                  </select>
+                  <label style={styles.label}>Datum des Bescheids</label>
+                  <input style={styles.input} type="date" value={f.bgBescheidDatum||""} onChange={e=>upd("bgBescheidDatum",e.target.value)} />
+                  <label style={styles.label}>Widerspruch eingelegt?</label>
+                  <div style={{ display:"flex", gap:"8px", marginBottom:"6px" }}>
+                    {["ja","nein","geplant"].map(function(v){
+                      return <div key={v} onClick={function(){upd("bgWiderspruch",v);}}
+                        style={{ padding:"5px 12px", borderRadius:"6px", cursor:"pointer", fontSize:"11px",
+                          backgroundColor:f.bgWiderspruch===v?"#003366":"#eee", color:f.bgWiderspruch===v?"#fff":"#333" }}>{v}</div>;
+                    })}
+                  </div>
+                  {f.bgWiderspruch==="ja" && (
+                    <div>
+                      <label style={styles.label}>Datum Widerspruch</label>
+                      <input style={styles.input} type="date" value={f.bgWiderspruchDatum||""} onChange={e=>upd("bgWiderspruchDatum",e.target.value)} />
+                    </div>
+                  )}
+                </div>
+              )}
+              <label style={styles.label}>Eingliederungsvereinbarung / Kooperationsplan vorhanden?</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                {["ja","nein"].map(function(v){
+                  return <div key={v} onClick={function(){upd("bgEingliederung",v);}}
+                    style={{ padding:"7px 20px", borderRadius:"7px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
+                      backgroundColor:f.bgEingliederung===v?"#003366":"#eee", color:f.bgEingliederung===v?"#fff":"#333" }}>{v==="ja"?"Ja":"Nein"}</div>;
+                })}
+              </div>
+
+              {/* 8. Anliegen */}
+              {sectionHead("8. Anliegen & Sonstiges")}
+              <label style={styles.label}>Warum wenden Sie sich an den ISUV? (Hauptanliegen)</label>
+              <div style={{ display:"flex", flexDirection:"column", gap:"6px", marginBottom:"10px" }}>
+                {[
+                  "Bürgergeld-Antrag stellen / vorbereiten",
+                  "Bescheid prüfen / Widerspruch einlegen",
+                  "Sanktion anfechten",
+                  "Anrechnung von Einkommen / Unterhalt klären",
+                  "Unterhaltsberechnung im Zusammenhang mit Bürgergeld",
+                  "KdU (Wohnkosten) – Streit mit Jobcenter",
+                  "Sonstiges"
+                ].map(function(opt){
+                  var aktiv = (f.bgAnliegen||[]).includes(opt);
+                  return (
+                    <div key={opt} onClick={function(){ var arr=f.bgAnliegen||[]; setFormFelderDaten(function(p){ return Object.assign({},p,{bgAnliegen: aktiv ? arr.filter(function(x){return x!==opt;}) : arr.concat([opt])}); }); }}
+                      style={{ display:"flex", alignItems:"center", gap:"10px", cursor:"pointer", padding:"8px 10px", backgroundColor:aktiv?"#e8f0fb":"#f9f9f9", borderRadius:"7px", border:"1px solid "+(aktiv?"#003366":"#eee") }}>
+                      <div style={{ width:"16px", height:"16px", borderRadius:"3px", border:"2px solid "+(aktiv?"#003366":"#ccc"), backgroundColor:aktiv?"#003366":"#fff", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        {aktiv && <span style={{ color:"#fff", fontSize:"10px", fontWeight:"bold" }}>✓</span>}
+                      </div>
+                      <span style={{ fontSize:"12px" }}>{opt}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <label style={styles.label}>Anmerkungen / Fragen</label>
+              <textarea style={{ width:"100%", padding:"10px", border:"1px solid #ddd", borderRadius:"6px", fontSize:"13px", boxSizing:"border-box", height:"80px" }}
+                value={f.bgNotizen||""}
+                onChange={e=>upd("bgNotizen",e.target.value)}
+                placeholder="Weitere Details, Fragen, besondere Umstände..." />
+
+              {/* Absenden */}
+              <button
+                disabled={!f.bgVorname || !f.bgName || !f.bgMail}
+                onClick={function(){
+                  var jetzt = new Date();
+                  var datum = jetzt.toLocaleDateString("de-DE")+" "+String(jetzt.getHours()).padStart(2,"0")+":"+String(jetzt.getMinutes()).padStart(2,"0");
+                  var zeilen = ["ISUV Anspruchslotse – Bürgergeld-Fragebogen", ""];
+                  zeilen.push("Name: "+(f.bgVorname||"")+" "+(f.bgName||""));
+                  zeilen.push("Geburt: "+(f.bgGeburt||"–"));
+                  zeilen.push("E-Mail: "+(f.bgMail||""));
+                  zeilen.push("Telefon: "+(f.bgTel||"–"));
+                  zeilen.push("Adresse: "+(f.bgStrasse||"")+" "+(f.bgPlz||"")+" "+(f.bgOrt||""));
+                  zeilen.push("Familienstand: "+(f.bgFamilienstand||"–"));
+                  zeilen.push("Staatsangehörigkeit: "+(f.bgStaatsbuergerschaft||"–"));
+                  zeilen.push("");
+                  zeilen.push("Wohnsituation: "+(f.bgWohnsituation||"–"));
+                  zeilen.push("Personen in BG: "+(f.bgAnzahlPersonen||"–"));
+                  if (f.bgHatKinder==="ja" && (f.bgKinder||[]).length>0) {
+                    zeilen.push("Kinder:");
+                    (f.bgKinder||[]).forEach(function(k,i){ zeilen.push("  Kind "+(i+1)+": "+(k.vorname||"")+" "+(k.nachname||"")+", Geb: "+(k.geburt||"–")+", Wohnort: "+(k.wohnort||"–")+", KiGeld: "+(k.kindergeld||"–")+", UVG: "+(k.uvg||"–")); });
+                  }
+                  zeilen.push("");
+                  zeilen.push("Erwerbsstatus: "+(f.bgErwerbsstatus||"–"));
+                  if (f.bgArbeitgeber) zeilen.push("Arbeitgeber: "+f.bgArbeitgeber);
+                  if (f.bgEinkommenNetto) zeilen.push("Nettoeinkommen: "+f.bgEinkommenNetto+" €");
+                  if (f.bgAlg1Betrag) zeilen.push("ALG I: "+f.bgAlg1Betrag+" €");
+                  if (f.bgWeitereEinkuenfte) zeilen.push("Weitere Einkünfte: "+f.bgWeitereEinkuenfte+" €");
+                  if (f.bgVermoegen) zeilen.push("Vermögen: "+f.bgVermoegen+" €");
+                  zeilen.push("");
+                  zeilen.push("Mietverhältnis: "+(f.bgMietverhaeltnis||"–"));
+                  if (f.bgMieteKalt) zeilen.push("Kaltmiete: "+f.bgMieteKalt+" €");
+                  if (f.bgNebenkosten) zeilen.push("Nebenkosten: "+f.bgNebenkosten+" €");
+                  if (f.bgHeizkosten) zeilen.push("Heizkosten: "+f.bgHeizkosten+" €");
+                  if (f.bgWohnflaeche) zeilen.push("Wohnfläche: "+f.bgWohnflaeche+" m²");
+                  zeilen.push("");
+                  if (f.bgSchwerbehindert==="ja") zeilen.push("Schwerbehinderung: GdB "+f.bgGdB+" Merkzeichen: "+(f.bgMerkzeichen||"–"));
+                  if (f.bgSchulden==="ja") zeilen.push("Schulden: "+f.bgSchuldenBetrag+" € / Rate: "+f.bgSchuldenRate+" €/Monat");
+                  zeilen.push("Antrag gestellt: "+(f.bgAntragGestellt||"–"));
+                  if (f.bgJobcenter) zeilen.push("Jobcenter: "+f.bgJobcenter);
+                  if (f.bgBescheid==="ja") zeilen.push("Bescheid: "+(f.bgBescheidArt||"–")+" vom "+(f.bgBescheidDatum||"–")+" / Widerspruch: "+(f.bgWiderspruch||"–"));
+                  if ((f.bgAnliegen||[]).length>0) zeilen.push("Anliegen: "+(f.bgAnliegen||[]).join(", "));
+                  if (f.bgNotizen) { zeilen.push(""); zeilen.push("Notizen: "+f.bgNotizen); }
+                  setAusgangFormulare(function(prev){ return prev.concat([{ id:Date.now(), typ:"Bürgergeld-Fragebogen", empfaenger:f.bgMail, mitglied:null, datum:datum, status:"unbeantwortet" }]); });
+                  var betreff = "ISUV Bürgergeld-Fragebogen: "+(f.bgVorname||"")+" "+(f.bgName||"");
+                  window.location.href = "mailto:"+encodeURIComponent(f.bgMail)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(zeilen.join("\n"));
+                  setFormFelderDaten({});
+                  setShowAusgang(true);
+                  setView("dashboard");
+                }}
+                style={{ width:"100%", marginTop:"14px", padding:"12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", cursor:"pointer", fontSize:"13px", opacity:(!f.bgVorname||!f.bgName||!f.bgMail)?0.5:1 }}>
+                ✉️ Fragebogen absenden (per Mail)
+              </button>
+              <div style={{ fontSize:"10px", color:"#999", textAlign:"center", marginTop:"8px" }}>* Pflichtfelder · wird per E-Mail gesendet und im Ausgang gespeichert</div>
+            </div>
+          );
+        })()}
+
+        {/* ============================================= */}
         {/* FORMULAR-VERSAND-DIALOG (NEU - Mail + WhatsApp) */}
         {/* ============================================= */}
         {formularVersandDialogNeu && (
@@ -3595,6 +4014,7 @@ function App() {
               <div style={{ display:"flex", flexDirection:"column", gap:"6px", marginBottom:"16px" }}>
                 {[
                   { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Kinder" },
+                  { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen" },
                   { id:"tbg", label:"📋 Anlage TBG", desc:"Temporäre Bedarfsgemeinschaft" },
                 ].map(function(f) {
                   var sel = formularVersandDialogNeu.formTyp === f.id;
@@ -3615,7 +4035,7 @@ function App() {
 
                 // Warnung: bereits offenes Formular?
                 var memberName = m ? m.vorname + " " + m.name : null;
-                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : "Anlage TBG";
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : "Anlage TBG";
                 var offenes = memberName ? ausgangFormulare.find(function(af) { return af.mitglied === memberName && af.typ === fLabel && af.status !== "beantwortet"; }) : null;
 
                 var alleFelder = fTyp === "stammdaten" ? [
@@ -3631,6 +4051,15 @@ function App() {
                   { id:"wohnen",         label:"Wohnsituation (Miete, Fläche, Heizkosten)", hatDaten: !!(ext.mieteWarm) },
                   { id:"kinder",         label:"Kinder (Geburt, Wohnort, UVG)",       hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
                   { id:"notizen",        label:"Anmerkungen / Notizen",               hatDaten: !!(ext.notizen) },
+                ] : fTyp === "buergergeld" ? [
+                  { id:"bg_person",      label:"Persönliche Daten & Kontakt",         hatDaten: !!(m && m.vorname) },
+                  { id:"bg_haushalt",    label:"Haushalt & Bedarfsgemeinschaft",      hatDaten: false },
+                  { id:"bg_kinder",      label:"Kinder (Kindergeld, UVG, Wohnort)",   hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"bg_einkommen",   label:"Erwerbsstatus & Einkommen",           hatDaten: !!(ext.einkommenNetto || ext.einkommenArt) },
+                  { id:"bg_wohnen",      label:"Wohnkosten (KdU, Miete, Heizung)",    hatDaten: !!(ext.mieteWarm || ext.mieteKalt) },
+                  { id:"bg_bedarfe",     label:"Besondere Bedarfe & Schulden",        hatDaten: false },
+                  { id:"bg_verfahren",   label:"Jobcenter / Bescheid / Widerspruch",  hatDaten: false },
+                  { id:"bg_anliegen",    label:"Anliegen & Anmerkungen",              hatDaten: false },
                 ] : [
                   { id:"tbg_antragsteller", label:"Persönliche Daten Antragsteller*in", hatDaten: !!(m && m.vorname) },
                   { id:"tbg_adresse",       label:"Adresse",                            hatDaten: !!(m && m.strasse) },
@@ -3707,26 +4136,62 @@ function App() {
               {formularVersandDialogNeu.formTyp && (function() {
                 var m = formularVersandDialogNeu.member;
                 var fTyp = formularVersandDialogNeu.formTyp;
-                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : "Anlage TBG";
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : "Anlage TBG";
+
+                // Feldlabels für den Mail-Text
+                var alleFeldLabels = fTyp === "stammdaten" ? {
+                  titel: "Titel (Dr., Prof. etc.)",
+                  vorname_name: "Vor- und Nachname",
+                  tel: "Telefonnummer",
+                  mail: "E-Mail-Adresse",
+                  adresse: "Adresse (Straße, PLZ, Ort)",
+                  familienstand: "Familienstand & Trennungsdatum",
+                  gegenseite: "Angaben zur Gegenseite",
+                  beschaeftigung: "Beschäftigung & Arbeitgeber",
+                  einkommen: "Einkommen (Brutto, Netto, Steuerklasse)",
+                  wohnen: "Wohnsituation (Miete, Fläche, Heizkosten)",
+                  kinder: "Kinder (Geburtsdatum, Wohnort, UVG)",
+                  notizen: "Anmerkungen / Notizen"
+                } : fTyp === "buergergeld" ? {
+                  bg_person:    "Persönliche Daten & Kontakt",
+                  bg_haushalt:  "Haushalt & Bedarfsgemeinschaft",
+                  bg_kinder:    "Kinder (Kindergeld, UVG, Wohnort)",
+                  bg_einkommen: "Erwerbsstatus & Einkommen",
+                  bg_wohnen:    "Wohnkosten (KdU, Miete, Heizung)",
+                  bg_bedarfe:   "Besondere Bedarfe & Schulden",
+                  bg_verfahren: "Jobcenter / Bescheid / Widerspruch",
+                  bg_anliegen:  "Anliegen & Anmerkungen"
+                } : {
+                  tbg_antragsteller: "Persönliche Daten",
+                  tbg_adresse: "Adresse",
+                  tbg_betreuungsmodell: "Betreuungsmodell",
+                  tbg_kind_name: "Name & Geburtsdatum Kind",
+                  tbg_anderer_et: "Andere*r Erziehungsberechtigte*r",
+                  tbg_kalender: "Kalender (Tage pro Monat)",
+                  tbg_kindergeld: "Kindergeld",
+                  tbg_einkommen_kind: "Einkommen des Kindes"
+                };
+                var aktiveFeldIds = versandFelder !== null ? versandFelder : Object.keys(alleFeldLabels);
+                var feldListeText = aktiveFeldIds.length > 0
+                  ? "\n\nBitte folgende Angaben ausfüllen:\n" + aktiveFeldIds.map(function(id) { return "  • " + (alleFeldLabels[id] || id); }).join("\n")
+                  : "";
+
                 var linkText = "Guten Tag" + (m ? " " + m.vorname + " " + m.name : "") + ",\n\n" +
-                  "der ISUV Anspruchslotse hat für Sie ein Formular bereitgestellt:\n" +
-                  "📋 " + fLabel + "\n\n" +
-                  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                  "der ISUV Anspruchslotse hat fuer Sie ein Formular bereitgestellt:\n" +
+                  fLabel + feldListeText + "\n\n" +
                   "SO GEHT ES:\n" +
-                  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                  "1️⃣ Formular erhalten\n" +
-                  "   → Sie erhalten das Formular direkt von uns per E-Mail oder WhatsApp.\n" +
-                  "   → Bitte öffnen Sie es auf Ihrem Gerät (Handy, Tablet oder PC).\n\n" +
-                  "2️⃣ Formular ausfüllen\n" +
-                  "   → Füllen Sie alle Felder direkt im Browser aus.\n" +
-                  "   → Kein Ausdrucken, kein Download nötig.\n\n" +
-                  "3️⃣ Formular zurücksenden\n" +
-                  "   → Tippen Sie am Ende auf \"Absenden\"\n" +
-                  "   → Oder kopieren Sie die ausgefüllten Daten und senden Sie diese zurück an:\n" +
-                  (loginDaten.email ? "   ✉️ Per E-Mail: " + loginDaten.email + "\n" : "") +
-                  (loginDaten.whatsapp ? "   📱 Per WhatsApp: " + loginDaten.whatsapp + "\n" : "") +
-                  "\nBei Fragen stehen wir jederzeit zur Verfügung.\n" +
-                  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+                  "1. Formular erhalten\n" +
+                  "   Sie erhalten das Formular direkt von uns per E-Mail oder WhatsApp.\n" +
+                  "   Bitte oeffnen Sie es auf Ihrem Geraet (Handy, Tablet oder PC).\n\n" +
+                  "2. Formular ausfuellen\n" +
+                  "   Fuellen Sie alle Felder direkt im Browser aus.\n" +
+                  "   Kein Ausdrucken, kein Download noetig.\n\n" +
+                  "3. Formular zuruecksenden\n" +
+                  "   Tippen Sie am Ende auf \"Absenden\"\n" +
+                  "   Oder kopieren Sie die ausgefuellten Daten und senden Sie diese zurueck an:\n" +
+                  (loginDaten.email ? "   E-Mail: " + loginDaten.email + "\n" : "") +
+                  (loginDaten.whatsapp ? "   WhatsApp: " + loginDaten.whatsapp + "\n" : "") +
+                  "\nBei Fragen stehen wir jederzeit zur Verfuegung.\n";
 
                 return (
                   <div>
