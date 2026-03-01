@@ -1219,6 +1219,7 @@ function RechnerReiter() {
     { id: "nachehelich", label: "💍 Nachehelicher Unterhalt" },
   ];
   const sozialUnterkategorien = [
+    { id: "buergergeld", label: "🏛️ Bürgergeld (SGB II)", desc: "Bedarf, Freibeträge, KdU, Vermögen" },
     { id: "betreuung", label: "👨‍👧 Betreuungs- / Umgangskosten", desc: "Mehrbedarf Alleinerziehende, Umgangskosten, TBG" },
     { id: "wohngeld", label: "🏡 Wohngeld", desc: "Wohngeldberechnung nach WoGG" },
   ];
@@ -1245,6 +1246,7 @@ function RechnerReiter() {
         {aktiverRechner === "mbUmgang" && <MehrbedarfUmgangskosten />}
         {aktiverRechner === "tbg" && <TemporaereBedarfsgemeinschaft />}
         {aktiverRechner === "wohngeld" && <WohngeldRechner />}
+        {aktiverRechner === "buergergeld" && <BuergergeldRechner />}
       </div>
     );
   }
@@ -1269,7 +1271,7 @@ function RechnerReiter() {
       <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", marginBottom: "8px", textTransform: "uppercase" }}>🏛️ Sozialrecht – Bereich wählen:</div>
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         {sozialUnterkategorien.map(u => (
-          <div key={u.id} onClick={() => { if (u.id === "wohngeld") setAktivenRechner("wohngeld"); else setUnterkategorie(u.id); }} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div key={u.id} onClick={() => { if (u.id === "wohngeld") setAktivenRechner("wohngeld"); else if (u.id === "buergergeld") setAktivenRechner("buergergeld"); else setUnterkategorie(u.id); }} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div><strong style={{ fontSize: "13px" }}>{u.label}</strong><div style={{ fontSize: "10px", color: "#999", marginTop: "2px" }}>{u.desc}</div></div>
             <span style={{ color: "#00afad", marginLeft: "8px" }}>›</span>
           </div>
@@ -1309,6 +1311,402 @@ function RechnerReiter() {
 }
 
 
+
+// =============================================
+// BÜRGERGELD-RECHNER (SGB II)
+// Stand 2025: Regelsätze, Freibeträge, KdU
+// =============================================
+function BuergergeldRechner({ member, ext, onSaveErgebnis }) {
+  const u = rStyles;
+
+  // Regelsätze 2025
+  const REGELBEDARFE = {
+    "alleinstehend": 563,
+    "partner":       506,  // je Person in BG
+    "kind_0_5":      357,
+    "kind_6_13":     390,
+    "kind_14_17":    471,
+    "kind_18_24":    451,
+  };
+
+  // Vermögensfreibeträge
+  const VERMOEGEN_FB_PRO_PERSON = 15000;
+
+  // Zuverdienstfreibetrag: 100€ anrechnungsfrei, dann gestaffelt
+  const berechneEinkommensFreibetrag = (brutto) => {
+    const b = parseFloat(brutto) || 0;
+    if (b <= 100) return b; // alles frei
+    let frei = 100;
+    if (b > 100 && b <= 1000) frei += (b - 100) * 0.20;
+    else if (b > 100) frei += 900 * 0.20;
+    if (b > 1000 && b <= 1200) frei += (b - 1000) * 0.10;
+    else if (b > 1000) frei += 200 * 0.10;
+    return Math.min(frei, 302); // max. 302 € (ohne Kinder), 352 € mit Kind
+  };
+
+  // State: Haushalt
+  const [bgPersonen, setBgPersonen] = useState("1"); // alleinstehend oder Partner
+  const [hatPartner, setHatPartner] = useState(false);
+  const [kinder, setKinder] = useState(
+    ext && ext.kinder ? ext.kinder.map((k, i) => {
+      var age = 10;
+      if (k.geburt) {
+        var d = new Date(k.geburt); var h = new Date();
+        age = Math.floor((h - d) / (365.25*24*3600*1000));
+      } else if (k.alter) {
+        age = k.alter.startsWith("0") ? 3 : k.alter.startsWith("6") ? 9 : k.alter.startsWith("12") ? 15 : 19;
+      }
+      return { id: i+1, name: k.name || ("Kind " + (i+1)), alter: String(age), kindergeld: "250", uvg: k.uvg ? "ja" : "nein" };
+    }) : []
+  );
+
+  // State: Einkommen
+  const [einBrutto, setEinBrutto] = useState(ext ? String(ext.einkommenBrutto || "") : "");
+  const [einNetto, setEinNetto] = useState(ext ? String(ext.einkommenNetto || "") : "");
+  const [einPartner, setEinPartner] = useState("");
+  const [alg1, setAlg1] = useState(ext ? String(ext.alg1 || "") : "");
+  const [rente, setRente] = useState("");
+  const [weitereEink, setWeitereEink] = useState("");
+
+  // State: Wohnkosten (KdU)
+  const [mieteKalt, setMieteKalt] = useState(ext ? String(ext.mieteKalt || "") : "");
+  const [nebenkosten, setNebenkosten] = useState(ext ? String(ext.nebenkosten || "") : "");
+  const [heizkosten, setHeizkosten] = useState(ext ? String(ext.heizkosten || "") : "");
+
+  // State: Mehrbedarf
+  const [mbAlleinerziehend, setMbAlleinerziehend] = useState(false);
+  const [mbSchwanger, setMbSchwanger] = useState(false);
+  const [mbBehinderung, setMbBehinderung] = useState(false);
+
+  // State: Vermögen
+  const [vermoegen, setVermoegen] = useState(ext ? String(ext.vermoegen || "") : "");
+
+  // Ergebnis
+  const [result, setResult] = useState(null);
+  const [schritt, setSchritt] = useState(1); // 1=Haushalt, 2=Einkommen, 3=Wohnen, 4=Ergebnis
+
+  const addKind = () => setKinder(prev => [...prev, { id: Date.now(), name: "", alter: "10", kindergeld: "250", uvg: "nein" }]);
+  const removeKind = (id) => setKinder(prev => prev.filter(k => k.id !== id));
+  const updateKind = (id, field, val) => setKinder(prev => prev.map(k => k.id === id ? {...k, [field]: val} : k));
+
+  const getKindRegel = (alterStr) => {
+    const a = parseInt(alterStr) || 10;
+    if (a < 6) return REGELBEDARFE.kind_0_5;
+    if (a < 14) return REGELBEDARFE.kind_6_13;
+    if (a < 18) return REGELBEDARFE.kind_14_17;
+    return REGELBEDARFE.kind_18_24;
+  };
+
+  const berechne = () => {
+    // 1. Regelbedarf BG aufbauen
+    const rb_haupt = hatPartner ? REGELBEDARFE.partner : REGELBEDARFE.alleinstehend;
+    const rb_partner = hatPartner ? REGELBEDARFE.partner : 0;
+    const rb_kinder = kinder.reduce((sum, k) => sum + getKindRegel(k.alter), 0);
+    let rb_gesamt = rb_haupt + rb_partner + rb_kinder;
+
+    // 2. Mehrbedarf
+    let mb = 0;
+    let mb_details = [];
+    if (mbAlleinerziehend && kinder.length > 0) {
+      const proz = kinder.length >= 4 ? 0.60 : kinder.length >= 2 ? 0.36 : 0.36;
+      const mbBetrag = Math.round(rb_haupt * proz);
+      mb += mbBetrag;
+      mb_details.push({ label: "Mehrbedarf Alleinerziehend", betrag: mbBetrag });
+    }
+    if (mbSchwanger) {
+      const mbBetrag = Math.round(rb_haupt * 0.17);
+      mb += mbBetrag;
+      mb_details.push({ label: "Mehrbedarf Schwangerschaft (17%)", betrag: mbBetrag });
+    }
+    if (mbBehinderung) {
+      const mbBetrag = Math.round(rb_haupt * 0.35);
+      mb += mbBetrag;
+      mb_details.push({ label: "Mehrbedarf Schwerbehinderung (35%)", betrag: mbBetrag });
+    }
+
+    // 3. KdU (Kosten der Unterkunft) – tatsächliche Kosten, Angemessenheit nicht geprüft
+    const kduKalt = parseFloat(mieteKalt) || 0;
+    const kduNeben = parseFloat(nebenkosten) || 0;
+    const kduHeiz = parseFloat(heizkosten) || 0;
+    const kdu = kduKalt + kduNeben + kduHeiz;
+
+    // 4. Gesamtbedarf
+    const bedarf_gesamt = rb_gesamt + mb + kdu;
+
+    // 5. Einkommen anrechnen
+    const netto = parseFloat(einNetto) || 0;
+    const brutto = parseFloat(einBrutto) || netto; // falls brutto nicht angegeben
+    const freibetrag = berechneEinkommensFreibetrag(brutto);
+    const freibetragMitKind = kinder.length > 0 ? Math.min(freibetrag + 50, 352) : freibetrag;
+    const einkommenAnrechenbar = Math.max(0, netto - freibetragMitKind);
+
+    const nettoPartner = parseFloat(einPartner) || 0;
+    const freibetragPartner = hatPartner ? berechneEinkommensFreibetrag(nettoPartner) : 0;
+    const partnerAnrechenbar = hatPartner ? Math.max(0, nettoPartner - freibetragPartner) : 0;
+
+    const alg1Betrag = parseFloat(alg1) || 0;
+    const renteBetrag = parseFloat(rente) || 0;
+    const weitereEinkBetrag = parseFloat(weitereEink) || 0;
+
+    // Kindergeld wird von Kinderbedarf abgezogen
+    const kindergeldGesamt = kinder.reduce((sum, k) => sum + (parseFloat(k.kindergeld) || 0), 0);
+    const uvgGesamt = kinder.reduce((sum, k) => sum + (k.uvg === "ja" ? 0 : 0), 0); // UVG wird als Einkommen des Kindes gerechnet
+
+    const einkommenGesamt = einkommenAnrechenbar + partnerAnrechenbar + alg1Betrag + renteBetrag + weitereEinkBetrag + kindergeldGesamt;
+
+    // 6. Bürgergeld-Anspruch
+    const anspruch = Math.max(0, bedarf_gesamt - einkommenGesamt);
+    const keinAnspruch = anspruch === 0;
+
+    // 7. Vermögen prüfen
+    const anzPersonen = 1 + (hatPartner ? 1 : 0) + kinder.length;
+    const vermoegensFreigrenze = anzPersonen * VERMOEGEN_FB_PRO_PERSON;
+    const vermoegenBetrag = parseFloat(vermoegen) || 0;
+    const vermoegensUeberschuss = Math.max(0, vermoegenBetrag - vermoegensFreigrenze);
+
+    setResult({
+      rb_haupt, rb_partner, rb_kinder, rb_gesamt,
+      mb, mb_details,
+      kdu, kduKalt, kduNeben, kduHeiz,
+      bedarf_gesamt,
+      freibetrag: freibetragMitKind,
+      einkommenAnrechenbar, partnerAnrechenbar,
+      alg1Betrag, renteBetrag, weitereEinkBetrag,
+      kindergeldGesamt, einkommenGesamt,
+      anspruch, keinAnspruch,
+      vermoegenBetrag, vermoegensFreigrenze, vermoegensUeberschuss,
+    });
+    if (onSaveErgebnis) onSaveErgebnis({
+      typ: "🏛️ Bürgergeld",
+      ergebnis: keinAnspruch ? "Kein Anspruch" : anspruch.toFixed(2) + " € / Monat",
+      details: anzPersonen + " Personen, Bedarf " + bedarf_gesamt.toFixed(2) + " €"
+    });
+    setSchritt(4);
+  };
+
+  const inp = { ...u.input, marginBottom: "8px" };
+  const btnWeiter = { ...u.btnPrimary, marginTop: "8px" };
+  const btnZurueck = { background: "none", border: "none", color: "#00afad", cursor: "pointer", fontWeight: "bold", padding: 0, marginBottom: "12px", fontSize: "13px" };
+  const sectionHdr = { fontSize: "10px", fontWeight: "bold", color: "#003366", textTransform: "uppercase", backgroundColor: "#e8f0fb", borderRadius: "5px", padding: "5px 8px", marginBottom: "10px", letterSpacing: "0.5px" };
+
+  return (
+    <div>
+      <h4 style={u.modTitle}>🏛️ Bürgergeld-Rechner (SGB II)</h4>
+
+      {/* Schrittanzeige */}
+      <div style={{ display: "flex", gap: "4px", marginBottom: "16px" }}>
+        {["Haushalt", "Einkommen", "Wohnen", "Ergebnis"].map((s, i) => (
+          <div key={i} onClick={() => i < 3 && setSchritt(i+1)}
+            style={{ flex: 1, textAlign: "center", padding: "4px 2px", fontSize: "10px", fontWeight: "bold",
+              backgroundColor: schritt === i+1 ? "#003366" : schritt > i+1 ? "#00afad" : "#eee",
+              color: schritt >= i+1 ? "#fff" : "#999", borderRadius: "4px", cursor: i < 3 ? "pointer" : "default" }}>
+            {i+1}. {s}
+          </div>
+        ))}
+      </div>
+
+      {/* SCHRITT 1: Haushalt */}
+      {schritt === 1 && (
+        <div>
+          <div style={sectionHdr}>👥 Bedarfsgemeinschaft</div>
+          <label style={u.sectionLabel}>Lebensform:</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px" }}>
+            {[
+              { v: false, l: "Alleinstehend / Alleinerziehend" },
+              { v: true,  l: "Mit Partner*in in BG (unverheiratet oder verheiratet)" },
+            ].map(o => (
+              <label key={String(o.v)} style={{ display: "flex", gap: "8px", fontSize: "12px", cursor: "pointer", alignItems: "center" }}>
+                <input type="radio" checked={hatPartner === o.v} onChange={() => setHatPartner(o.v)} />
+                {o.l}
+              </label>
+            ))}
+          </div>
+
+          <label style={u.sectionLabel}>Kinder in der Bedarfsgemeinschaft:</label>
+          {kinder.map(k => (
+            <div key={k.id} style={{ backgroundColor: "#f9f9f9", borderRadius: "8px", padding: "10px", marginBottom: "8px", borderLeft: "3px solid #00afad" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <strong style={{ fontSize: "12px" }}>Kind {kinder.indexOf(k)+1}</strong>
+                <button onClick={() => removeKind(k.id)} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: "16px", lineHeight: 1 }}>×</button>
+              </div>
+              <input style={{ ...inp, marginBottom: "4px" }} placeholder="Name (optional)" value={k.name} onChange={e => updateKind(k.id, "name", e.target.value)} />
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: "10px", color: "#666" }}>Alter (Jahre):</label>
+                  <input type="number" style={inp} value={k.alter} onChange={e => updateKind(k.id, "alter", e.target.value)} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: "10px", color: "#666" }}>Kindergeld (€/Monat):</label>
+                  <input type="number" style={inp} value={k.kindergeld} onChange={e => updateKind(k.id, "kindergeld", e.target.value)} />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <label style={{ fontSize: "11px", color: "#555" }}>UVG wird bezogen:</label>
+                {["ja", "nein"].map(v => (
+                  <div key={v} onClick={() => updateKind(k.id, "uvg", v)}
+                    style={{ padding: "3px 10px", borderRadius: "6px", fontSize: "11px", cursor: "pointer",
+                      backgroundColor: k.uvg === v ? "#003366" : "#eee", color: k.uvg === v ? "#fff" : "#333" }}>{v}</div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button onClick={addKind} style={{ width: "100%", padding: "8px", backgroundColor: "#f0f4f7", border: "1px dashed #00afad", borderRadius: "8px", cursor: "pointer", fontSize: "12px", color: "#00afad", marginBottom: "10px" }}>
+            + Kind hinzufügen
+          </button>
+
+          <label style={u.sectionLabel}>Besonderer Mehrbedarf:</label>
+          {[
+            { k: "mbAlleinerziehend", set: setMbAlleinerziehend, v: mbAlleinerziehend, l: "👨‍👧 Alleinerziehend (§ 21 Abs.3 SGB II)" },
+            { k: "mbSchwanger", set: setMbSchwanger, v: mbSchwanger, l: "🤰 Schwangerschaft ab 13. SSW (17%)" },
+            { k: "mbBehinderung", set: setMbBehinderung, v: mbBehinderung, l: "♿ Schwerbehinderung (35%, § 21 Abs.4)" },
+          ].map(o => (
+            <label key={o.k} style={{ display: "flex", gap: "8px", fontSize: "12px", cursor: "pointer", alignItems: "center", marginBottom: "6px" }}>
+              <input type="checkbox" checked={o.v} onChange={e => o.set(e.target.checked)} />
+              {o.l}
+            </label>
+          ))}
+
+          <button style={btnWeiter} onClick={() => setSchritt(2)}>Weiter: Einkommen →</button>
+        </div>
+      )}
+
+      {/* SCHRITT 2: Einkommen */}
+      {schritt === 2 && (
+        <div>
+          <button style={btnZurueck} onClick={() => setSchritt(1)}>‹ Haushalt</button>
+          <div style={sectionHdr}>💼 Erwerbseinkommen & Transfers</div>
+
+          <div style={{ backgroundColor: "#fff9e6", border: "1px solid #ffeeba", borderRadius: "8px", padding: "8px 10px", marginBottom: "10px", fontSize: "11px", color: "#856404" }}>
+            💡 Freibetrag: 100 € + 20% von 100–1.000 € + 10% von 1.000–1.200 € (max. 302 €, mit Kind 352 €)
+          </div>
+
+          <label style={u.sectionLabel}>Nettoeinkommen Antragsteller*in (€):</label>
+          <input type="number" style={inp} placeholder="0" value={einNetto} onChange={e => setEinNetto(e.target.value)} />
+          <label style={u.sectionLabel}>Bruttoeinkommen (für Freibetrag, € – falls abweichend):</label>
+          <input type="number" style={inp} placeholder="Falls vorhanden" value={einBrutto} onChange={e => setEinBrutto(e.target.value)} />
+
+          {hatPartner && (
+            <>
+              <label style={u.sectionLabel}>Nettoeinkommen Partner*in (€):</label>
+              <input type="number" style={inp} placeholder="0" value={einPartner} onChange={e => setEinPartner(e.target.value)} />
+            </>
+          )}
+
+          <label style={u.sectionLabel}>ALG I (€/Monat, falls bezogen):</label>
+          <input type="number" style={inp} placeholder="0" value={alg1} onChange={e => setAlg1(e.target.value)} />
+          <label style={u.sectionLabel}>Rente / Pension (€/Monat):</label>
+          <input type="number" style={inp} placeholder="0" value={rente} onChange={e => setRente(e.target.value)} />
+          <label style={u.sectionLabel}>Weitere Einkünfte (Unterhalt, etc., €/Monat):</label>
+          <input type="number" style={inp} placeholder="0" value={weitereEink} onChange={e => setWeitereEink(e.target.value)} />
+
+          <div style={sectionHdr}>💰 Vermögen</div>
+          <div style={{ fontSize: "11px", color: "#666", marginBottom: "6px" }}>Freibetrag: 15.000 € je Person in der BG (2023+)</div>
+          <label style={u.sectionLabel}>Verwertbares Vermögen gesamt (€):</label>
+          <input type="number" style={inp} placeholder="0" value={vermoegen} onChange={e => setVermoegen(e.target.value)} />
+
+          <button style={btnWeiter} onClick={() => setSchritt(3)}>Weiter: Wohnkosten →</button>
+        </div>
+      )}
+
+      {/* SCHRITT 3: Wohnkosten */}
+      {schritt === 3 && (
+        <div>
+          <button style={btnZurueck} onClick={() => setSchritt(2)}>‹ Einkommen</button>
+          <div style={sectionHdr}>🏠 Kosten der Unterkunft (KdU)</div>
+          <div style={{ fontSize: "11px", color: "#666", marginBottom: "8px", backgroundColor: "#f0f4f7", borderRadius: "6px", padding: "8px" }}>
+            Alle tatsächlichen Kosten werden übernommen. Angemessenheit prüft das Jobcenter separat (lokale Richtwerte).
+          </div>
+
+          <label style={u.sectionLabel}>Kaltmiete (€/Monat):</label>
+          <input type="number" style={inp} placeholder="0" value={mieteKalt} onChange={e => setMieteKalt(e.target.value)} />
+          <label style={u.sectionLabel}>Nebenkosten ohne Heizung (€/Monat):</label>
+          <input type="number" style={inp} placeholder="0" value={nebenkosten} onChange={e => setNebenkosten(e.target.value)} />
+          <label style={u.sectionLabel}>Heizkosten (€/Monat):</label>
+          <input type="number" style={inp} placeholder="0" value={heizkosten} onChange={e => setHeizkosten(e.target.value)} />
+
+          <div style={{ backgroundColor: "#e8f4fd", border: "1px solid #bee5f8", borderRadius: "8px", padding: "10px", marginBottom: "12px", fontSize: "12px" }}>
+            <strong>KdU gesamt: {((parseFloat(mieteKalt)||0)+(parseFloat(nebenkosten)||0)+(parseFloat(heizkosten)||0)).toFixed(2)} €/Monat</strong>
+          </div>
+
+          <button style={btnWeiter} onClick={berechne}>🧮 Jetzt berechnen</button>
+        </div>
+      )}
+
+      {/* SCHRITT 4: Ergebnis */}
+      {schritt === 4 && result && (
+        <div>
+          <button style={btnZurueck} onClick={() => setSchritt(3)}>‹ Wohnkosten</button>
+
+          {result.vermoegensUeberschuss > 0 && (
+            <div style={{ ...u.warnung, marginBottom: "10px" }}>
+              ⚠️ Vermögen ({result.vermoegenBetrag.toFixed(2)} €) übersteigt Freibetrag ({result.vermoegensFreigrenze.toFixed(2)} €) um {result.vermoegensUeberschuss.toFixed(2)} €. Kein Anspruch bis Vermögen aufgebraucht!
+            </div>
+          )}
+
+          <div style={u.resultBox}>
+            {/* Bedarf */}
+            <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", textTransform: "uppercase", marginBottom: "6px" }}>Gesamtbedarf:</div>
+            <div style={u.calcStep}><span>Regelbedarf (Alleinstehend/BG):</span><span>{result.rb_haupt} €</span></div>
+            {result.rb_partner > 0 && <div style={u.calcStep}><span>+ Regelbedarf Partner*in:</span><span>{result.rb_partner} €</span></div>}
+            {result.rb_kinder > 0 && <div style={u.calcStep}><span>+ Kindregelbedarfe ({kinder.length} Kinder):</span><span>{result.rb_kinder} €</span></div>}
+            {result.mb > 0 && (
+              <>
+                {result.mb_details.map((d, i) => (
+                  <div key={i} style={u.calcStep}><span>+ {d.label}:</span><span>{d.betrag} €</span></div>
+                ))}
+              </>
+            )}
+            <div style={u.calcStep}><span>+ KdU (Kaltmiete + NK + Heizung):</span><span>{result.kdu.toFixed(2)} €</span></div>
+            <div style={{ ...u.calcStep, fontWeight: "bold", borderTop: "1px solid #ddd", paddingTop: "4px", marginTop: "4px", marginBottom: "10px" }}>
+              <span>Gesamtbedarf:</span><span>{result.bedarf_gesamt.toFixed(2)} €</span>
+            </div>
+
+            {/* Einkommen */}
+            <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", textTransform: "uppercase", marginBottom: "6px" }}>Anrechenbares Einkommen:</div>
+            {(parseFloat(einNetto)||0) > 0 && (
+              <>
+                <div style={u.calcStep}><span>Nettoeinkommen:</span><span>{(parseFloat(einNetto)||0).toFixed(2)} €</span></div>
+                <div style={u.calcStep}><span>– Freibetrag:</span><span>– {result.freibetrag.toFixed(2)} €</span></div>
+                <div style={{ ...u.calcStep, marginBottom: "4px" }}><span>= Anrechenbar:</span><span style={{ fontWeight: "bold" }}>{result.einkommenAnrechenbar.toFixed(2)} €</span></div>
+              </>
+            )}
+            {result.partnerAnrechenbar > 0 && <div style={u.calcStep}><span>+ Einkommen Partner*in (netto zzgl. Freibetrag):</span><span>{result.partnerAnrechenbar.toFixed(2)} €</span></div>}
+            {result.alg1Betrag > 0 && <div style={u.calcStep}><span>+ ALG I:</span><span>{result.alg1Betrag.toFixed(2)} €</span></div>}
+            {result.renteBetrag > 0 && <div style={u.calcStep}><span>+ Rente:</span><span>{result.renteBetrag.toFixed(2)} €</span></div>}
+            {result.weitereEinkBetrag > 0 && <div style={u.calcStep}><span>+ Weitere Einkünfte:</span><span>{result.weitereEinkBetrag.toFixed(2)} €</span></div>}
+            {result.kindergeldGesamt > 0 && <div style={u.calcStep}><span>+ Kindergeld:</span><span>{result.kindergeldGesamt.toFixed(2)} €</span></div>}
+            <div style={{ ...u.calcStep, fontWeight: "bold", borderTop: "1px solid #ddd", paddingTop: "4px", marginTop: "4px", marginBottom: "10px" }}>
+              <span>Einkommen anrechenbar gesamt:</span><span>{result.einkommenGesamt.toFixed(2)} €</span>
+            </div>
+
+            {/* Ergebnis */}
+            <div style={u.compositionBox}>
+              <div style={{ ...u.resRow, fontWeight: "bold", fontSize: "16px", borderTop: "2px solid #003366", paddingTop: "5px" }}>
+                <span>Bürgergeld-Anspruch ca.:</span>
+                <span style={{ color: result.keinAnspruch ? "#e53935" : "#00afad" }}>
+                  {result.keinAnspruch ? "Kein Anspruch" : result.anspruch.toFixed(2) + " €/Monat"}
+                </span>
+              </div>
+            </div>
+
+            {result.keinAnspruch && (
+              <div style={{ fontSize: "11px", color: "#666", marginTop: "6px" }}>
+                Einkommen ({result.einkommenGesamt.toFixed(2)} €) deckt den Bedarf ({result.bedarf_gesamt.toFixed(2)} €) vollständig.
+              </div>
+            )}
+
+            <div style={{ ...u.infoBox, marginTop: "10px", fontSize: "10px" }}>
+              ⚠️ Orientierungsberechnung nach SGB II. Keine Rechtsberatung. Tatsächlicher Anspruch durch das Jobcenter geprüft. Angemessenheit der KdU nach lokalen Richtwerten.
+            </div>
+            <div style={{ ...u.infoBox, marginTop: "6px", color: "#0a4a0a", backgroundColor: "#e8f5e9", borderColor: "#a5d6a7" }}>
+              ✅ Ergebnis in der Akte gespeichert.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // =============================================
 // BERECHNUNG MIT DATEN – Rechner vorausgefüllt
@@ -1696,6 +2094,10 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis }
     </div>
   );
 
+  if (rechner === "buergergeld") return (
+    <BuergergeldRechner member={member} ext={ext} onSaveErgebnis={onSaveErgebnis} />
+  );
+
   if (rechner === "wohngeld") return (
     <div>
       <h4 style={u.modTitle}>🏡 Wohngeld (WoGG)</h4>
@@ -1935,6 +2337,8 @@ function App() {
   const [openEingangMenuId, setOpenEingangMenuId] = useState(null);
   const [eingangDatenTransferDialog, setEingangDatenTransferDialog] = useState(null);
   const [versandFelder, setVersandFelder] = useState(null);
+  const [neueNotizText, setNeueNotizText] = useState("");
+  const [versandSuchtext, setVersandSuchtext] = useState("");
   const [editMemberMode, setEditMemberMode] = useState(false);
   const [editMemberDaten, setEditMemberDaten] = useState({});
   const [terminTyp, setTerminTyp] = useState("beratung");
@@ -2788,22 +3192,58 @@ function App() {
               </div>
             )}
 
-            {/* Notizfeld */}
-            <div style={{ marginTop:"14px" }}>
-              <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>
-                📋 Interne Notizen (nur für Leiter*in sichtbar)
-              </div>
-              <textarea
-                style={{ width:"100%", padding:"10px", border:"1px solid #ddd", borderRadius:"8px", fontSize:"13px", boxSizing:"border-box", height:"80px", fontFamily:"inherit" }}
-                placeholder="Interne Notizen, nächste Schritte, Hinweise..."
-                value={(memberExtras[activeMember.id] && memberExtras[activeMember.id].notizen) || ""}
-                onChange={function(e) {
-                  var mid = activeMember.id;
-                  var val = e.target.value;
-                  setMemberExtras(function(prev) { return Object.assign({}, prev, { [mid]: Object.assign({}, prev[mid]||{}, { notizen: val }) }); });
-                }}
-              />
-            </div>
+            {/* Notiz-Verlauf mit Zeitstempel */}
+            {activeMember && (function() {
+              var mid = activeMember.id;
+              var ext2 = memberExtras[mid] || {};
+              var verlauf = ext2.notizenVerlauf || (ext2.notizen ? [{ text: ext2.notizen, datum: "–", autor: "" }] : []);
+              var addNotiz = function() {
+                if (!neueNotizText.trim()) return;
+                var jetzt = new Date().toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+                var eintrag = { text: neueNotizText.trim(), datum: jetzt, autor: loginDaten.leiter || "" };
+                var neuerVerlauf = [eintrag, ...verlauf];
+                setMemberExtras(function(prev) { return Object.assign({}, prev, { [mid]: Object.assign({}, prev[mid]||{}, { notizenVerlauf: neuerVerlauf, notizen: neueNotizText.trim() }) }); });
+                setNeueNotizText("");
+              };
+              return (
+                <div style={{ marginTop:"14px" }}>
+                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>
+                    📋 Interne Notizen (nur für Leiter*in sichtbar)
+                  </div>
+                  <textarea
+                    style={{ width:"100%", padding:"10px", border:"1px solid #ddd", borderRadius:"8px", fontSize:"13px", boxSizing:"border-box", height:"70px", fontFamily:"inherit" }}
+                    placeholder="Neue Notiz eingeben..."
+                    value={neueNotizText}
+                    onChange={function(e) { setNeueNotizText(e.target.value); }}
+                    onKeyDown={function(e) { if (e.key === "Enter" && e.ctrlKey) { e.preventDefault(); addNotiz(); } }}
+                  />
+                  <button onClick={addNotiz} disabled={!neueNotizText.trim()}
+                    style={{ width:"100%", padding:"8px", backgroundColor: neueNotizText.trim() ? "#003366" : "#ccc", color:"#fff", border:"none", borderRadius:"7px", cursor: neueNotizText.trim() ? "pointer" : "default", fontWeight:"bold", fontSize:"12px", marginBottom:"10px" }}>
+                    + Notiz hinzufügen (oder Strg+Enter)
+                  </button>
+                  {verlauf.length > 0 && verlauf.map(function(n, i) {
+                    return (
+                      <div key={i} style={{ backgroundColor: i===0 ? "#f0f4f7" : "#f9f9f9", borderRadius:"8px", padding:"8px 10px", marginBottom:"6px", borderLeft:"3px solid " + (i===0 ? "#003366" : "#ddd") }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"3px" }}>
+                          <span style={{ fontSize:"10px", color:"#888" }}>
+                            🕐 {n.datum}{n.autor ? " · " + n.autor : ""}
+                            {i===0 && <span style={{ marginLeft:"6px", backgroundColor:"#003366", color:"#fff", borderRadius:"3px", padding:"1px 5px", fontSize:"9px" }}>Aktuell</span>}
+                          </span>
+                          <button onClick={function() {
+                            var neuerVerlauf2 = verlauf.filter(function(_, j) { return j !== i; });
+                            setMemberExtras(function(prev) { return Object.assign({}, prev, { [mid]: Object.assign({}, prev[mid]||{}, { notizenVerlauf: neuerVerlauf2, notizen: neuerVerlauf2.length > 0 ? neuerVerlauf2[0].text : "" }) }); });
+                          }} style={{ background:"none", border:"none", color:"#ccc", cursor:"pointer", fontSize:"14px", padding:0, lineHeight:1 }}>×</button>
+                        </div>
+                        <div style={{ fontSize:"12px", color:"#333", whiteSpace:"pre-wrap" }}>{n.text}</div>
+                      </div>
+                    );
+                  })}
+                  {verlauf.length === 0 && (
+                    <div style={{ fontSize:"11px", color:"#aaa", textAlign:"center", padding:"10px" }}>Noch keine Notizen vorhanden.</div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           );
         })()}
@@ -2900,10 +3340,11 @@ function App() {
                 <button onClick={() => { setBerechnungKategorie(null); setOpenRechnerMenuId(null); }} style={{ background:"none", border:"none", color:"#00afad", cursor:"pointer", fontWeight:"bold", marginBottom:"10px", padding:0 }}>‹ Kategorien</button>
                 <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", marginBottom:"8px" }}>🏛️ Sozialrecht</div>
                 {[
+                  { id:"buergergeld",        label:"🏛️ Bürgergeld",                 desc:"SGB II – Bedarf, Freibeträge, KdU" },
                   { id:"mbAlleinerziehende", label:"👨‍👧 Mehrbedarf Alleinerziehende", desc:"§ 21 Abs.3 SGB II" },
-                  { id:"mbUmgang", label:"🚗 Mehrbedarf Umgangskosten", desc:"§ 21 SGB II" },
-                  { id:"tbg", label:"🏠 Temp. Bedarfsgemeinschaft", desc:"SGB II" },
-                  { id:"wohngeld", label:"🏡 Wohngeld", desc:"WoGG" },
+                  { id:"mbUmgang",           label:"🚗 Mehrbedarf Umgangskosten",    desc:"§ 21 SGB II" },
+                  { id:"tbg",                label:"🏠 Temp. Bedarfsgemeinschaft",   desc:"SGB II" },
+                  { id:"wohngeld",           label:"🏡 Wohngeld",                    desc:"WoGG" },
                 ].map(r => (
                   <div key={r.id} style={{ position:"relative", marginBottom:"8px" }}>
                     <div style={{ padding:"12px", backgroundColor:"#f9f9f9", borderRadius:"8px", borderLeft:"4px solid #00afad", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -3180,8 +3621,35 @@ function App() {
                   ) : (
                     <div>
                       <div style={{ fontSize:"11px", color:"#856404", backgroundColor:"#fff9e6", border:"1px solid #ffeeba", borderRadius:"8px", padding:"10px", marginBottom:"8px" }}>
-                        ⚠️ Kein Mitglied automatisch erkannt (E-Mail / Name stimmt nicht überein). Bitte manuell zuordnen:
+                        ⚠️ Kein Mitglied automatisch erkannt (E-Mail / Name stimmt nicht überein). Bitte manuell zuordnen oder neu anlegen:
                       </div>
+                      {(function() {
+                        var fd2 = aktivesEingangFormular.felder;
+                        var nameTeile = (aktivesEingangFormular.name || "").trim().split(" ");
+                        var vorname2 = fd2.vorname || (nameTeile.length > 1 ? nameTeile.slice(0,-1).join(" ") : nameTeile[0] || "");
+                        var nachname2 = fd2.name || (nameTeile.length > 1 ? nameTeile[nameTeile.length-1] : "");
+                        return (
+                          <button onClick={function() {
+                            var neueId = "m" + Date.now();
+                            var neuesMitglied2 = {
+                              id: neueId,
+                              vorname: vorname2,
+                              name: nachname2,
+                              tel: fd2.tel || fd2.bgTel || "",
+                              mail: fd2.mail || fd2.bgMail || aktivesEingangFormular.absender || "",
+                              strasse: fd2.strasse || fd2.bgStrasse || "",
+                              plz: fd2.plz || fd2.bgPlz || "",
+                              ort: fd2.ort || fd2.bgOrt || "",
+                            };
+                            setMembers(function(prev) { var next=[...prev,neuesMitglied2]; try{localStorage.setItem("isuv_members",JSON.stringify(next));}catch(e){} return next; });
+                            doTransfer(neuesMitglied2);
+                          }}
+                            style={{ width:"100%", padding:"11px 14px", backgroundColor:"#00afad", color:"#fff", border:"none", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+                            <span>➕ Als neues Mitglied anlegen & Daten übertragen</span>
+                            <span style={{ fontSize:"11px", opacity:0.85 }}>→ Akte öffnen</span>
+                          </button>
+                        );
+                      })()}
                       {members.map(function(m) {
                         return (
                           <button key={m.id} onClick={function() { doTransfer(m); }}
@@ -4068,15 +4536,57 @@ function App() {
                   <div style={{ width:"36px", height:"36px", backgroundColor:"#003366", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:"bold", fontSize:"13px", flexShrink:0 }}>
                     {formularVersandDialogNeu.member.vorname[0]}{formularVersandDialogNeu.member.name[0]}
                   </div>
-                  <div>
+                  <div style={{ flex:1 }}>
                     <div style={{ fontWeight:"bold", fontSize:"13px" }}>{formularVersandDialogNeu.member.name}, {formularVersandDialogNeu.member.vorname}</div>
                     <div style={{ fontSize:"11px", color:"#666" }}>
                       {formularVersandDialogNeu.member.mail && <span>✉️ {formularVersandDialogNeu.member.mail}</span>}
                       {formularVersandDialogNeu.member.tel && <span style={{ marginLeft:"8px" }}>📱 {formularVersandDialogNeu.member.tel}</span>}
                     </div>
                   </div>
+                  <button onClick={() => setFormularVersandDialogNeu(p => ({...p, member: null}))}
+                    style={{ background:"none", border:"none", color:"#999", cursor:"pointer", fontSize:"12px", padding:"2px 6px" }}>🔄</button>
                 </div>
               )}
+
+              {!formularVersandDialogNeu.member && (function() {
+                var gefunden = members.filter(function(m) {
+                  if (!versandSuchtext.trim()) return true;
+                  var q = versandSuchtext.toLowerCase();
+                  return (m.name + " " + m.vorname).toLowerCase().includes(q) ||
+                    (m.mail || "").toLowerCase().includes(q) ||
+                    (m.tel || "").includes(q) ||
+                    (m.ort || "").toLowerCase().includes(q);
+                });
+                return (
+                  <div style={{ marginBottom:"14px" }}>
+                    <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", marginBottom:"6px", textTransform:"uppercase", letterSpacing:"0.5px" }}>Mitglied auswählen:</div>
+                    <input
+                      style={{ width:"100%", padding:"9px 11px", border:"1px solid #ddd", borderRadius:"8px", fontSize:"13px", boxSizing:"border-box", marginBottom:"8px" }}
+                      placeholder="🔍 Name, E-Mail, Telefon, Ort..."
+                      value={versandSuchtext}
+                      onChange={e => setVersandSuchtext(e.target.value)}
+                      autoFocus
+                    />
+                    <div style={{ maxHeight:"160px", overflowY:"auto" }}>
+                      {gefunden.map(function(m) {
+                        return (
+                          <div key={m.id} onClick={() => { setFormularVersandDialogNeu(p => ({...p, member: m})); setVersandSuchtext(""); }}
+                            style={{ padding:"9px 12px", borderRadius:"8px", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"4px", backgroundColor:"#f9f9f9", border:"1px solid #eee" }}>
+                            <div>
+                              <div style={{ fontWeight:"bold", fontSize:"13px" }}>{m.name}, {m.vorname}</div>
+                              <div style={{ fontSize:"11px", color:"#888" }}>{m.mail}{m.ort ? " · " + m.ort : ""}</div>
+                            </div>
+                            <span style={{ color:"#003366", fontWeight:"bold" }}>›</span>
+                          </div>
+                        );
+                      })}
+                      {gefunden.length === 0 && (
+                        <div style={{ fontSize:"12px", color:"#aaa", textAlign:"center", padding:"12px" }}>Keine Mitglieder gefunden.</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.5px" }}>Formular auswählen:</div>
               <div style={{ display:"flex", flexDirection:"column", gap:"6px", marginBottom:"16px" }}>
