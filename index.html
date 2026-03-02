@@ -2007,7 +2007,9 @@ function App() {
     try { localStorage.setItem("isuv_pinned", JSON.stringify(pinnedIds)); } catch(e) {}
   }, [pinnedIds]);
 
-  const [memberExtras, setMemberExtras] = useState({
+  // FIX 1: memberExtras wird jetzt aus localStorage geladen und bei Änderungen gespeichert.
+  // Demo-Daten dienen nur als Fallback wenn noch keine gespeicherten Daten existieren.
+  const defaultMemberExtras = {
     1: {
       familienstand: "getrennt lebend", alleinerziehend: true,
       betreuungsmodell: "Residenzmodell (beide Kinder bei Mutter)",
@@ -2058,7 +2060,19 @@ function App() {
       unterhaltsTitel: true, unterhaltBetrag: 522,
       notizen: "Berlin Mietenstufe V. Unterhalt tituliert und regelmaessig gezahlt."
     }
+  };
+  const [memberExtras, setMemberExtras] = useState(() => {
+    try {
+      const saved = localStorage.getItem("isuv_extras");
+      if (saved) return JSON.parse(saved);
+    } catch(e) {}
+    return defaultMemberExtras;
   });
+  // memberExtras persistent speichern (FIX 1)
+  useEffect(() => {
+    try { localStorage.setItem("isuv_extras", JSON.stringify(memberExtras)); } catch(e) {}
+  }, [memberExtras]);
+
   const [memberErgebnisse, setMemberErgebnisse] = useState({});
   const [showMehrDaten, setShowMehrDaten] = useState(false);
   const [showNeuesMitglied, setShowNeuesMitglied] = useState(false);
@@ -2242,20 +2256,11 @@ function App() {
         name: r.mitglied_name || "Unbekannt",
         felder: JSON.parse(r.antwort_daten || "{}")
       }));
-      var neuF=data.map(function(r){return{id:r.id,datum:r.beantwortet_am?new Date(r.beantwortet_am).toLocaleString("de-DE"):"",typ:r.label||r.typ||"Formular",absender:r.mitglied_mail||"",name:r.mitglied_name||"",felder:JSON.parse(r.antwort_daten||"{}")};}); sbAutoTransfer(neuF,members);
-      // Bestätigungs-WA für neue Eingänge
-      if(loginDaten.whatsapp) {
-        var bekannteIds = new Set(eingangFormulare.map(function(x){return x.id;}));
-        neuF.forEach(function(f){
-          if(!bekannteIds.has(f.id) && f.felder && f.felder.tel) {
-            var tel=(f.felder.tel||f.felder.bgTel||"").replace(/[^0-9]/g,"").replace(/^0/,"49");
-            if(tel) {
-              var bestaetigung="Hallo"+(f.felder.vorname?" "+f.felder.vorname:f.felder.bgVorname?" "+f.felder.bgVorname:"")+",\n\nvielen Dank! Ihr ausgefuellter Fragebogen (\""+f.typ+"\") ist bei uns eingegangen und wird bearbeitet.\n\n"+(loginDaten.leiter||"ISUV")+(loginDaten.ort?" - "+loginDaten.ort:"");
-              window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(bestaetigung));
-            }
-          }
-        });
-      }
+      const neuF=rows.map(function(r){return{id:r.id,datum:r.beantwortet_am?new Date(r.beantwortet_am).toLocaleString("de-DE"):"",typ:r.label||r.typ||"Formular",absender:r.mitglied_mail||"",name:r.mitglied_name||"",felder:JSON.parse(r.antwort_daten||"{}")};}); sbAutoTransfer(neuF,members);
+      // FIX 3: WA-Bestätigungen werden NICHT mehr automatisch beim Polling geöffnet.
+      // Popup-Blocker würde das unterdrücken; bei mehreren neuen Eingängen würden mehrere Tabs aufgehen.
+      // Stattdessen: neue Eingänge werden im neuF-Array gesammelt und können manuell bestätigt werden.
+      // (WA-Bestätigungsbutton im Eingang-Detail-View verfügbar)
       setEingangFormulare(prev => {
         const existIds = new Set(prev.map(x => x.id));
         const wirklichNeu = neu.filter(x => !existIds.has(x.id) && !geloeschteEingangIds.has(x.id));
