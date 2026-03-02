@@ -1219,6 +1219,7 @@ function RechnerReiter() {
     { id: "nachehelich", label: "💍 Nachehelicher Unterhalt" },
   ];
   const sozialUnterkategorien = [
+    { id: "buergergeld", label: "🏛️ Bürgergeld (SGB II)", desc: "Bedarf, Freibeträge, KdU, Vermögen" },
     { id: "betreuung", label: "👨‍👧 Betreuungs- / Umgangskosten", desc: "Mehrbedarf Alleinerziehende, Umgangskosten, TBG" },
     { id: "wohngeld", label: "🏡 Wohngeld", desc: "Wohngeldberechnung nach WoGG" },
   ];
@@ -1244,6 +1245,7 @@ function RechnerReiter() {
         {aktiverRechner === "mbAlleinerziehende" && <MehrbedarfAlleinerziehende />}
         {aktiverRechner === "mbUmgang" && <MehrbedarfUmgangskosten />}
         {aktiverRechner === "tbg" && <TemporaereBedarfsgemeinschaft />}
+        {aktiverRechner === "buergergeld" && <BuergergeldRechnerStandalone />}
         {aktiverRechner === "wohngeld" && <WohngeldRechner />}
       </div>
     );
@@ -1269,7 +1271,7 @@ function RechnerReiter() {
       <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", marginBottom: "8px", textTransform: "uppercase" }}>🏛️ Sozialrecht – Bereich wählen:</div>
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         {sozialUnterkategorien.map(u => (
-          <div key={u.id} onClick={() => { if (u.id === "wohngeld") setAktivenRechner("wohngeld"); else setUnterkategorie(u.id); }} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div key={u.id} onClick={() => { if (u.id === "wohngeld" || u.id === "buergergeld") setAktivenRechner(u.id); else setUnterkategorie(u.id); }} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div><strong style={{ fontSize: "13px" }}>{u.label}</strong><div style={{ fontSize: "10px", color: "#999", marginTop: "2px" }}>{u.desc}</div></div>
             <span style={{ color: "#00afad", marginLeft: "8px" }}>›</span>
           </div>
@@ -1311,39 +1313,29 @@ function RechnerReiter() {
 
 
 // =============================================
-// BÜRGERGELD-RECHNER (SGB II) – Stand 2025
+// BUERGERGELD-RECHNER (SGB II) – Stand 2025
 // =============================================
-function BuergergeldRechner({ ext, onSaveErgebnis }) {
-  const u = rStyles;
-  const REGEL = { allein:563, partner:506, k_0_5:357, k_6_13:390, k_14_17:471, k_18:451 };
-  const FB_PRO_PERSON = 15000;
-
-  const getKindRegel = (a) => {
-    var age = parseInt(a)||10;
-    return age<6?REGEL.k_0_5:age<14?REGEL.k_6_13:age<18?REGEL.k_14_17:REGEL.k_18;
-  };
-  const calcFreibetrag = (brutto, hatKinder) => {
-    var b = parseFloat(brutto)||0;
-    if(b<=100) return b;
-    var f=100;
-    if(b>100) f+=(Math.min(b,1000)-100)*0.20;
-    if(b>1000) f+=(Math.min(b,1200)-1000)*0.10;
-    return Math.min(f, hatKinder?352:302);
-  };
-
-  var initKinder = ext&&ext.kinder ? ext.kinder.map(function(k,i){
+function BuergergeldRechnerCore({ ext, onSaveErgebnis }) {
+  var u = rStyles;
+  var REGEL = { allein:563, partner:506, k05:357, k613:390, k1417:471, k18:451 };
+  function getKR(a) { var age=parseInt(a)||10; return age<6?REGEL.k05:age<14?REGEL.k613:age<18?REGEL.k1417:REGEL.k18; }
+  function calcFB(brutto, hatK) {
+    var b=parseFloat(brutto)||0; if(b<=100) return b;
+    var f=100; if(b>100) f+=(Math.min(b,1000)-100)*0.20; if(b>1000) f+=(Math.min(b,1200)-1000)*0.10;
+    return Math.min(f, hatK?352:302);
+  }
+  var initK = (ext&&ext.kinder) ? ext.kinder.map(function(k,i){
     var age=10;
     if(k.geburt){var d=new Date(k.geburt);age=Math.floor((new Date()-d)/(365.25*24*3600*1000));}
-    else if(k.alter){age=k.alter.startsWith("0")?3:k.alter.startsWith("6")?9:k.alter.startsWith("12")?15:19;}
-    return {id:i+1,name:k.name||("Kind "+(i+1)),alter:String(age),kindergeld:"250",uvg:k.uvg?"ja":"nein"};
+    return {id:i+1,name:k.name||("Kind "+(i+1)),alter:String(age),kg:"250",uvg:k.uvg?"ja":"nein"};
   }) : [];
 
   const [schritt, setSchritt] = React.useState(1);
   const [hatPartner, setHatPartner] = React.useState(false);
-  const [kinder, setKinder] = React.useState(initKinder);
-  const [mbAlleinerz, setMbAlleinerz] = React.useState(false);
-  const [mbSchwanger, setMbSchwanger] = React.useState(false);
-  const [mbBehinderung, setMbBehinderung] = React.useState(false);
+  const [kinder, setKinder] = React.useState(initK);
+  const [mbA, setMbA] = React.useState(false);
+  const [mbS, setMbS] = React.useState(false);
+  const [mbB, setMbB] = React.useState(false);
   const [einNetto, setEinNetto] = React.useState(ext?String(ext.einkommenNetto||""):"");
   const [einBrutto, setEinBrutto] = React.useState(ext?String(ext.einkommenBrutto||""):"");
   const [einPartner, setEinPartner] = React.useState("");
@@ -1351,179 +1343,167 @@ function BuergergeldRechner({ ext, onSaveErgebnis }) {
   const [rente, setRente] = React.useState("");
   const [weitereEink, setWeitereEink] = React.useState("");
   const [vermoegen, setVermoegen] = React.useState("");
-  const [mieteKalt, setMieteKalt] = React.useState(ext?String(ext.mieteKalt||ext.mieteWarm||""):"");
+  const [mieteKalt, setMieteKalt] = React.useState(ext?String(ext.mieteKalt||""):"");
   const [nebenkosten, setNebenkosten] = React.useState(ext?String(ext.nebenkosten||""):"");
   const [heizkosten, setHeizkosten] = React.useState(ext?String(ext.heizkosten||""):"");
   const [result, setResult] = React.useState(null);
 
-  const addKind = () => setKinder(function(p){return [...p,{id:Date.now(),name:"",alter:"10",kindergeld:"250",uvg:"nein"}];});
-  const removeKind = (id) => setKinder(function(p){return p.filter(function(k){return k.id!==id;});});
-  const updKind = (id,f,v) => setKinder(function(p){return p.map(function(k){return k.id===id?Object.assign({},k,{[f]:v}):k;});});
+  function addK() { setKinder(function(p){return [...p,{id:Date.now(),name:"",alter:"10",kg:"250",uvg:"nein"}];}); }
+  function remK(id) { setKinder(function(p){return p.filter(function(k){return k.id!==id;});}); }
+  function updK(id,f,v) { setKinder(function(p){return p.map(function(k){return k.id===id?Object.assign({},k,{[f]:v}):k;});}); }
 
-  const berechne = () => {
-    var rb_h = hatPartner?REGEL.partner:REGEL.allein;
-    var rb_p = hatPartner?REGEL.partner:0;
-    var rb_k = kinder.reduce(function(s,k){return s+getKindRegel(k.alter);},0);
-    var rb = rb_h+rb_p+rb_k;
-    var mb=0, mb_d=[];
-    if(mbAlleinerz&&kinder.length>0){var b=Math.round(rb_h*0.36);mb+=b;mb_d.push({l:"Mehrbedarf Alleinerziehend (36%)",b:b});}
-    if(mbSchwanger){var b=Math.round(rb_h*0.17);mb+=b;mb_d.push({l:"Mehrbedarf Schwangerschaft (17%)",b:b});}
-    if(mbBehinderung){var b=Math.round(rb_h*0.35);mb+=b;mb_d.push({l:"Mehrbedarf Schwerbehinderung (35%)",b:b});}
-    var kduKalt=parseFloat(mieteKalt)||0,kduNeb=parseFloat(nebenkosten)||0,kduHeiz=parseFloat(heizkosten)||0;
-    var kdu=kduKalt+kduNeb+kduHeiz;
+  function berechne() {
+    var rbH=hatPartner?REGEL.partner:REGEL.allein, rbP=hatPartner?REGEL.partner:0;
+    var rbK=kinder.reduce(function(s,k){return s+getKR(k.alter);},0);
+    var rb=rbH+rbP+rbK, mb=0, mbD=[];
+    if(mbA&&kinder.length>0){var bA=Math.round(rbH*0.36);mb+=bA;mbD.push({l:"Mehrbedarf Alleinerziehend (36%)",b:bA});}
+    if(mbS){var bS=Math.round(rbH*0.17);mb+=bS;mbD.push({l:"Mehrbedarf Schwangerschaft (17%)",b:bS});}
+    if(mbB){var bB=Math.round(rbH*0.35);mb+=bB;mbD.push({l:"Mehrbedarf Schwerbehinderung (35%)",b:bB});}
+    var kduK=parseFloat(mieteKalt)||0,kduN=parseFloat(nebenkosten)||0,kduH=parseFloat(heizkosten)||0,kdu=kduK+kduN+kduH;
     var bedarf=rb+mb+kdu;
-    var netto=parseFloat(einNetto)||0;
-    var brutto=parseFloat(einBrutto)||netto;
-    var fb=calcFreibetrag(brutto,kinder.length>0);
-    var einAnr=Math.max(0,netto-fb);
-    var nPartner=parseFloat(einPartner)||0;
-    var fbP=hatPartner?calcFreibetrag(nPartner,false):0;
-    var pAnr=hatPartner?Math.max(0,nPartner-fbP):0;
-    var alg1B=parseFloat(alg1)||0,rentB=parseFloat(rente)||0,wEink=parseFloat(weitereEink)||0;
-    var kg=kinder.reduce(function(s,k){return s+(parseFloat(k.kindergeld)||0);},0);
-    var einGes=einAnr+pAnr+alg1B+rentB+wEink+kg;
+    var netto=parseFloat(einNetto)||0, brutto=parseFloat(einBrutto)||netto;
+    var fb=calcFB(brutto,kinder.length>0), einAnr=Math.max(0,netto-fb);
+    var nP=parseFloat(einPartner)||0, pAnr=hatPartner?Math.max(0,nP-calcFB(nP,false)):0;
+    var a1=parseFloat(alg1)||0, ren=parseFloat(rente)||0, we=parseFloat(weitereEink)||0;
+    var kg=kinder.reduce(function(s,k){return s+(parseFloat(k.kg)||0);},0);
+    var einGes=einAnr+pAnr+a1+ren+we+kg;
     var anspruch=Math.max(0,bedarf-einGes);
-    var anzP=1+(hatPartner?1:0)+kinder.length;
-    var vFreig=anzP*FB_PRO_PERSON;
-    var vBetrag=parseFloat(vermoegen)||0;
-    var vUeber=Math.max(0,vBetrag-vFreig);
-    var res={rb_h,rb_p,rb_k,rb,mb,mb_d,kdu,kduKalt,kduNeb,kduHeiz,bedarf,fb,einAnr,pAnr,alg1B,rentB,wEink,kg,einGes,anspruch,kein:anspruch===0,vBetrag,vFreig,vUeber};
+    var anzP=1+(hatPartner?1:0)+kinder.length, vFreig=anzP*15000, vB=parseFloat(vermoegen)||0;
+    var res={rbH,rbP,rbK,rb,mb,mbD,kdu,bedarf,fb,einAnr,pAnr,a1,ren,we,kg,einGes,anspruch,kein:anspruch===0,vB,vFreig,vUeber:Math.max(0,vB-vFreig)};
     setResult(res);
-    if(onSaveErgebnis) onSaveErgebnis({typ:"🏛️ Bürgergeld",ergebnis:anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" € / Monat",details:anzP+" Personen, Bedarf "+bedarf.toFixed(2)+" €"});
+    if(onSaveErgebnis) onSaveErgebnis({typ:"Buergergeld",ergebnis:anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" EUR/Monat",details:anzP+" Personen, Bedarf "+bedarf.toFixed(2)+" EUR"});
     setSchritt(4);
-  };
+  }
 
   var inp={...u.input,marginBottom:"8px"};
-  var sHdr={fontSize:"10px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",backgroundColor:"#e8f0fb",borderRadius:"5px",padding:"5px 8px",marginBottom:"10px",letterSpacing:"0.5px"};
-  var btnW={...u.btnPrimary,marginTop:"8px"};
+  var sH={fontSize:"10px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",backgroundColor:"#e8f0fb",borderRadius:"5px",padding:"5px 8px",marginBottom:"10px",letterSpacing:"0.5px"};
   var btnZ={background:"none",border:"none",color:"#00afad",cursor:"pointer",fontWeight:"bold",padding:0,marginBottom:"12px",fontSize:"13px"};
 
   return (
     <div>
-      <h4 style={u.modTitle}>🏛️ Bürgergeld-Rechner (SGB II)</h4>
+      <h4 style={u.modTitle}>Buergergeld-Rechner (SGB II)</h4>
       <div style={{display:"flex",gap:"4px",marginBottom:"16px"}}>
         {["1. Haushalt","2. Einkommen","3. Wohnen","4. Ergebnis"].map(function(s,i){
-          return <div key={i} onClick={function(){if(i<3)setSchritt(i+1);}} style={{flex:1,textAlign:"center",padding:"4px 2px",fontSize:"10px",fontWeight:"bold",backgroundColor:schritt===i+1?"#003366":schritt>i+1?"#00afad":"#eee",color:schritt>=i+1?"#fff":"#999",borderRadius:"4px",cursor:i<3?"pointer":"default"}}>{s}</div>;
+          return <div key={i} onClick={function(){if(i<3)setSchritt(i+1);}} style={{flex:1,textAlign:"center",padding:"5px 2px",fontSize:"9px",fontWeight:"bold",backgroundColor:schritt===i+1?"#003366":schritt>i+1?"#00afad":"#eee",color:schritt>=i+1?"#fff":"#999",borderRadius:"4px",cursor:i<3?"pointer":"default"}}>{s}</div>;
         })}
       </div>
 
       {schritt===1&&(
         <div>
-          <div style={sHdr}>👥 Bedarfsgemeinschaft</div>
-          <label style={u.sectionLabel}>Lebensform:</label>
-          {[{v:false,l:"Alleinstehend / Alleinerziehend"},{v:true,l:"Mit Partner*in in Bedarfsgemeinschaft"}].map(function(o){
-            return <label key={String(o.v)} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"6px"}}><input type="radio" checked={hatPartner===o.v} onChange={function(){setHatPartner(o.v);}} />{o.l}</label>;
+          <div style={sH}>Bedarfsgemeinschaft</div>
+          {[{v:false,l:"Alleinstehend / Alleinerziehend"},{v:true,l:"Mit Partner*in in BG"}].map(function(o){
+            return <label key={String(o.v)} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"8px"}}><input type="radio" checked={hatPartner===o.v} onChange={function(){setHatPartner(o.v);}} />{o.l}</label>;
           })}
           <label style={u.sectionLabel}>Kinder in der Bedarfsgemeinschaft:</label>
-          {kinder.map(function(k){
+          {kinder.map(function(k,idx){
             return (
               <div key={k.id} style={{backgroundColor:"#f9f9f9",borderRadius:"8px",padding:"10px",marginBottom:"8px",borderLeft:"3px solid #00afad"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
-                  <strong style={{fontSize:"12px"}}>Kind {kinder.indexOf(k)+1}</strong>
-                  <button onClick={function(){removeKind(k.id);}} style={{background:"none",border:"none",color:"#e53935",cursor:"pointer",fontSize:"18px",lineHeight:1}}>×</button>
+                  <strong style={{fontSize:"12px"}}>Kind {idx+1}</strong>
+                  <button onClick={function(){remK(k.id);}} style={{background:"none",border:"none",color:"#e53935",cursor:"pointer",fontSize:"18px",lineHeight:1}}>x</button>
                 </div>
-                <input style={{...inp,marginBottom:"4px"}} placeholder="Name (optional)" value={k.name} onChange={function(e){updKind(k.id,"name",e.target.value);}} />
+                <input style={{...inp,marginBottom:"4px"}} placeholder="Name (optional)" value={k.name} onChange={function(e){updK(k.id,"name",e.target.value);}} />
                 <div style={{display:"flex",gap:"8px"}}>
-                  <div style={{flex:1}}><label style={{fontSize:"10px",color:"#666"}}>Alter (Jahre):</label><input type="number" style={inp} value={k.alter} onChange={function(e){updKind(k.id,"alter",e.target.value);}} /></div>
-                  <div style={{flex:1}}><label style={{fontSize:"10px",color:"#666"}}>Kindergeld (€/Monat):</label><input type="number" style={inp} value={k.kindergeld} onChange={function(e){updKind(k.id,"kindergeld",e.target.value);}} /></div>
+                  <div style={{flex:1}}><label style={{fontSize:"10px",color:"#666"}}>Alter:</label><input type="number" style={inp} value={k.alter} onChange={function(e){updK(k.id,"alter",e.target.value);}} /></div>
+                  <div style={{flex:1}}><label style={{fontSize:"10px",color:"#666"}}>Kindergeld (EUR):</label><input type="number" style={inp} value={k.kg} onChange={function(e){updK(k.id,"kg",e.target.value);}} /></div>
                 </div>
                 <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
                   <span style={{fontSize:"11px",color:"#555"}}>UVG:</span>
-                  {["ja","nein"].map(function(v){return <div key={v} onClick={function(){updKind(k.id,"uvg",v);}} style={{padding:"3px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",backgroundColor:k.uvg===v?"#003366":"#eee",color:k.uvg===v?"#fff":"#333"}}>{v}</div>;})}
+                  {["ja","nein"].map(function(v){return <div key={v} onClick={function(){updK(k.id,"uvg",v);}} style={{padding:"3px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",backgroundColor:k.uvg===v?"#003366":"#eee",color:k.uvg===v?"#fff":"#333"}}>{v}</div>;})}
                 </div>
               </div>
             );
           })}
-          <button onClick={addKind} style={{width:"100%",padding:"8px",backgroundColor:"#f0f4f7",border:"1px dashed #00afad",borderRadius:"8px",cursor:"pointer",fontSize:"12px",color:"#00afad",marginBottom:"10px"}}>+ Kind hinzufügen</button>
+          <button onClick={addK} style={{width:"100%",padding:"8px",backgroundColor:"#f0f4f7",border:"1px dashed #00afad",borderRadius:"8px",cursor:"pointer",fontSize:"12px",color:"#00afad",marginBottom:"10px"}}>+ Kind hinzufuegen</button>
           <label style={u.sectionLabel}>Besonderer Mehrbedarf:</label>
-          {[{k:"mbAlleinerz",set:setMbAlleinerz,v:mbAlleinerz,l:"👨‍👧 Alleinerziehend (§21 Abs.3 SGB II)"},{k:"mbSchwanger",set:setMbSchwanger,v:mbSchwanger,l:"🤰 Schwangerschaft ab 13. SSW (17%)"},{k:"mbBeh",set:setMbBehinderung,v:mbBehinderung,l:"♿ Schwerbehinderung (35%, §21 Abs.4)"}].map(function(o){
-            return <label key={o.k} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"6px"}}><input type="checkbox" checked={o.v} onChange={function(e){o.set(e.target.checked);}} />{o.l}</label>;
+          {[{s:setMbA,v:mbA,l:"Alleinerziehend (36%, § 21 Abs.3 SGB II)"},{s:setMbS,v:mbS,l:"Schwangerschaft ab 13. SSW (17%)"},{s:setMbB,v:mbB,l:"Schwerbehinderung (35%, § 21 Abs.4 SGB II)"}].map(function(o,i){
+            return <label key={i} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"6px"}}><input type="checkbox" checked={o.v} onChange={function(e){o.s(e.target.checked);}} />{o.l}</label>;
           })}
-          <button style={btnW} onClick={function(){setSchritt(2);}}>Weiter: Einkommen →</button>
+          <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={function(){setSchritt(2);}}>Weiter: Einkommen</button>
         </div>
       )}
 
       {schritt===2&&(
         <div>
-          <button style={btnZ} onClick={function(){setSchritt(1);}}>‹ Haushalt</button>
-          <div style={sHdr}>💼 Einkommen & Transfers</div>
-          <div style={{backgroundColor:"#fff9e6",border:"1px solid #ffeeba",borderRadius:"8px",padding:"8px 10px",marginBottom:"10px",fontSize:"11px",color:"#856404"}}>
-            💡 Freibetrag: 100 € + 20% (100–1.000 €) + 10% (1.000–1.200 €), max. 302 € / mit Kind 352 €
-          </div>
-          {ext&&ext.einkommenNetto&&<div style={u.infoBox}>✅ Nettoeinkommen aus Akte vorausgefüllt.</div>}
-          <label style={u.sectionLabel}>Nettoeinkommen Antragsteller*in (€):</label>
+          <button style={btnZ} onClick={function(){setSchritt(1);}}>zurueck Haushalt</button>
+          <div style={sH}>Einkommen und Transfers</div>
+          <div style={{backgroundColor:"#fff9e6",border:"1px solid #ffeeba",borderRadius:"7px",padding:"8px",marginBottom:"10px",fontSize:"11px",color:"#856404"}}>Freibetrag: 100 EUR frei + 20% (100-1000 EUR) + 10% (1000-1200 EUR), max. 302 EUR (mit Kind 352 EUR)</div>
+          {ext&&ext.einkommenNetto&&<div style={u.infoBox}>Nettoeinkommen aus Akte vorausgefuellt.</div>}
+          <label style={u.sectionLabel}>Nettoeinkommen Antragsteller*in (EUR/Monat):</label>
           <input type="number" style={inp} placeholder="0" value={einNetto} onChange={function(e){setEinNetto(e.target.value);}} />
-          <label style={u.sectionLabel}>Bruttoeinkommen (für Freibetrag, falls abweichend):</label>
-          <input type="number" style={inp} placeholder="Leer lassen wenn gleich Netto" value={einBrutto} onChange={function(e){setEinBrutto(e.target.value);}} />
-          {hatPartner&&<><label style={u.sectionLabel}>Nettoeinkommen Partner*in (€):</label><input type="number" style={inp} placeholder="0" value={einPartner} onChange={function(e){setEinPartner(e.target.value);}} /></>}
-          <label style={u.sectionLabel}>ALG I (€/Monat):</label>
+          <label style={u.sectionLabel}>Bruttoeinkommen fuer Freibetrag (falls bekannt):</label>
+          <input type="number" style={inp} placeholder="leer = gleich Netto" value={einBrutto} onChange={function(e){setEinBrutto(e.target.value);}} />
+          {hatPartner&&(<><label style={u.sectionLabel}>Nettoeinkommen Partner*in (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={einPartner} onChange={function(e){setEinPartner(e.target.value);}} /></>)}
+          <label style={u.sectionLabel}>ALG I (EUR/Monat):</label>
           <input type="number" style={inp} placeholder="0" value={alg1} onChange={function(e){setAlg1(e.target.value);}} />
-          <label style={u.sectionLabel}>Rente / Pension (€/Monat):</label>
+          <label style={u.sectionLabel}>Rente / Pension (EUR/Monat):</label>
           <input type="number" style={inp} placeholder="0" value={rente} onChange={function(e){setRente(e.target.value);}} />
-          <label style={u.sectionLabel}>Weitere Einkünfte (Unterhalt etc., €/Monat):</label>
+          <label style={u.sectionLabel}>Weitere Einkuenfte (Unterhalt, Nebenjob, EUR/Monat):</label>
           <input type="number" style={inp} placeholder="0" value={weitereEink} onChange={function(e){setWeitereEink(e.target.value);}} />
-          <div style={sHdr}>💰 Vermögen</div>
-          <div style={{fontSize:"11px",color:"#666",marginBottom:"6px"}}>Freibetrag: 15.000 € je Person in der BG</div>
-          <label style={u.sectionLabel}>Verwertbares Vermögen gesamt (€):</label>
+          <div style={sH}>Vermoegen</div>
+          <div style={{fontSize:"11px",color:"#666",marginBottom:"6px"}}>Freibetrag: 15.000 EUR je Person in der BG (ab 2023)</div>
+          <label style={u.sectionLabel}>Verwertbares Vermoegen gesamt (EUR):</label>
           <input type="number" style={inp} placeholder="0" value={vermoegen} onChange={function(e){setVermoegen(e.target.value);}} />
-          <button style={btnW} onClick={function(){setSchritt(3);}}>Weiter: Wohnkosten →</button>
+          <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={function(){setSchritt(3);}}>Weiter: Wohnkosten</button>
         </div>
       )}
 
       {schritt===3&&(
         <div>
-          <button style={btnZ} onClick={function(){setSchritt(2);}}>‹ Einkommen</button>
-          <div style={sHdr}>🏠 Kosten der Unterkunft (KdU)</div>
-          <div style={{fontSize:"11px",color:"#666",marginBottom:"8px",backgroundColor:"#f0f4f7",borderRadius:"6px",padding:"8px"}}>Tatsächliche Kosten werden eingetragen. Angemessenheit prüft das Jobcenter nach lokalen Richtwerten.</div>
-          {(ext&&(ext.mieteKalt||ext.mieteWarm))&&<div style={u.infoBox}>✅ Wohnkosten aus Akte vorausgefüllt.</div>}
-          <label style={u.sectionLabel}>Kaltmiete (€/Monat):</label>
+          <button style={btnZ} onClick={function(){setSchritt(2);}}>zurueck Einkommen</button>
+          <div style={sH}>Kosten der Unterkunft (KdU)</div>
+          <div style={{fontSize:"11px",color:"#666",marginBottom:"8px",backgroundColor:"#f0f4f7",borderRadius:"6px",padding:"8px"}}>Tatsaechliche Kosten eintragen. Angemessenheit prueft das Jobcenter nach lokalen Richtwerten.</div>
+          {ext&&(ext.mieteKalt||ext.mieteWarm)&&<div style={u.infoBox}>Wohnkosten aus Akte vorausgefuellt.</div>}
+          <label style={u.sectionLabel}>Kaltmiete (EUR/Monat):</label>
           <input type="number" style={inp} placeholder="0" value={mieteKalt} onChange={function(e){setMieteKalt(e.target.value);}} />
-          <label style={u.sectionLabel}>Nebenkosten ohne Heizung (€/Monat):</label>
+          <label style={u.sectionLabel}>Nebenkosten ohne Heizung (EUR/Monat):</label>
           <input type="number" style={inp} placeholder="0" value={nebenkosten} onChange={function(e){setNebenkosten(e.target.value);}} />
-          <label style={u.sectionLabel}>Heizkosten (€/Monat):</label>
+          <label style={u.sectionLabel}>Heizkosten (EUR/Monat):</label>
           <input type="number" style={inp} placeholder="0" value={heizkosten} onChange={function(e){setHeizkosten(e.target.value);}} />
-          <div style={{backgroundColor:"#e8f4fd",border:"1px solid #bee5f8",borderRadius:"8px",padding:"10px",marginBottom:"12px",fontSize:"12px"}}>
-            <strong>KdU gesamt: {((parseFloat(mieteKalt)||0)+(parseFloat(nebenkosten)||0)+(parseFloat(heizkosten)||0)).toFixed(2)} €/Monat</strong>
+          <div style={{backgroundColor:"#e8f4fd",border:"1px solid #bee5f8",borderRadius:"7px",padding:"9px",marginBottom:"12px",fontSize:"12px"}}>
+            KdU gesamt: {((parseFloat(mieteKalt)||0)+(parseFloat(nebenkosten)||0)+(parseFloat(heizkosten)||0)).toFixed(2)} EUR/Monat
           </div>
-          <button style={btnW} onClick={berechne}>🧮 Jetzt berechnen</button>
+          <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={berechne}>Jetzt berechnen</button>
         </div>
       )}
 
       {schritt===4&&result&&(
         <div>
-          <button style={btnZ} onClick={function(){setSchritt(3);}}>‹ Wohnkosten</button>
-          {result.vUeber>0&&<div style={{...u.warnung,marginBottom:"10px"}}>⚠️ Vermögen ({result.vBetrag.toFixed(2)} €) übersteigt Freibetrag ({result.vFreig.toFixed(2)} €) um {result.vUeber.toFixed(2)} €. Erst Vermögen aufbrauchen!</div>}
+          <button style={btnZ} onClick={function(){setSchritt(3);}}>zurueck Wohnkosten</button>
+          {result.vUeber>0&&<div style={{...u.warnung,marginBottom:"10px"}}>Vermoegen ({result.vB.toFixed(0)} EUR) uebersteigt Freibetrag ({result.vFreig.toFixed(0)} EUR) um {result.vUeber.toFixed(0)} EUR!</div>}
           <div style={u.resultBox}>
             <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",marginBottom:"6px"}}>Gesamtbedarf:</div>
-            <div style={u.calcStep}><span>Regelbedarf Antragsteller*in:</span><span>{result.rb_h} €</span></div>
-            {result.rb_p>0&&<div style={u.calcStep}><span>+ Regelbedarf Partner*in:</span><span>{result.rb_p} €</span></div>}
-            {result.rb_k>0&&<div style={u.calcStep}><span>+ Kindregelbedarfe:</span><span>{result.rb_k} €</span></div>}
-            {result.mb_d.map(function(d,i){return <div key={i} style={u.calcStep}><span>+ {d.l}:</span><span>{d.b} €</span></div>;})}
-            <div style={u.calcStep}><span>+ KdU (Miete + NK + Heizung):</span><span>{result.kdu.toFixed(2)} €</span></div>
-            <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #ddd",paddingTop:"4px",marginTop:"4px",marginBottom:"10px"}}><span>Gesamtbedarf:</span><span>{result.bedarf.toFixed(2)} €</span></div>
+            <div style={u.calcStep}><span>Regelbedarf Antragsteller*in:</span><span>{result.rbH} EUR</span></div>
+            {result.rbP>0&&<div style={u.calcStep}><span>+ Regelbedarf Partner*in:</span><span>{result.rbP} EUR</span></div>}
+            {result.rbK>0&&<div style={u.calcStep}><span>+ Kindregelbedarfe:</span><span>{result.rbK} EUR</span></div>}
+            {result.mbD.map(function(d,i){return <div key={i} style={u.calcStep}><span>+ {d.l}:</span><span>{d.b} EUR</span></div>;})}
+            <div style={u.calcStep}><span>+ KdU (Miete + NK + Heizung):</span><span>{result.kdu.toFixed(2)} EUR</span></div>
+            <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #ddd",paddingTop:"4px",marginTop:"4px",marginBottom:"10px"}}><span>Gesamtbedarf:</span><span>{result.bedarf.toFixed(2)} EUR</span></div>
             <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",marginBottom:"6px"}}>Anrechenbares Einkommen:</div>
-            {(parseFloat(einNetto)||0)>0&&<><div style={u.calcStep}><span>Nettoeinkommen:</span><span>{(parseFloat(einNetto)||0).toFixed(2)} €</span></div><div style={u.calcStep}><span>– Freibetrag:</span><span>– {result.fb.toFixed(2)} €</span></div><div style={{...u.calcStep,marginBottom:"4px"}}><span>= Anrechenbar:</span><span style={{fontWeight:"bold"}}>{result.einAnr.toFixed(2)} €</span></div></>}
-            {result.pAnr>0&&<div style={u.calcStep}><span>+ Einkommen Partner*in (nach Freibetrag):</span><span>{result.pAnr.toFixed(2)} €</span></div>}
-            {result.alg1B>0&&<div style={u.calcStep}><span>+ ALG I:</span><span>{result.alg1B.toFixed(2)} €</span></div>}
-            {result.rentB>0&&<div style={u.calcStep}><span>+ Rente:</span><span>{result.rentB.toFixed(2)} €</span></div>}
-            {result.wEink>0&&<div style={u.calcStep}><span>+ Weitere Einkünfte:</span><span>{result.wEink.toFixed(2)} €</span></div>}
-            {result.kg>0&&<div style={u.calcStep}><span>+ Kindergeld:</span><span>{result.kg.toFixed(2)} €</span></div>}
-            <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #ddd",paddingTop:"4px",marginTop:"4px",marginBottom:"10px"}}><span>Einkommen gesamt:</span><span>{result.einGes.toFixed(2)} €</span></div>
+            {(parseFloat(einNetto)||0)>0&&(<><div style={u.calcStep}><span>Nettoeinkommen:</span><span>{(parseFloat(einNetto)||0).toFixed(2)} EUR</span></div><div style={u.calcStep}><span>- Freibetrag:</span><span>- {result.fb.toFixed(2)} EUR</span></div><div style={{...u.calcStep,marginBottom:"6px"}}><span>= Anrechenbar:</span><span style={{fontWeight:"bold"}}>{result.einAnr.toFixed(2)} EUR</span></div></>)}
+            {result.pAnr>0&&<div style={u.calcStep}><span>+ Einkommen Partner*in (nach FB):</span><span>{result.pAnr.toFixed(2)} EUR</span></div>}
+            {result.a1>0&&<div style={u.calcStep}><span>+ ALG I:</span><span>{result.a1.toFixed(2)} EUR</span></div>}
+            {result.ren>0&&<div style={u.calcStep}><span>+ Rente:</span><span>{result.ren.toFixed(2)} EUR</span></div>}
+            {result.we>0&&<div style={u.calcStep}><span>+ Weitere Einkuenfte:</span><span>{result.we.toFixed(2)} EUR</span></div>}
+            {result.kg>0&&<div style={u.calcStep}><span>+ Kindergeld:</span><span>{result.kg.toFixed(2)} EUR</span></div>}
+            <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #ddd",paddingTop:"4px",marginTop:"4px",marginBottom:"10px"}}><span>Einkommen gesamt:</span><span>{result.einGes.toFixed(2)} EUR</span></div>
             <div style={u.compositionBox}>
               <div style={{...u.resRow,fontWeight:"bold",fontSize:"16px",borderTop:"2px solid #003366",paddingTop:"5px"}}>
-                <span>Bürgergeld-Anspruch ca.:</span>
-                <span style={{color:result.kein?"#e53935":"#00afad"}}>{result.kein?"Kein Anspruch":result.anspruch.toFixed(2)+" €/Monat"}</span>
+                <span>Buergergeld-Anspruch ca.:</span>
+                <span style={{color:result.kein?"#e53935":"#00afad"}}>{result.kein?"Kein Anspruch":result.anspruch.toFixed(2)+" EUR/Monat"}</span>
               </div>
             </div>
-            {result.kein&&<div style={{fontSize:"11px",color:"#666",marginTop:"6px"}}>Einkommen ({result.einGes.toFixed(2)} €) deckt den Bedarf ({result.bedarf.toFixed(2)} €) vollständig.</div>}
-            <div style={{...u.infoBox,marginTop:"10px",fontSize:"10px"}}>⚠️ Orientierungsberechnung nach SGB II. Keine Rechtsberatung. Tatsächlicher Anspruch wird durch das Jobcenter geprüft.</div>
-            <div style={{...u.infoBox,marginTop:"6px",color:"#0a4a0a",backgroundColor:"#e8f5e9",borderColor:"#a5d6a7"}}>✅ Ergebnis in der Akte gespeichert.</div>
+            {result.kein&&<div style={{fontSize:"11px",color:"#666",marginTop:"6px"}}>Einkommen ({result.einGes.toFixed(2)} EUR) deckt Bedarf ({result.bedarf.toFixed(2)} EUR) vollstaendig.</div>}
+            <div style={{...u.infoBox,marginTop:"10px",fontSize:"10px"}}>Orientierungsberechnung nach SGB II. Kein Rechtsanspruch. Tatsaechlicher Anspruch wird durch das Jobcenter geprueft.</div>
+            {onSaveErgebnis&&<div style={{...u.infoBox,marginTop:"6px",color:"#0a4a0a",backgroundColor:"#e8f5e9",borderColor:"#a5d6a7"}}>Ergebnis in der Akte gespeichert.</div>}
           </div>
         </div>
       )}
     </div>
   );
 }
+function BuergergeldRechnerStandalone() { return React.createElement(BuergergeldRechnerCore, {ext:null, onSaveErgebnis:null}); }
+function BuergergeldRechner(props) { return React.createElement(BuergergeldRechnerCore, props); }
 
 // =============================================
 // BERECHNUNG MIT DATEN – Rechner vorausgefüllt
@@ -2406,6 +2386,9 @@ function App() {
                   {eingangFormulare.length > 0 && (
                     <span style={{ backgroundColor:"#e53935", color:"#fff", borderRadius:"50%", width:"18px", height:"18px", fontSize:"10px", fontWeight:"bold", display:"flex", alignItems:"center", justifyContent:"center" }}>{eingangFormulare.length}</span>
                   )}
+                  {ausgangFormulare.filter(function(a){ return a.status==="unbeantwortet"; }).length > 0 && (
+                    <span style={{ backgroundColor:"#f57c00", color:"#fff", borderRadius:"50%", width:"18px", height:"18px", fontSize:"10px", fontWeight:"bold", display:"flex", alignItems:"center", justifyContent:"center" }}>{ausgangFormulare.filter(function(a){ return a.status==="unbeantwortet"; }).length}</span>
+                  )}
                 </div>
                 <span>{showFormulare ? "▲" : "▼"}</span>
               </div>
@@ -2507,7 +2490,7 @@ function App() {
                         )}
                         {eingangFormulare.map(f => (
                           <div key={f.id} style={{ backgroundColor:"#f0fdfd", borderRadius:"8px", padding:"12px", marginBottom:"8px", borderLeft:"4px solid #00afad", position:"relative", cursor:"pointer", transition:"background-color 0.15s, box-shadow 0.15s" }}
-                            onMouseEnter={e => { e.currentTarget.style.backgroundColor="#d9f8f8"; e.currentTarget.style.boxShadow="0 2px 8px rgba(0,175,173,0.2)"; }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor="#c8f4f4"; e.currentTarget.style.boxShadow="0 2px 8px rgba(0,175,173,0.25)"; }}
                             onMouseLeave={e => { e.currentTarget.style.backgroundColor="#f0fdfd"; e.currentTarget.style.boxShadow="none"; }}
                             onClick={() => { setAktivesEingangFormular(f); setView("eingang_detail"); setGeseheneEingangIds(prev => { const next = new Set([...prev, f.id]); try { localStorage.setItem("isuv_gesehen_ids", JSON.stringify([...next])); } catch(e){} return next; }); }}>
                             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -3077,7 +3060,7 @@ function App() {
                 </div>
                 <div onClick={() => setBerechnungKategorie("sozial")}
                   style={{ padding:"14px", backgroundColor:"#f9f9f9", borderRadius:"10px", cursor:"pointer", borderLeft:"4px solid #00afad", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <div><strong style={{ fontSize:"13px" }}>🏛️ Sozialrecht</strong><div style={{ fontSize:"10px", color:"#aaa", marginTop:"2px" }}>Bürgergeld, Mehrbedarf, TBG, Wohngeld</div></div>
+                  <div><strong style={{ fontSize:"13px" }}>🏛️ Sozialrecht</strong><div style={{ fontSize:"10px", color:"#aaa", marginTop:"2px" }}>Mehrbedarf, TBG, Wohngeld</div></div>
                   <span style={{ color:"#00afad" }}>›</span>
                 </div>
               </div>
@@ -3121,11 +3104,11 @@ function App() {
                 <button onClick={() => { setBerechnungKategorie(null); setOpenRechnerMenuId(null); }} style={{ background:"none", border:"none", color:"#00afad", cursor:"pointer", fontWeight:"bold", marginBottom:"10px", padding:0 }}>‹ Kategorien</button>
                 <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", marginBottom:"8px" }}>🏛️ Sozialrecht</div>
                 {[
-                  { id:"buergergeld",        label:"🏛️ Bürgergeld",                  desc:"SGB II – Bedarf, Freibeträge, KdU" },
+                  { id:"buergergeld", label:"🏛️ Bürgergeld", desc:"SGB II – Bedarf, Freibeträge, KdU" },
                   { id:"mbAlleinerziehende", label:"👨‍👧 Mehrbedarf Alleinerziehende", desc:"§ 21 Abs.3 SGB II" },
-                  { id:"mbUmgang",           label:"🚗 Mehrbedarf Umgangskosten",    desc:"§ 21 SGB II" },
-                  { id:"tbg",                label:"🏠 Temp. Bedarfsgemeinschaft",   desc:"SGB II" },
-                  { id:"wohngeld",           label:"🏡 Wohngeld",                    desc:"WoGG" },
+                  { id:"mbUmgang", label:"🚗 Mehrbedarf Umgangskosten", desc:"§ 21 SGB II" },
+                  { id:"tbg", label:"🏠 Temp. Bedarfsgemeinschaft", desc:"SGB II" },
+                  { id:"wohngeld", label:"🏡 Wohngeld", desc:"WoGG" },
                 ].map(r => (
                   <div key={r.id} style={{ position:"relative", marginBottom:"8px" }}>
                     <div style={{ padding:"12px", backgroundColor:"#f9f9f9", borderRadius:"8px", borderLeft:"4px solid #00afad", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -3296,8 +3279,8 @@ function App() {
             {Object.entries(aktivesEingangFormular.felder || {}).map(function(entry) {
               var k = entry[0]; var v = entry[1];
               if (!v || v === "" || Array.isArray(v) || typeof v === "object") return null;
-              if (k === "kinder" || k === "hatKinder" || k === "bgKinder" || k === "bgHatKinder" || k === "bgAnliegen") return null;
-              var labels = { vorname:"Vorname", name:"Nachname", tel:"Telefon", mail:"E-Mail", strasse:"Straße", plz:"PLZ", ort:"Ort", familienstand:"Familienstand", einkommenNetto:"Nettoeinkommen (€)", mieteWarm:"Miete warm (€)", mieteKalt:"Kaltmiete (€)", heizkosten:"Heizkosten (€)", nebenkosten:"Nebenkosten (€)", wohnungGroesse:"Wohnfläche (m²)", notizen:"Notizen", beschaeftigungsart:"Beschäftigungsart", arbeitgeber:"Arbeitgeber", trennungSeit:"Getrennt seit", mietStufe:"Mietstufe", bgVorname:"Vorname", bgName:"Nachname", bgTel:"Telefon", bgMail:"E-Mail", bgStrasse:"Straße", bgPlz:"PLZ", bgOrt:"Ort", bgGeburt:"Geburtsdatum", bgFamilienstand:"Familienstand", bgTrennungSeit:"Getrennt seit", bgStaatsbuergerschaft:"Staatsangehörigkeit", bgErwerbsstatus:"Erwerbsstatus", bgArbeitgeber:"Arbeitgeber", bgEinkommenNetto:"Nettoeinkommen (€)", bgAlg1Betrag:"ALG I (€)", bgMieteKalt:"Kaltmiete (€)", bgNebenkosten:"Nebenkosten (€)", bgHeizkosten:"Heizkosten (€)", bgWohnflaeche:"Wohnfläche (m²)", bgJobcenter:"Jobcenter", bgNotizen:"Notizen" };
+              if (["kinder","hatKinder","bgKinder","bgAnliegen"].indexOf(k) >= 0) return null;
+              var labels = { vorname:"Vorname", name:"Nachname", tel:"Telefon", mail:"E-Mail", strasse:"Straße", plz:"PLZ", ort:"Ort", familienstand:"Familienstand", einkommenNetto:"Nettoeinkommen (€)", mieteWarm:"Miete warm (€)", mieteKalt:"Kaltmiete (€)", heizkosten:"Heizkosten (€)", nebenkosten:"Nebenkosten (€)", notizen:"Notizen", trennungSeit:"Getrennt seit", mietStufe:"Mietstufe", bgVorname:"Vorname", bgName:"Nachname", bgTel:"Telefon", bgMail:"E-Mail", bgStrasse:"Straße", bgPlz:"PLZ", bgOrt:"Ort", bgGeburt:"Geburtsdatum", bgFamilienstand:"Familienstand", bgErwerbsstatus:"Erwerbsstatus", bgArbeitgeber:"Arbeitgeber", bgEinkommenNetto:"Nettoeinkommen (€)", bgAlg1Betrag:"ALG I (€)", bgMieteKalt:"Kaltmiete (€)", bgNebenkosten:"Nebenkosten (€)", bgHeizkosten:"Heizkosten (€)", bgJobcenter:"Jobcenter", bgNotizen:"Notizen" };
               return (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid #f5f5f5" }}>
                   <span style={{ color:"#666", fontSize:"12px" }}>{labels[k] || k}:</span>
@@ -3306,8 +3289,8 @@ function App() {
               );
             })}
 
-            {/* Kinder (Stammdaten) */}
-            {Array.isArray((aktivesEingangFormular.felder || {}).kinder) && aktivesEingangFormular.felder.kinder.length > 0 && (
+            {/* Kinder */}
+            {Array.isArray((aktivesEingangFormular.felder||{}).kinder) && aktivesEingangFormular.felder.kinder.length > 0 && (
               <div style={{ marginTop:"10px" }}>
                 <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>Kinder ({aktivesEingangFormular.felder.kinder.length})</div>
                 {aktivesEingangFormular.felder.kinder.map(function(k, i) {
@@ -3321,32 +3304,6 @@ function App() {
                     </div>
                   );
                 })}
-              </div>
-            )}
-
-            {/* bgKinder (Bürgergeld) */}
-            {Array.isArray((aktivesEingangFormular.felder || {}).bgKinder) && aktivesEingangFormular.felder.bgKinder.length > 0 && (
-              <div style={{ marginTop:"10px" }}>
-                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>Kinder ({aktivesEingangFormular.felder.bgKinder.length})</div>
-                {aktivesEingangFormular.felder.bgKinder.map(function(k, i) {
-                  return (
-                    <div key={i} style={{ backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"10px", marginBottom:"8px", borderLeft:"3px solid #00afad" }}>
-                      <div style={{ fontWeight:"bold", fontSize:"13px", marginBottom:"4px" }}>Kind {i+1}: {k.vorname} {k.nachname||""}</div>
-                      {k.geburt && <div style={{ fontSize:"12px", color:"#555" }}>Geb.: {k.geburt}</div>}
-                      {k.wohnort && <div style={{ fontSize:"12px", color:"#555" }}>Wohnort: {k.wohnort}</div>}
-                      {k.kindergeld && <div style={{ fontSize:"12px", color:"#555" }}>Kindergeld: {k.kindergeld}</div>}
-                      {k.uvg && <div style={{ fontSize:"12px", color:"#555" }}>UVG: {k.uvg}</div>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* bgAnliegen */}
-            {Array.isArray((aktivesEingangFormular.felder || {}).bgAnliegen) && aktivesEingangFormular.felder.bgAnliegen.length > 0 && (
-              <div style={{ padding:"7px 0", borderBottom:"1px solid #f5f5f5", display:"flex", justifyContent:"space-between" }}>
-                <span style={{ color:"#666", fontSize:"12px" }}>Anliegen:</span>
-                <strong style={{ fontSize:"12px", maxWidth:"60%", textAlign:"right" }}>{aktivesEingangFormular.felder.bgAnliegen.join(", ")}</strong>
               </div>
             )}
 
@@ -3499,7 +3456,7 @@ function App() {
                 {loginDaten.whatsapp && aktivesEingangFormular.felder && aktivesEingangFormular.felder.tel && (
                   <button
                     onClick={function() {
-                      var tel = aktivesEingangFormular.felder.tel.replace(/[\s\-()]/g,"");
+                      var tel = (aktivesEingangFormular.felder.tel||"").replace(/[^0-9]/g,"");
                       var msg = encodeURIComponent("Hallo " + (aktivesEingangFormular.name || "") + ",\n\nIhr Formular \"" + aktivesEingangFormular.typ + "\" wurde erhalten und bearbeitet. Bei Fragen melden Sie sich gerne.\n\n" + (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : ""));
                       window.open("https://wa.me/" + tel.replace("+","") + "?text=" + msg);
                     }}
@@ -4489,7 +4446,11 @@ function App() {
                   tbg_einkommen_kind: "Einkommen des Kindes"
                 };
                 var aktiveFeldIds = (versandFelder !== null && versandFelder.length > 0) ? versandFelder : Object.keys(alleFeldLabels);
-                var feldListeText = "\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { return "  - " + (alleFeldLabels[id] || id); }).join("\n");
+                var detailFragen = fTyp==="stammdaten" ? { titel:["Titel (Dr., Prof. etc.)"], vorname_name:["Vorname","Nachname"], tel:["Telefonnummer"], mail:["E-Mail-Adresse"], adresse:["Strasse & Hausnummer","PLZ","Ort"], familienstand:["Familienstand (ledig/getrennt/geschieden/verheiratet)","Getrennt seit (Datum)"], gegenseite:["Vorname & Name Gegenseite","Adresse","Einkommen (EUR/Monat)"], beschaeftigung:["Beschaeftigungsart (Angestellt/Selbststaendig/etc.)","Arbeitgeber","Wochenstunden"], einkommen:["Nettoeinkommen (EUR/Monat)","Bruttoeinkommen (EUR/Monat)","Steuerklasse"], wohnen:["Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)","Mietstufe (1-6)"], kinder:["Vorname & Nachname je Kind","Geburtsdatum","Wohnort (Mutter/Vater/wechselnd)","UVG bezogen? (ja/nein)","Kindergeld-Empfaenger"], notizen:["Anmerkungen"]
+                } : fTyp==="buergergeld" ? { bg_person:["Vorname","Nachname","Geburtsdatum","Staatsangehoerigkeit","E-Mail","Telefon","Strasse","PLZ","Ort","Familienstand"], bg_haushalt:["Wohnsituation (allein/mit Partner/WG)","Anzahl Personen in der Bedarfsgemeinschaft"], bg_kinder:["Kinder vorhanden? (ja/nein)","Je Kind: Name, Geburtsdatum, Wohnort, Kindergeld, UVG bezogen?"], bg_einkommen:["Erwerbsstatus (Vollzeit/Teilzeit/Minijob/arbeitslos)","Arbeitgeber","Nettoeinkommen (EUR/Monat)","ALG-I (EUR/Monat)","Weitere Einkuenfte (EUR/Monat)","Vermoegen (EUR)"], bg_wohnen:["Mietverhaeltnis (Mieter/Eigentuemer/Untermieter)","Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)"], bg_bedarfe:["Schwerbehinderung? (ja/nein)","GdB & Merkzeichen","Schulden? (ja/nein)","Schulden-Betrag & monatliche Rate (EUR)"], bg_verfahren:["Antrag beim Jobcenter? (ja/nein)","Antragsdatum","Name des Jobcenters","Bescheid erhalten? (ja/nein)","Art des Bescheids","Widerspruch eingelegt? (ja/nein)"], bg_anliegen:["Anliegen: Erstantrag / Widerspruch / Sanktionen / Mehrbedarf / Jobcenter-Probleme / Sonstiges","Anmerkungen"]
+                } : { tbg_antragsteller:["Vorname","Nachname","Geburtsdatum","E-Mail","Telefon"], tbg_adresse:["Strasse & Hausnummer","PLZ","Ort"], tbg_betreuungsmodell:["Betreuungsmodell (paritaetisch/asymmetrisch/Residenz)","Anteil Betreuung in %"], tbg_kind_name:["Vorname Kind","Nachname Kind","Geburtsdatum Kind"], tbg_anderer_et:["Vorname & Nachname anderer Elternteil","Adresse anderer Elternteil"], tbg_kalender:["Tage/Monat beim Antragsteller (Jan-Dez)","Tage/Monat beim anderen Elternteil (Jan-Dez)"], tbg_kindergeld:["Wer bezieht Kindergeld?","Kindergeldbetrag (EUR/Monat)"], tbg_einkommen_kind:["Eigenes Einkommen des Kindes (EUR/Monat)"]
+                };
+                var feldListeText = "\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { var fragen=detailFragen[id]||[]; return "\n" + (alleFeldLabels[id]||id) + ":\n" + fragen.map(function(f){ return "    > "+f; }).join("\n"); }).join("\n");
 
                 var linkText = "Guten Tag" + (m ? " " + m.vorname + " " + m.name : "") + ",\n\n" +
                   "der ISUV Anspruchslotse hat fuer Sie ein Formular bereitgestellt:\n" +
@@ -4612,19 +4573,21 @@ function App() {
                       {loginDaten.whatsapp ? (
                         <div style={{ backgroundColor:"#f0f7f0", borderRadius:"10px", padding:"12px" }}>
                           <div style={{ fontWeight:"bold", fontSize:"12px", color:"#1a7a1a", marginBottom:"8px" }}>📱 Per WhatsApp senden</div>
-                          <div style={{ fontSize:"11px", color:"#555", marginBottom:"8px" }}>
-                            Empfänger-Nummer: <strong>{m && m.tel ? m.tel : "–"}</strong>
-                          </div>
-                          <input
-                            style={{ ...styles.input, marginBottom:"8px" }}
-                            type="tel"
-                            placeholder="+49170 Empfänger-Nummer"
-                            value={formularVersandDialogNeu.empfaengerWA || (m && m.tel ? m.tel : "")}
-                            onChange={e => setFormularVersandDialogNeu(p => ({...p, empfaengerWA: e.target.value}))}
-                          />
+                          {m && m.tel ? (
+                            <div style={{ fontSize:"11px", color:"#555", marginBottom:"8px", backgroundColor:"#e8f5e9", borderRadius:"6px", padding:"6px 10px" }}>
+                              Wird gesendet an: <strong>{m.tel}</strong>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize:"11px", color:"#e65100", marginBottom:"8px" }}>
+                              ⚠️ Keine Telefonnummer in der Akte hinterlegt.
+                              <input style={{ ...styles.input, marginTop:"6px" }} type="tel" placeholder="+49170 Nummer eingeben"
+                                value={formularVersandDialogNeu.empfaengerWA || ""}
+                                onChange={e => setFormularVersandDialogNeu(p => ({...p, empfaengerWA: e.target.value}))} />
+                            </div>
+                          )}
                           <button
                             onClick={async function() {
-                              var empfTel = (formularVersandDialogNeu.empfaengerWA || (m && m.tel ? m.tel : "")).replace(/[\s\-()]/g, "");
+                              var empfTel = (formularVersandDialogNeu.empfaengerWA || (m && m.tel ? m.tel : "")).replace(/[^0-9]/g, "");
                               if (!empfTel) { alert("Bitte Telefonnummer eingeben."); return; }
                               var formLink = "";
                               var sbResult = null;
@@ -4652,7 +4615,7 @@ function App() {
                                 }
                               }
                               var waMsg = "Hallo" + (m ? " " + m.vorname : "") + ",\n\n" + linkText + formLink + "\n\nNach dem Ausfüllen bitte zurücksenden an:\n📱 " + loginDaten.whatsapp + "\n\nVielen Dank!\n" + (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
-                              var waUrl = "https://wa.me/" + empfTel.replace("+","") + "?text=" + encodeURIComponent(waMsg);
+                              var waUrl = "https://wa.me/" + empfTel + "?text=" + encodeURIComponent(waMsg);
                               window.open(waUrl);
                               var jetzt = new Date();
                               var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
