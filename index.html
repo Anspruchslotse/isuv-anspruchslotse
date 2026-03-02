@@ -2556,18 +2556,43 @@ function App() {
                                   var felder = eingangDatenTransferDialog.felder || {};
                                   var updates = {};
 
+
+                                  // ── Basisdaten direkt ins Mitglied-Objekt ──
+                                  var mUpd = {};
+                                  if (felder.vorname) mUpd.vorname = felder.vorname;
+                                  if (felder.name) mUpd.name = felder.name;
+                                  if (felder.tel) mUpd.tel = felder.tel;
+                                  if (felder.mail) mUpd.mail = felder.mail;
+                                  if (felder.strasse) mUpd.strasse = felder.strasse;
+                                  if (felder.plz) mUpd.plz = felder.plz;
+                                  if (felder.ort) mUpd.ort = felder.ort;
+                                  if (felder.bgVorname) mUpd.vorname = felder.bgVorname;
+                                  if (felder.bgName) mUpd.name = felder.bgName;
+                                  if (felder.bgTel) mUpd.tel = felder.bgTel;
+                                  if (felder.bgMail) mUpd.mail = felder.bgMail;
+                                  if (felder.bgStrasse) mUpd.strasse = felder.bgStrasse;
+                                  if (felder.bgPlz) mUpd.plz = felder.bgPlz;
+                                  if (felder.bgOrt) mUpd.ort = felder.bgOrt;
+                                  if (Object.keys(mUpd).length > 0) {
+                                    var targetId = passendesMitglied ? passendesMitglied.id : null;
+                                    if (targetId) {
+                                      setMembers(function(prev) { return prev.map(function(x) { return x.id===targetId ? Object.assign({},x,mUpd) : x; }); });
+                                      try { var sv=JSON.parse(localStorage.getItem("isuv_members")||"[]"); localStorage.setItem("isuv_members",JSON.stringify(sv.map(function(x){return x.id===targetId?Object.assign({},x,mUpd):x;}))); } catch(e) {}
+                                    }
+                                  }
                                   // Stammdaten-Felder (Stammdaten-Fragebogen)
                                   if (felder.familienstand) updates.familienstand = felder.familienstand;
                                   if (felder.einkommenNetto) updates.einkommenNetto = parseFloat(felder.einkommenNetto);
+                                  if (felder.einkommenBrutto) updates.einkommenBrutto = parseFloat(felder.einkommenBrutto);
                                   if (felder.mieteWarm) updates.mieteWarm = parseFloat(felder.mieteWarm);
                                   if (felder.mieteKalt) updates.mieteKalt = parseFloat(felder.mieteKalt);
                                   if (felder.heizkosten) updates.heizkosten = parseFloat(felder.heizkosten);
+                                  if (felder.nebenkosten) updates.nebenkosten = parseFloat(felder.nebenkosten);
                                   if (felder.wohnungGroesse) updates.wohnungGroesse = parseFloat(felder.wohnungGroesse);
                                   if (felder.notizen) updates.notizen = felder.notizen;
                                   if (felder.titel) updates.titel = felder.titel;
                                   if (felder.beschaeftigungsart) updates.beschaeftigungsart = felder.beschaeftigungsart;
                                   if (felder.arbeitgeber) updates.arbeitgeber = felder.arbeitgeber;
-                                  if (felder.einkommenBrutto) updates.einkommenBrutto = parseFloat(felder.einkommenBrutto);
                                   if (felder.steuerklasse) updates.steuerklasse = felder.steuerklasse;
                                   if (felder.trennungSeit) updates.trennungSeit = felder.trennungSeit;
                                   if (felder.gegenseiteVorname) updates.gegenseiteVorname = felder.gegenseiteVorname;
@@ -3318,20 +3343,48 @@ function App() {
                 var fd = f.felder;
                 var updates = {};
 
-                // Stammdaten-Felder
+                // ── Stammdaten: Basisdaten (direkt im members-Objekt) ──
+                var memberUpdates = {};
+                if (fd.vorname) memberUpdates.vorname = fd.vorname;
+                if (fd.name) memberUpdates.name = fd.name;
+                if (fd.tel) memberUpdates.tel = fd.tel;
+                if (fd.mail) memberUpdates.mail = fd.mail;
+                if (fd.strasse) memberUpdates.strasse = fd.strasse;
+                if (fd.plz) memberUpdates.plz = fd.plz;
+                if (fd.ort) memberUpdates.ort = fd.ort;
+                if (Object.keys(memberUpdates).length > 0) {
+                  setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, memberUpdates) : x; }); });
+                  try { var saved = JSON.parse(localStorage.getItem("isuv_members") || "[]"); localStorage.setItem("isuv_members", JSON.stringify(saved.map(function(x){ return x.id===m.id?Object.assign({},x,memberUpdates):x; }))); } catch(e) {}
+                }
+
+                // ── Stammdaten: Extras (memberExtras) ──
                 if (fd.familienstand) updates.familienstand = fd.familienstand;
                 if (fd.einkommenNetto) updates.einkommenNetto = parseFloat(fd.einkommenNetto);
+                if (fd.einkommenBrutto) updates.einkommenBrutto = parseFloat(fd.einkommenBrutto);
                 if (fd.mieteWarm) updates.mieteWarm = parseFloat(fd.mieteWarm);
                 if (fd.mieteKalt) updates.mieteKalt = parseFloat(fd.mieteKalt);
                 if (fd.heizkosten) updates.heizkosten = parseFloat(fd.heizkosten);
+                if (fd.nebenkosten) updates.nebenkosten = parseFloat(fd.nebenkosten);
                 if (fd.wohnungGroesse) updates.wohnungGroesse = parseFloat(fd.wohnungGroesse);
                 if (fd.notizen) updates.notizen = fd.notizen;
                 if (fd.titel) updates.titel = fd.titel;
                 if (fd.beschaeftigungsart) updates.beschaeftigungsart = fd.beschaeftigungsart;
                 if (fd.arbeitgeber) updates.arbeitgeber = fd.arbeitgeber;
-                if (fd.einkommenBrutto) updates.einkommenBrutto = parseFloat(fd.einkommenBrutto);
                 if (fd.steuerklasse) updates.steuerklasse = fd.steuerklasse;
                 if (fd.trennungSeit) updates.trennungSeit = fd.trennungSeit;
+                // Bürgergeld-Basisdaten ebenfalls in members speichern
+                if (fd.bgVorname || fd.bgName || fd.bgTel || fd.bgMail || fd.bgStrasse || fd.bgPlz || fd.bgOrt) {
+                  var bgMemberUpdates = {};
+                  if (fd.bgVorname) bgMemberUpdates.vorname = fd.bgVorname;
+                  if (fd.bgName) bgMemberUpdates.name = fd.bgName;
+                  if (fd.bgTel) bgMemberUpdates.tel = fd.bgTel;
+                  if (fd.bgMail) bgMemberUpdates.mail = fd.bgMail;
+                  if (fd.bgStrasse) bgMemberUpdates.strasse = fd.bgStrasse;
+                  if (fd.bgPlz) bgMemberUpdates.plz = fd.bgPlz;
+                  if (fd.bgOrt) bgMemberUpdates.ort = fd.bgOrt;
+                  setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, bgMemberUpdates) : x; }); });
+                  try { var saved2 = JSON.parse(localStorage.getItem("isuv_members") || "[]"); localStorage.setItem("isuv_members", JSON.stringify(saved2.map(function(x){ return x.id===m.id?Object.assign({},x,bgMemberUpdates):x; }))); } catch(e) {}
+                }
                 if (fd.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                 if (fd.kinder && fd.kinder.length > 0) {
                   updates.alleinerziehend = true;
@@ -4614,7 +4667,7 @@ function App() {
                                   formLink = "\n\n🔗 Formular-Link (direkt im Browser ausfüllen):\n" + sbResult.url;
                                 }
                               }
-                              var waTextKurz = "Hallo" + (m ? " " + m.vorname : "") + ",\n\n" + "der ISUV Anspruchslotse bittet Sie, folgenden Fragebogen auszufuellen:\n" + fLabel + (formLink ? "\n\n" + sbResult.url : "") + "\n\nBitte anschliessend zuruecksenden an:\n" + loginDaten.whatsapp + "\n\n" + (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " - " + loginDaten.ort : "");
+                              var waTextKurz = "Hallo" + (m ? " " + m.vorname : "") + ",\n\n" + "der ISUV Anspruchslotse bittet Sie, folgenden Fragebogen auszufuellen:\n" + fLabel + (formLink ? "\n\n" + sbResult.url : "") + "\n\nBitte anschliessend zuruecksenden an:\n" + loginDaten.whatsapp.replace(/[^0-9]/g,"").replace(/^0/,"49") + "\n\n" + (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " - " + loginDaten.ort : "");
                               var waTel = empfTel.replace(/^0/, "49");
                               var waUrl = "https://wa.me/" + waTel + "?text=" + encodeURIComponent(waTextKurz);
                               window.open(waUrl);
