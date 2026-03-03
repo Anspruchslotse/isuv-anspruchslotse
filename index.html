@@ -1710,6 +1710,127 @@ function FamilienrechtView({ view, activeMember, memberExtras, setView, setMembe
   );
 }
 
+function RechnerReiter() {
+  const [kategorie, setKategorie] = useState(null);
+  const [unterkategorie, setUnterkategorie] = useState(null);
+  const [aktiverRechner, setAktivenRechner] = useState(null);
+
+  const familienRechner = [
+    { id: "kindesNeu", label: "👶 Kindesunterhalt 2024", desc: "Düsseldorfer Tabelle, Rolle, Mangelfall" },
+    { id: "ehegatten", label: "💍 Ehegattenunterhalt", desc: "Trennung & nachehelich, Halbteilung" },
+    { id: "wechselmodell", label: "🔄 Wechselmodell-Unterhalt", desc: "BGH XII ZB 234/15, Fahrtkosten" },
+    { id: "dtTabelle", label: "📊 Düsseldorfer Tabelle 2024", desc: "Nachschlagewerk + vollständige Tabelle" },
+    { id: "fristen", label: "⏰ Fristenrechner", desc: "Widerspruch, Klage, Verjährung" },
+    { id: "rechtsvergleich", label: "⚖️ Familienrecht vs. Sozialrecht", desc: "Selbstbehalt, KdU, Sozialgerichte" },
+    { id: "betreuungsunterhalt", label: "§ 1615l Betreuungsunterhalt", desc: "" },
+  ];
+  const sozialUnterkategorien = [
+    { id: "buergergeld", label: "🏛️ Bürgergeld (SGB II)", desc: "Bedarf, Freibeträge, KdU, Vermögen" },
+    { id: "betreuung", label: "👨‍👧 Betreuungs- / Umgangskosten", desc: "Mehrbedarf Alleinerziehende, Umgangskosten, TBG" },
+    { id: "wohngeld", label: "🏡 Wohngeld", desc: "Wohngeldberechnung nach WoGG" },
+  ];
+  const betreuungsRechner = [
+    { id: "mbAlleinerziehende", label: "👨‍👧 Mehrbedarf Alleinerziehende" },
+    { id: "mbUmgang", label: "🚗 Mehrbedarf Umgangskosten" },
+    { id: "tbg", label: "🏠 Temporäre Bedarfsgemeinschaft" },
+  ];
+
+  const backBtn = (label, onClick) => (
+    <button onClick={onClick} style={{ background: "none", border: "none", color: "#00afad", cursor: "pointer", fontWeight: "bold", marginBottom: "12px", padding: 0 }}>‹ {label}</button>
+  );
+
+  if (aktiverRechner) {
+    const zurueck = unterkategorie === "betreuung" ? "Betreuungs-/Umgangskosten" : "Familienrecht";
+    return (
+      <div>
+        {backBtn(zurueck, () => setAktivenRechner(null))}
+        {aktiverRechner === "kindesNeu" && <KindesunterhaltsRechnerNeu />}
+        {aktiverRechner === "ehegatten" && <EhegattenUnterhaltsRechner />}
+        {aktiverRechner === "wechselmodell" && <WechselmodellRechner />}
+        {aktiverRechner === "dtTabelle" && <DuesseldorferTabelleNachschlag />}
+        {aktiverRechner === "fristen" && <FristenRechner />}
+        {aktiverRechner === "rechtsvergleich" && <RechtsvergleichModul />}
+        {aktiverRechner === "kindes" && <KindesunterhaltsRechner />}
+        {aktiverRechner === "betreuungsunterhalt" && <BetreuungsunterhaltsRechner />}
+        {aktiverRechner === "trennung" && <TrennungsunterhaltsRechner />}
+        {aktiverRechner === "nachehelich" && <NachehelicherUnterhaltsRechner />}
+        {aktiverRechner === "mbAlleinerziehende" && <MehrbedarfAlleinerziehende />}
+        {aktiverRechner === "mbUmgang" && <MehrbedarfUmgangskosten />}
+        {aktiverRechner === "tbg" && <TemporaereBedarfsgemeinschaft />}
+        {aktiverRechner === "buergergeld" && <BuergergeldRechnerStandalone />}
+        {aktiverRechner === "wohngeld" && <WohngeldRechner />}
+      </div>
+    );
+  }
+
+  if (unterkategorie === "betreuung") return (
+    <div>
+      {backBtn("Sozialrecht", () => setUnterkategorie(null))}
+      <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", marginBottom: "8px", textTransform: "uppercase" }}>👨‍👧 Betreuungs- / Umgangskosten</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {betreuungsRechner.map(r => (
+          <div key={r.id} onClick={() => setAktivenRechner(r.id)} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <strong style={{ fontSize: "13px" }}>{r.label}</strong><span style={{ color: "#00afad" }}>›</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (kategorie === "sozialrecht") return (
+    <div>
+      {backBtn("Kategorien", () => { setKategorie(null); setUnterkategorie(null); })}
+      <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", marginBottom: "8px", textTransform: "uppercase" }}>🏛️ Sozialrecht – Bereich wählen:</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {sozialUnterkategorien.map(u => (
+          <div key={u.id} onClick={() => { if (u.id === "wohngeld" || u.id === "buergergeld") setAktivenRechner(u.id); else setUnterkategorie(u.id); }} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div><strong style={{ fontSize: "13px" }}>{u.label}</strong><div style={{ fontSize: "10px", color: "#999", marginTop: "2px" }}>{u.desc}</div></div>
+            <span style={{ color: "#00afad", marginLeft: "8px" }}>›</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (kategorie === "familienrecht") return (
+    <div>
+      {backBtn("Kategorien", () => setKategorie(null))}
+      <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", marginBottom: "8px", textTransform: "uppercase" }}>⚖️ Familienrecht – Rechner wählen:</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {familienRechner.map(r => (
+          <div key={r.id} onClick={() => setAktivenRechner(r.id)}
+            style={{ padding:"12px", backgroundColor:"#f9f9f9", borderRadius:"8px", cursor:"pointer",
+              borderLeft:"4px solid "+(r.id==="rechtsvergleich"?"#6a1b9a":r.id==="fristen"?"#ef6c00":"#003366"),
+              display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <strong style={{ fontSize:"13px" }}>{r.label}</strong>
+              {r.desc && <div style={{ fontSize:"10px", color:"#999", marginTop:"2px" }}>{r.desc}</div>}
+            </div>
+            <span style={{ color:"#00afad" }}>›</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div onClick={() => setKategorie("familienrecht")} style={{ padding: "14px", backgroundColor: "#f9f9f9", borderRadius: "10px", cursor: "pointer", borderLeft: "4px solid #003366", display: "flex", alignItems: "center", gap: "12px" }}>
+        <span style={{ fontSize: "18px" }}>⚖️</span>
+        <div><div style={{ fontWeight: "bold", fontSize: "13px" }}>Familienrecht</div><div style={{ fontSize: "10px", color: "#aaa" }}>Kindes-, Trennungs- und nachehelicher Unterhalt</div></div>
+        <span style={{ marginLeft: "auto", color: "#00afad" }}>›</span>
+      </div>
+      <div onClick={() => setKategorie("sozialrecht")} style={{ padding: "14px", backgroundColor: "#f9f9f9", borderRadius: "10px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", alignItems: "center", gap: "12px" }}>
+        <span style={{ fontSize: "18px" }}>🏛️</span>
+        <div><div style={{ fontWeight: "bold", fontSize: "13px" }}>Sozialrecht</div><div style={{ fontSize: "10px", color: "#aaa" }}>Mehrbedarf, TBG, Wohngeld</div></div>
+        <span style={{ marginLeft: "auto", color: "#00afad" }}>›</span>
+      </div>
+    </div>
+  );
+}
+
+
+
 // =============================================
 // BERECHNUNG MIT DATEN – Rechner vorausgefüllt
 // =============================================
@@ -2664,7 +2785,7 @@ function App() {
 
       <main style={["formular_ausfuellen","tbg_form","buergergeld_form","eingang_detail"].includes(view) ? {...styles.main, padding:"0", maxWidth:"800px"} : styles.main} className="app-main">
         {view === "dashboard" && (
-          <div style={{ display: "grid", gridTemplateColumns: window.innerWidth >= 720 ? "1fr 1fr" : "1fr", gap: "12px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
 
             {/* MITGLIEDER */}
             <div style={styles.card}>
@@ -6004,7 +6125,7 @@ function App() {
 }
 
 const styles = {
-  appFrame: { minHeight: "100dvh", backgroundColor: "#f4f7f9", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: "800px", margin: "0 auto", position: "relative" },
+  appFrame: { minHeight: "100dvh", backgroundColor: "#f4f7f9", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
   header: { display: "flex", justifyContent: "space-between", padding: "15px 20px", backgroundColor: "#fff", borderBottom: "3px solid #00afad", alignItems: "center", position: "sticky", top: 0, zIndex: 50, width: "100%", boxSizing: "border-box" },
   main: { padding: "15px", maxWidth: "800px", margin: "0 auto", paddingBottom: "40px" },
   card: { backgroundColor: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: "10px" },
