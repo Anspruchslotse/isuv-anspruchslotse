@@ -3,6 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    /* ─── Desktop / Tablet Optimierung ─── */
+    body { margin: 0; background: #e8edf2; }
+    .app-main { max-width: 800px !important; margin: 0 auto !important; }
+
+    @media (min-width: 600px) {
+      /* Karten nebeneinander auf Tablet/PC */
+      .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .dashboard-grid > * { margin-bottom: 0 !important; }
+      /* Formulare breiter */
+      .form-page-inner { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+      /* Karten im Dashboard nebeneinander */
+      .dashboard-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
+      /* Rechner-Ergebnis-Boxen breiter */
+      .rechner-result { max-width: 760px; }
+    }
+
+    @media (min-width: 900px) {
+      body { background: #d8e2ec; }
+      /* Zentrierter App-Container mit Schatten */
+      #root > div { max-width: 820px; margin: 20px auto; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.18); min-height: calc(100vh - 40px); overflow: hidden; }
+      /* Header voller Breite */
+      .app-header { border-radius: 0 !important; }
+      /* Grid-Layouts in Formularen */
+      .pc-grid-2 { display: grid !important; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .pc-grid-3 { display: grid !important; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    }
+
+    @media (min-width: 1200px) {
+      #root > div { max-width: 860px; margin: 30px auto; }
+    }
+
+    /* Scrollbar styling für PC */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f0f4f7; }
+    ::-webkit-scrollbar-thumb { background: #00afad; border-radius: 3px; }
+  </style>
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -80,320 +117,22 @@ const terminFarbe = (typ) => { var t = TERMIN_TYPEN.find(function(x){return x.id
 // =============================================
 // MODUL 1: KINDESUNTERHALT (isoliert)
 // =============================================
-function KindesunterhaltsRechner() {
-  const [einkommenSelbst, setEinkommenSelbst] = useState("");
-  const [einkommenAnderer, setEinkommenAnderer] = useState("");
-  const [altersvorsorge, setAltersvorsorge] = useState("");
-  const [kredite, setKredite] = useState("");
-  const [wohnvorteil, setWohnvorteil] = useState("");
-  const [kinderUnterhalt, setKinderUnterhalt] = useState([
-    { id: 1, alter: "6", mbListe: [], sbListe: [], eigeneEinnahmen: "" }
-  ]);
-  const [resUnterhalt, setResUnterhalt] = useState(null);
-
-  const mbOptionen = ["Kita-Gebühren", "Hort/Nachmittagsbetreuung", "Private Krankenversicherung", "Heilpädagogische Maßnahmen", "Privatschule"];
-  const sbOptionen = ["Kieferorthopädie (Eigenanteil)", "Unaufschiebbare Klassenfahrt", "Erstausstattung (Säugling)", "Brille/Hörgerät"];
-
-  const addKind = () => setKinderUnterhalt([...kinderUnterhalt, { id: Date.now(), alter: "6", mbListe: [], sbListe: [], eigeneEinnahmen: "" }]);
-  const removeKind = (id) => { if (kinderUnterhalt.length > 1) setKinderUnterhalt(kinderUnterhalt.filter(k => k.id !== id)); };
-  const updateKindFeld = (kindId, feld, wert) => setKinderUnterhalt(kinderUnterhalt.map(k => k.id === kindId ? { ...k, [feld]: wert } : k));
-
-  const toggleBedarf = (kindId, typ, wert) => {
-    setKinderUnterhalt(kinderUnterhalt.map(k => {
-      if (k.id !== kindId) return k;
-      const liste = typ === "mb" ? [...k.mbListe] : [...k.sbListe];
-      const index = liste.findIndex(item => item.name === wert);
-      if (index > -1) liste.splice(index, 1); else liste.push({ name: wert, betrag: "" });
-      return typ === "mb" ? { ...k, mbListe: liste } : { ...k, sbListe: liste };
-    }));
-  };
-
-  const updateBetrag = (kindId, typ, name, betrag) => {
-    setKinderUnterhalt(kinderUnterhalt.map(k => {
-      if (k.id !== kindId) return k;
-      const liste = typ === "mb" ? k.mbListe : k.sbListe;
-      const neueListe = liste.map(item => item.name === name ? { ...item, betrag } : item);
-      return typ === "mb" ? { ...k, mbListe: neueListe } : { ...k, sbListe: neueListe };
-    }));
-  };
-
-  const berechne = () => {
-    const n1 = parseFloat(einkommenSelbst || 0);
-    const pauschale = Math.min(150, n1 * 0.05);
-    const berN1 = Math.max(0, n1 - pauschale - parseFloat(altersvorsorge || 0) - parseFloat(kredite || 0) + parseFloat(wohnvorteil || 0));
-    const n2 = parseFloat(einkommenAnderer || 0);
-    const berN2 = Math.max(0, n2 - Math.min(150, n2 * 0.05));
-    let stufe = berN1 > 2500 ? 3 : berN1 > 2100 ? 2 : 1;
-    if (kinderUnterhalt.length === 1) stufe += 1;
-    if (kinderUnterhalt.length > 2) stufe -= 1;
-    stufe = Math.max(1, Math.min(3, stufe));
-    const sbMinderjährig = 1450;
-    const verfügbareMasse = Math.max(0, berN1 - sbMinderjährig);
-    const ü1 = Math.max(0, berN1 - 1450);
-    const ü2 = Math.max(0, berN2 - 1450);
-    const quoteIch = (ü1 + ü2) > 0 ? ü1 / (ü1 + ü2) : 1;
-    const tabelle = DUESSELDORFER_TABELLE.stufen;
-    let gesamtSoll = 0;
-    const raw = kinderUnterhalt.map(k => {
-      const basis = tabelle[stufe][k.alter];
-      const barSoll = Math.max(0, basis - (k.alter === "18" ? 250 : 125) - parseFloat(k.eigeneEinnahmen || 0));
-      const mbSollIch = k.mbListe.reduce((s, i) => s + parseFloat(i.betrag || 0), 0) * quoteIch;
-      const sbSollIch = k.sbListe.reduce((s, i) => s + parseFloat(i.betrag || 0), 0) * quoteIch;
-      gesamtSoll += barSoll + mbSollIch;
-      return { ...k, barSoll, mbSollIch, sbSollIch };
-    });
-    const faktor = verfügbareMasse < gesamtSoll ? verfügbareMasse / gesamtSoll : 1;
-    setResUnterhalt({ berN1: berN1.toFixed(2), sb: sbMinderjährig, masse: verfügbareMasse.toFixed(2), istSumme: (gesamtSoll * faktor).toFixed(2), istMangelfall: faktor < 1, quote: (quoteIch * 100).toFixed(0), einzelDetails: raw.map(d => ({ ...d, zBar: (d.barSoll * faktor).toFixed(2), zMB: (d.mbSollIch * faktor).toFixed(2), zSB: d.sbSollIch.toFixed(2) })) });
-  };
-
-  const u = rStyles;
-  return (
-    <div>
-      <h4 style={u.modTitle}>⚖️ Kindesunterhaltsrechner <span style={{ fontSize:"9px", fontWeight:"normal", color:"#999", float:"right" }}>Düsseldorfer Tabelle Stand: {DUESSELDORFER_TABELLE.stand}</span></h4>
-      <label style={u.labelMini}>Nettoeinkommen:</label>
-      <div style={u.row}>
-        <input type="number" style={u.input} placeholder="Mein Netto (€)" value={einkommenSelbst} onChange={e => setEinkommenSelbst(e.target.value)} />
-        <input type="number" style={u.input} placeholder="Andere Seite (€)" value={einkommenAnderer} onChange={e => setEinkommenAnderer(e.target.value)} />
-      </div>
-      <div style={u.row}>
-        <input type="number" style={u.input} placeholder="Altersvorsorge (€)" value={altersvorsorge} onChange={e => setAltersvorsorge(e.target.value)} />
-        <input type="number" style={u.input} placeholder="Kredite (€)" value={kredite} onChange={e => setKredite(e.target.value)} />
-      </div>
-      <input type="number" style={u.input} placeholder="Wohnwertvorteil (€)" value={wohnvorteil} onChange={e => setWohnvorteil(e.target.value)} />
-      <div style={u.filterSection}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-          <strong style={{ fontSize: "13px" }}>Kinder &amp; Bedarfe</strong>
-          <button onClick={addKind} style={u.btnAdd}>+ Kind</button>
-        </div>
-        {kinderUnterhalt.map((k, i) => (
-          <div key={k.id} style={u.childBox}>
-            <div style={u.row}>
-              <strong style={{ fontSize: "13px" }}>Kind {i + 1}</strong>
-              <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
-                <select style={u.inputMini} value={k.alter} onChange={e => updateKindFeld(k.id, "alter", e.target.value)}>
-                  <option value="0">0–5 J.</option><option value="6">6–11 J.</option><option value="12">12–17 J.</option><option value="18">18+</option>
-                </select>
-                <button onClick={() => removeKind(k.id)} style={u.btnDel}>✕</button>
-              </div>
-            </div>
-            <input type="number" style={{ ...u.miniIn, width: "100%", marginTop: "8px" }} placeholder="Eigene Einnahmen des Kindes (€)" value={k.eigeneEinnahmen} onChange={e => updateKindFeld(k.id, "eigeneEinnahmen", e.target.value)} />
-            <span style={u.sectionLabel}>Mehrbedarf:</span>
-            <div style={u.tagCloud}>
-              {mbOptionen.map(opt => { const a = k.mbListe.some(m => m.name === opt); return (<div key={opt} onClick={() => toggleBedarf(k.id, "mb", opt)} style={{ padding: "4px 8px", borderRadius: "12px", fontSize: "9px", cursor: "pointer", backgroundColor: a ? "#00afad" : "#eee", color: a ? "#fff" : "#333" }}>{opt}</div>); })}
-            </div>
-            {k.mbListe.map(m => (<div key={m.name} style={u.bedarfRow}><span style={{ fontSize: "10px" }}>{m.name}</span><input type="number" style={u.miniIn} placeholder="€" value={m.betrag} onChange={e => updateBetrag(k.id, "mb", m.name, e.target.value)} /></div>))}
-            <span style={u.sectionLabel}>Sonderbedarf:</span>
-            <div style={u.tagCloud}>
-              {sbOptionen.map(opt => { const a = k.sbListe.some(s => s.name === opt); return (<div key={opt} onClick={() => toggleBedarf(k.id, "sb", opt)} style={{ padding: "4px 8px", borderRadius: "12px", fontSize: "9px", cursor: "pointer", backgroundColor: a ? "#003366" : "#eee", color: a ? "#fff" : "#333" }}>{opt}</div>); })}
-            </div>
-            {k.sbListe.map(s => (<div key={s.name} style={u.bedarfRow}><span style={{ fontSize: "10px" }}>{s.name}</span><input type="number" style={u.miniIn} placeholder="€" value={s.betrag} onChange={e => updateBetrag(k.id, "sb", s.name, e.target.value)} /></div>))}
-          </div>
-        ))}
-      </div>
-      <button style={u.btnPrimary} onClick={berechne}>Berechnen</button>
-      {resUnterhalt && (
-        <div style={u.resultBox}>
-          {resUnterhalt.istMangelfall && (<div style={u.warnung}>⚠️ <strong>Mangelfall:</strong> Einkommen reicht nicht für vollen Unterhalt. Betrag wird anteilig gekürzt.</div>)}
-          <div style={u.calcStep}><span>Bereinigtes Netto:</span><span>{resUnterhalt.berN1} €</span></div>
-          <div style={u.calcStep}><span>Selbstbehalt:</span><span>– {resUnterhalt.sb} €</span></div>
-          <div style={{ ...u.calcStep, borderTop: "1px solid #00afad", fontWeight: "bold", marginTop: "5px", paddingTop: "5px" }}><span>Verfügbare Masse:</span><span>{resUnterhalt.masse} €</span></div>
-          <div style={u.compositionBox}>
-            <span style={{ fontSize: "11px", fontWeight: "bold", color: "#003366" }}>Monatlicher Zahlbetrag:</span>
-            {resUnterhalt.einzelDetails.map((d, i) => (
-              <div key={i} style={u.detailRow}>
-                <div style={u.resRow}><span>Kind {i + 1} Barunterhalt:</span><span>{d.zBar} €</span></div>
-                {parseFloat(d.zMB) > 0 && <div style={u.resRow}><span>+ Mehrbedarf:</span><span>{d.zMB} €</span></div>}
-              </div>
-            ))}
-            <div style={{ ...u.resRow, fontWeight: "bold", marginTop: "10px", fontSize: "16px", borderTop: "2px solid #003366", paddingTop: "5px" }}><span>Gesamt:</span><span>{resUnterhalt.istSumme} €</span></div>
-          </div>
-          {resUnterhalt.einzelDetails.some(d => parseFloat(d.zSB) > 0) && (
-            <div style={u.sbBox}>
-              <span style={{ fontSize: "10px", fontWeight: "bold" }}>Einmaliger Sonderbedarf (Ihr Anteil {resUnterhalt.quote}%):</span>
-              {resUnterhalt.einzelDetails.map((d, i) => parseFloat(d.zSB) > 0 ? <div key={i} style={u.resRow}><span>Kind {i + 1}:</span><span>{d.zSB} €</span></div> : null)}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+function KindesunterhaltsRechner() { return React.createElement(KindesunterhaltsRechnerNeu, null); }
 
 // =============================================
 // MODUL 2: TRENNUNGSUNTERHALT (isoliert)
 // =============================================
-function TrennungsunterhaltsRechner() {
-  const [einAntragsteller, setEinAntragsteller] = useState("");
-  const [einVerpflichteter, setEinVerpflichteter] = useState("");
-  const [abzuegeAntragsteller, setAbzuegeAntragsteller] = useState("");
-  const [abzuegeVerpflichteter, setAbzuegeVerpflichteter] = useState("");
-  const [kinderAnzahl, setKinderAnzahl] = useState("0");
-  const [ehezeit, setEhezeit] = useState("");
-  const [erwerbstaetigkeit, setErwerbstaetigkeit] = useState("vollzeit");
-  const [result, setResult] = useState(null);
+function TrennungsunterhaltsRechner() { return React.createElement(EhegattenUnterhaltsRechner, {defaultTyp:"trennung"}); }
 
-  const berechne = () => {
-    const berA = Math.max(0, parseFloat(einAntragsteller || 0) - parseFloat(abzuegeAntragsteller || 0));
-    const berV = Math.max(0, parseFloat(einVerpflichteter || 0) - parseFloat(abzuegeVerpflichteter || 0));
-    const bonusA = erwerbstaetigkeit === "vollzeit" ? berA / 7 : 0;
-    const bonusV = berV / 7;
-    const bereinigtA = berA - bonusA;
-    const bereinigtV = berV - bonusV;
-    const kuAbzug = parseInt(kinderAnzahl) * 450;
-    const verfügbarV = Math.max(0, bereinigtV - kuAbzug);
-    const selbstbehalt = 1200;
-    const masseFürUnterhalt = Math.max(0, verfügbarV - selbstbehalt);
-    const differenz = bereinigtV - bereinigtA;
-    const anspruch = Math.max(0, Math.min(differenz / 2, masseFürUnterhalt));
-    setResult({ bereinigtA: bereinigtA.toFixed(2), bereinigtV: bereinigtV.toFixed(2), kuAbzug: kuAbzug.toFixed(2), masseFürUnterhalt: masseFürUnterhalt.toFixed(2), anspruch: anspruch.toFixed(2), mangelfall: masseFürUnterhalt < anspruch, keinAnspruch: differenz <= 0 });
-  };
-
-  const u = rStyles;
-  return (
-    <div>
-      <h4 style={u.modTitle}>👫 Trennungsunterhalt (§ 1361 BGB)</h4>
-      <div style={u.infoBox}>ℹ️ Berechnung nach Halbteilungsgrundsatz. Selbstbehalt gegenüber Ehegatten: 1.200 €.</div>
-      <label style={u.sectionLabel}>Einkommen Antragsteller*in:</label>
-      <div style={u.row}>
-        <input type="number" style={u.input} placeholder="Nettoeinkommen (€)" value={einAntragsteller} onChange={e => setEinAntragsteller(e.target.value)} />
-        <input type="number" style={u.input} placeholder="Abzüge (€)" value={abzuegeAntragsteller} onChange={e => setAbzuegeAntragsteller(e.target.value)} />
-      </div>
-      <label style={u.sectionLabel}>Einkommen Verpflichteter:</label>
-      <div style={u.row}>
-        <input type="number" style={u.input} placeholder="Nettoeinkommen (€)" value={einVerpflichteter} onChange={e => setEinVerpflichteter(e.target.value)} />
-        <input type="number" style={u.input} placeholder="Abzüge (€)" value={abzuegeVerpflichteter} onChange={e => setAbzuegeVerpflichteter(e.target.value)} />
-      </div>
-      <label style={u.sectionLabel}>Erwerbstätigkeit Antragsteller*in:</label>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-        {["vollzeit", "teilzeit", "keine"].map(v => (
-          <div key={v} onClick={() => setErwerbstaetigkeit(v)} style={{ padding: "6px 12px", borderRadius: "8px", fontSize: "11px", cursor: "pointer", backgroundColor: erwerbstaetigkeit === v ? "#00afad" : "#eee", color: erwerbstaetigkeit === v ? "#fff" : "#333" }}>
-            {v === "vollzeit" ? "Vollzeit" : v === "teilzeit" ? "Teilzeit" : "Keine"}
-          </div>
-        ))}
-      </div>
-      <label style={u.sectionLabel}>Anzahl gemeinsamer Kinder:</label>
-      <select style={u.input} value={kinderAnzahl} onChange={e => setKinderAnzahl(e.target.value)}>
-        <option value="0">Keine</option><option value="1">1 Kind</option><option value="2">2 Kinder</option><option value="3">3 Kinder</option><option value="4">4+</option>
-      </select>
-      <label style={u.sectionLabel}>Ehedauer (Jahre):</label>
-      <input type="number" style={u.input} placeholder="z.B. 8" value={ehezeit} onChange={e => setEhezeit(e.target.value)} />
-      <button style={u.btnPrimary} onClick={berechne}>Berechnen</button>
-      {result && (
-        <div style={u.resultBox}>
-          {result.keinAnspruch ? <div style={u.warnung}>⚠️ Kein Unterhaltsanspruch.</div> : (
-            <>
-              <div style={u.calcStep}><span>Bereinigtes Netto Antragsteller*in:</span><span>{result.bereinigtA} €</span></div>
-              <div style={u.calcStep}><span>Bereinigtes Netto Verpflichteter:</span><span>{result.bereinigtV} €</span></div>
-              {parseFloat(result.kuAbzug) > 0 && <div style={u.calcStep}><span>– Kindesunterhalt (geschätzt):</span><span>{result.kuAbzug} €</span></div>}
-              <div style={u.calcStep}><span>– Selbstbehalt Ehegatte:</span><span>1.200,00 €</span></div>
-              <div style={{ ...u.calcStep, borderTop: "1px solid #00afad", fontWeight: "bold", marginTop: "5px", paddingTop: "5px" }}><span>Verfügbare Masse:</span><span>{result.masseFürUnterhalt} €</span></div>
-              <div style={u.compositionBox}>
-                <div style={{ ...u.resRow, fontWeight: "bold", fontSize: "16px", borderTop: "2px solid #003366", paddingTop: "5px", marginTop: "5px" }}>
-                  <span>Trennungsunterhalt ca.:</span><span>{result.anspruch} € / Monat</span>
-                </div>
-              </div>
-              <div style={{ fontSize: "10px", color: "#999", marginTop: "10px" }}>⚠️ Orientierungswert. Individuelle Beratung erforderlich.</div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+function NachehelicherUnterhaltsRechner() { return React.createElement(EhegattenUnterhaltsRechner, {defaultTyp:"nachehelich"}); }
 
 // =============================================
-// MODUL 3: NACHEHELICHER UNTERHALT (isoliert)
-// =============================================
-function NachehelicherUnterhaltsRechner() {
-  const [einAntragsteller, setEinAntragsteller] = useState("");
-  const [einVerpflichteter, setEinVerpflichteter] = useState("");
-  const [abzuegeVerpflichteter, setAbzuegeVerpflichteter] = useState("");
-  const [unterhaltstatbestand, setUnterhaltstatbestand] = useState("kinderbetreuung");
-  const [kinderAnzahl, setKinderAnzahl] = useState("1");
-  const [ehezeit, setEhezeit] = useState("");
-  const [result, setResult] = useState(null);
-
-  const tatbestaende = [
-    { value: "kinderbetreuung", label: "§ 1570 – Kinderbetreuung" },
-    { value: "alter", label: "§ 1571 – Alter" },
-    { value: "krankheit", label: "§ 1572 – Krankheit" },
-    { value: "aufstockung", label: "§ 1573 – Aufstockungsunterhalt" },
-    { value: "ausbildung", label: "§ 1574 – Ausbildung / Umschulung" },
-    { value: "billigkeitsunterhalt", label: "§ 1576 – Billigkeitsunterhalt" },
-  ];
-
-  const berechne = () => {
-    const berA = parseFloat(einAntragsteller || 0);
-    const berV = Math.max(0, parseFloat(einVerpflichteter || 0) - parseFloat(abzuegeVerpflichteter || 0));
-    const bonusV = berV / 7;
-    const bereinigtV = berV - bonusV;
-    const kuAbzug = parseInt(kinderAnzahl) * 450;
-    const selbstbehalt = 1300;
-    const masseFürUnterhalt = Math.max(0, bereinigtV - kuAbzug - selbstbehalt);
-    const differenz = bereinigtV - berA;
-    const anspruchRoh = Math.max(0, differenz / 2);
-    const anspruch = Math.min(anspruchRoh, masseFürUnterhalt);
-    const ehejahre = parseFloat(ehezeit || 0);
-    let befristungshinweis = "";
-    if (ehejahre < 3) befristungshinweis = "Bei kurzer Ehedauer (< 3 Jahre) ist eine Befristung sehr wahrscheinlich.";
-    else if (ehejahre < 10) befristungshinweis = "Bei mittlerer Ehedauer kann der Unterhalt zeitlich befristet werden.";
-    else befristungshinweis = "Bei langer Ehedauer (> 10 Jahre) ist eine Befristung seltener, aber möglich.";
-    setResult({ bereinigtV: bereinigtV.toFixed(2), kuAbzug: kuAbzug.toFixed(2), masseFürUnterhalt: masseFürUnterhalt.toFixed(2), anspruch: anspruch.toFixed(2), keinAnspruch: differenz <= 0 || masseFürUnterhalt <= 0, befristungshinweis });
-  };
-
-  const u = rStyles;
-  return (
-    <div>
-      <h4 style={u.modTitle}>💍 Nachehelicher Unterhalt (§§ 1569 ff. BGB)</h4>
-      <div style={u.infoBox}>ℹ️ Selbstbehalt gegenüber Ex-Ehegatte: 1.300 €.</div>
-      <label style={u.sectionLabel}>Unterhaltstatbestand:</label>
-      <select style={u.input} value={unterhaltstatbestand} onChange={e => setUnterhaltstatbestand(e.target.value)}>
-        {tatbestaende.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-      </select>
-      <label style={u.sectionLabel}>Einkommen berechtigte Person:</label>
-      <input type="number" style={u.input} placeholder="Nettoeinkommen (€, 0 wenn keines)" value={einAntragsteller} onChange={e => setEinAntragsteller(e.target.value)} />
-      <label style={u.sectionLabel}>Einkommen Verpflichteter:</label>
-      <div style={u.row}>
-        <input type="number" style={u.input} placeholder="Nettoeinkommen (€)" value={einVerpflichteter} onChange={e => setEinVerpflichteter(e.target.value)} />
-        <input type="number" style={u.input} placeholder="Abzüge (€)" value={abzuegeVerpflichteter} onChange={e => setAbzuegeVerpflichteter(e.target.value)} />
-      </div>
-      <label style={u.sectionLabel}>Anzahl Kinder:</label>
-      <select style={u.input} value={kinderAnzahl} onChange={e => setKinderAnzahl(e.target.value)}>
-        <option value="0">Keine</option><option value="1">1 Kind</option><option value="2">2 Kinder</option><option value="3">3 Kinder</option><option value="4">4+</option>
-      </select>
-      <label style={u.sectionLabel}>Ehedauer (Jahre):</label>
-      <input type="number" style={u.input} placeholder="z.B. 12" value={ehezeit} onChange={e => setEhezeit(e.target.value)} />
-      <button style={u.btnPrimary} onClick={berechne}>Berechnen</button>
-      {result && (
-        <div style={u.resultBox}>
-          {result.keinAnspruch ? <div style={u.warnung}>⚠️ Kein Unterhaltsanspruch nach diesen Angaben.</div> : (
-            <>
-              <div style={u.calcStep}><span>Bereinigtes Netto Verpflichteter:</span><span>{result.bereinigtV} €</span></div>
-              {parseFloat(result.kuAbzug) > 0 && <div style={u.calcStep}><span>– Kindesunterhalt (geschätzt):</span><span>{result.kuAbzug} €</span></div>}
-              <div style={u.calcStep}><span>– Selbstbehalt Ex-Ehegatte:</span><span>1.300,00 €</span></div>
-              <div style={{ ...u.calcStep, borderTop: "1px solid #00afad", fontWeight: "bold", marginTop: "5px", paddingTop: "5px" }}><span>Verfügbare Masse:</span><span>{result.masseFürUnterhalt} €</span></div>
-              <div style={u.compositionBox}>
-                <div style={{ ...u.resRow, fontWeight: "bold", fontSize: "16px", borderTop: "2px solid #003366", paddingTop: "5px", marginTop: "5px" }}>
-                  <span>Nachehelicher Unterhalt ca.:</span><span>{result.anspruch} € / Monat</span>
-                </div>
-              </div>
-              {ehezeit && <div style={{ ...u.infoBox, marginTop: "10px" }}>📅 <strong>Befristung:</strong> {result.befristungshinweis}</div>}
-              <div style={{ fontSize: "10px", color: "#999", marginTop: "10px" }}>⚠️ Orientierungswert. Individuelle anwaltliche Beratung unbedingt erforderlich.</div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// =============================================
-// GEMEINSAME STYLES FÜR ALLE RECHNER-MODULE
+// MODUL 4: MEHRBEDARF ALLEINERZIEHENDE
 // =============================================
 const rStyles = {
   modTitle: { fontSize: "14px", color: "#003366", fontWeight: "bold", margin: "0 0 12px 0", paddingBottom: "8px", borderBottom: "2px solid #00afad" },
   input: { width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "6px", border: "1px solid #ddd", boxSizing: "border-box", fontSize: "13px" },
-  row: { display: "flex", gap: "10px" },
+  row: { display: "flex", gap: "12px" },
   btnPrimary: { width: "100%", padding: "12px", backgroundColor: "#003366", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", marginTop: "5px" },
   filterSection: { backgroundColor: "#f0f4f7", padding: "10px", borderRadius: "10px", margin: "10px 0" },
   childBox: { backgroundColor: "#fff", padding: "10px", borderRadius: "6px", marginBottom: "8px" },
@@ -413,11 +152,43 @@ const rStyles = {
   btnAdd: { backgroundColor: "#00afad", color: "#fff", border: "none", padding: "4px 8px", borderRadius: "4px", fontSize: "10px", cursor: "pointer" },
   btnDel: { backgroundColor: "#ff4d4d", color: "#fff", border: "none", padding: "2px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "10px" },
   inputMini: { padding: "4px", fontSize: "11px", borderRadius: "4px", border: "1px solid #ddd" },
+  // PC-Optimierung: 2-Spalten Grid für Formulare
+  pcGrid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
+  pcGrid3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" },
 };
+// =============================================
+// 4-FARBEN INFO-SYSTEM
+// Blau=Rechtliche Info, Gelb=Empfehlung,
+// Grün=Positiv, Rot=Warnung, Lila=Vergleich
+// =============================================
+var infoColors = {
+  recht:   { bg:"#e8f0fb", border:"#3b6ec4", color:"#003366", icon:"⚖️", badge:"Rechtliche Info" },
+  empf:    { bg:"#fffde7", border:"#f9a825", color:"#7a5800", icon:"💡", badge:"Tipp" },
+  positiv: { bg:"#e8f5e9", border:"#43a047", color:"#1b5e20", icon:"✅", badge:"Gut zu wissen" },
+  warnung: { bg:"#ffebee", border:"#e53935", color:"#b71c1c", icon:"⚠️", badge:"Wichtig" },
+  vergl:   { bg:"#f3e5f5", border:"#8e24aa", color:"#4a148c", icon:"🔀", badge:"Rechtsvergleich" },
+  frist:   { bg:"#fff3e0", border:"#ef6c00", color:"#bf360c", icon:"⏰", badge:"Frist" },
+  sozial:  { bg:"#e0f2f1", border:"#00897b", color:"#004d40", icon:"🏛️", badge:"Sozialrecht" },
+};
+function InfoBox({ typ, titel, kinder, style, noBadge }) {
+  var c2 = infoColors[typ] || infoColors.recht;
+  return (
+    <div style={{ backgroundColor:c2.bg, border:"1px solid "+c2.border, borderRadius:"8px", padding:"10px 12px", marginBottom:"10px", fontSize:"11px", color:c2.color, lineHeight:"1.5", ...style }}>
+      {!noBadge && (
+        <div style={{ display:"flex", alignItems:"center", gap:"5px", marginBottom:(titel||kinder)?"5px":"0" }}>
+          <span style={{ fontSize:"12px" }}>{c2.icon}</span>
+          <span style={{ fontSize:"9px", fontWeight:"bold", textTransform:"uppercase", backgroundColor:c2.border, color:"#fff", padding:"1px 6px", borderRadius:"10px", letterSpacing:"0.5px" }}>{c2.badge}</span>
+        </div>
+      )}
+      {titel && <div style={{ fontWeight:"bold", marginBottom:"4px" }}>{titel}</div>}
+      <div>{kinder}</div>
+    </div>
+  );
+}
 
-// =============================================
-// MODUL 4: MEHRBEDARF ALLEINERZIEHENDE
-// =============================================
+
+
+
 function MehrbedarfAlleinerziehende() {
   const [modell, setModell] = useState("");
   const [kinderKonf, setKinderKonf] = useState("1u7");
@@ -987,367 +758,574 @@ function WohngeldRechner() {
 // MODUL: BETREUUNGSUNTERHALT (§ 1615l BGB)
 // =============================================
 function BetreuungsunterhaltsRechner() {
-  const [geburtsdatum, setGeburtsdatum] = useState("");
-  const [erwartetAm, setErwartetAm] = useState("");
-  const [situation, setSituation] = useState(""); // "vor_geburt" | "nach_geburt"
-  const [einkommenMutter, setEinkommenMutter] = useState("");
-  const [einkommenVater, setEinkommenVater] = useState("");
-  const [erwerbshindernis, setErwerbshindernis] = useState("");
-  const [betreuungDurch, setBetreuungDurch] = useState("mutter");
-  const [abzuegeMutter, setAbzuegeMutter] = useState("");
-  const [abzuegeVater, setAbzuegeVater] = useState("");
-  const [schwangerschaftskosten, setSchwangerschaftskosten] = useState("");
-  const [kannNichtArbeiten, setKannNichtArbeiten] = useState("");
-  const [weitereKinder, setWeitereKinder] = useState("nein");
-  const [anzahlWeitereKinder, setAnzahlWeitereKinder] = useState("0");
-  const [result, setResult] = useState(null);
+  var u = rStyles;
+  return (
+    <div>
+      <h4 style={u.modTitle}>👶 Betreuungsunterhalt § 1615l BGB</h4>
+      <InfoBox typ="recht" titel="§ 1615l BGB"
+        kinder={<span>Betreuungsunterhalt bei nicht-ehelicher Geburt: mindestens 3 Jahre, verlängerbar aus Kindeswohlgründen. Richtet sich nach den ehelichen Unterhaltsgrundsätzen (§ 1570 BGB analog).</span>} />
+      <InfoBox typ="empf" titel={null}
+        kinder={<span>Für diese Berechnung bitte <strong>Ehegattenunterhalt → Nachehelich</strong> nutzen und die speziellen § 1615l-Parameter mit einem Fachanwalt für Familienrecht klären.</span>} />
+    </div>
+  );
+}
 
-  // Hilfsfunktionen
-  var heute = new Date();
+// =============================================
+// MODUL: RECHTSVERGLEICH Familien- vs. Sozialrecht
+// =============================================
+function RechtsvergleichModul({ ext }) {
+  var u = rStyles;
+  const [netto, setNetto] = React.useState(ext ? String(ext.einkommenNetto||"") : "");
+  const [mieteKalt, setMieteKalt] = React.useState(ext ? String(ext.mieteKalt||"") : "");
+  const [nebenkosten, setNebenkosten] = React.useState(ext ? String(ext.nebenkosten||"") : "");
+  const [heizkosten, setHeizkosten] = React.useState(ext ? String(ext.heizkosten||"") : "");
+  const [anzPersonen, setAnzPersonen] = React.useState(ext && ext.kinder ? String(1+ext.kinder.length) : "1");
+  const [anzKinder, setAnzKinder] = React.useState(ext && ext.kinder ? String(ext.kinder.length) : "0");
+  const [unterhalt, setUnterhalt] = React.useState(ext ? String(ext.unterhaltBetrag||"") : "");
+  const [wohnflaeche, setWohnflaeche] = React.useState(ext ? String(ext.wohnungGroesse||"") : "");
+  const [result, setResult] = React.useState(null);
 
-  var dateDiff = function(von, bis) {
-    // Differenz in Tagen
-    return Math.round((bis - von) / (1000 * 60 * 60 * 24));
-  };
+  function berechne() {
+    var n = parseFloat(netto)||0;
+    var mk = parseFloat(mieteKalt)||0;
+    var nk = parseFloat(nebenkosten)||0;
+    var hk = parseFloat(heizkosten)||0;
+    var kdu = mk + nk + hk;
+    var kinderAnz = parseInt(anzKinder)||0;
 
-  var getSituation = function() {
-    // Ermittelt automatisch die Situation aus den eingegebenen Daten
-    if (geburtsdatum) {
-      var geb = new Date(geburtsdatum);
-      var tageNachGeburt = dateDiff(geb, heute);
-      var monateNachGeburt = (heute.getFullYear() - geb.getFullYear()) * 12 + (heute.getMonth() - geb.getMonth());
-      if (tageNachGeburt < 0) return "vor_geburt"; // Geburtsdatum in der Zukunft
-      return "nach_geburt";
-    }
-    if (erwartetAm) return "vor_geburt";
-    return situation;
-  };
+    // ── FAMILIENRECHT ──────────────────────────────────────
+    // Selbstbehalt (Düsseldorfer Tabelle 2024)
+    var selbstbehaltErwerb = 1450;  // erwerbstätig
+    var selbstbehaltNE = 1200;      // nicht erwerbstätig
+    // Angemessener Wohnbedarf Familienrecht
+    var wohnFR_1 = 500;  // Einzelperson
+    var wohnFR_2 = 650;  // 2 Personen
+    var wohnFR_map = {1:500, 2:650, 3:800, 4:950, 5:1100};
+    var wohnFR = wohnFR_map[parseInt(anzPersonen)] || 500;
 
-  var getPhaseInfo = function() {
-    var sit = getSituation();
-    if (sit === "vor_geburt") {
-      var termin = geburtsdatum ? new Date(geburtsdatum) : (erwartetAm ? new Date(erwartetAm) : null);
-      if (!termin) return { phase: "vor_geburt", tageVorGeburt: null };
-      var tageVorGeburt = dateDiff(heute, termin);
-      return { phase: "vor_geburt", tageVorGeburt: Math.max(0, tageVorGeburt), termin: termin };
-    }
-    if (sit === "nach_geburt") {
-      var geb = new Date(geburtsdatum);
-      var tageNach = dateDiff(geb, heute);
-      var monateNach = (heute.getFullYear() - geb.getFullYear()) * 12 + (heute.getMonth() - geb.getMonth());
-      var inMutterschaftsschutz = tageNach <= 56; // 8 Wochen = 56 Tage
-      var verbleibendeAnspruchsmonate = Math.max(0, 36 - monateNach);
-      return {
-        phase: inMutterschaftsschutz ? "mutterschaftsschutz" : "betreuungsunterhalt",
-        tageNachGeburt: tageNach,
-        monateNach: monateNach,
-        inMutterschaftsschutz: inMutterschaftsschutz,
-        verbleibendeAnspruchsmonate: verbleibendeAnspruchsmonate,
-        anspruchAbgelaufen: monateNach >= 36,
-      };
-    }
-    return { phase: "unbekannt" };
-  };
+    // ── SOZIALRECHT (SGB II / SGB XII) ─────────────────────
+    // Regelbedarf 2024
+    var REGEL = {allein:563, k05:357, k613:390, k1417:471, k18:451};
+    var regelAllein = REGEL.allein;
+    // Mehrbedarf Alleinerziehend (wenn Kinder)
+    var mbAE = kinderAnz > 0 ? Math.round(regelAllein * 0.36) : 0;
+    // KdU-Angemessenheit (Richtwerte je nach Personenanzahl)
+    var kduAngemessen_map = {1:500, 2:680, 3:820, 4:960, 5:1100};
+    var kduSR = kduAngemessen_map[parseInt(anzPersonen)] || 500;
+    // Gesamtbedarf Sozialrecht
+    var kinderRegel = 0;
+    for(var i=0; i<kinderAnz; i++) kinderRegel += REGEL.k613; // Mittelwert
+    var gesamtbedarfSR = regelAllein + mbAE + kinderRegel + Math.min(kdu, kduSR);
 
-  var berechne = function() {
-    var berM = Math.max(0, parseFloat(einkommenMutter || 0) - parseFloat(abzuegeMutter || 0));
-    var berV = Math.max(0, parseFloat(einkommenVater || 0) - parseFloat(abzuegeVater || 0));
-    var sbVater = 1600;
-    var kuAbzug = parseInt(anzahlWeitereKinder || 0) * 480;
-    var verfuegbar = Math.max(0, berV - sbVater - kuAbzug);
-    var info = getPhaseInfo();
+    // Sozialrechtlicher Bedarf ohne Einkommen
+    var einkAnrechSR = Math.max(0, n - (n<=100?n : 100 + Math.min(n-100,900)*0.20));
+    var unterhaltsEink = parseFloat(unterhalt)||0;
+    var anspruchSR = Math.max(0, gesamtbedarfSR - einkAnrechSR - unterhaltsEink);
 
-    // ── Phase 1: Vor der Geburt (§ 1615l Abs. 1 BGB) ──────────────────────
-    // 6 Wochen vor Geburt: Lebensunterhalt wenn betr. Elternteil nicht arbeiten kann
-    // + Entbindungskosten (pauschal oder konkret)
-    var entbindungskosten = parseFloat(schwangerschaftskosten || 0);
-    var lebenshaltungVorGeburt = 0;
-    var berechnungVorGeburt = "";
-    if (info.phase === "vor_geburt" || info.phase === "mutterschaftsschutz") {
-      if (kannNichtArbeiten === "ja") {
-        // Lebensunterhalt: wie Betreuungsunterhalt berechnet
-        if (berM < 100) {
-          lebenshaltungVorGeburt = Math.round(berV * 3 / 7);
-          berechnungVorGeburt = "3/7 des Einkommens des and. Elternteils (betr. ET ohne Einkommen)";
-        } else {
-          lebenshaltungVorGeburt = Math.max(960, Math.round((berV - berM) * 3 / 7));
-          berechnungVorGeburt = "3/7 der Einkommensdifferenz (mind. 960 €)";
-        }
-      }
-    }
-    var zahlbarVorGeburt = Math.min(lebenshaltungVorGeburt, verfuegbar);
-    var zahlbareEntbindungskosten = Math.min(entbindungskosten, Math.max(0, verfuegbar - zahlbarVorGeburt));
+    // Wohnflächen-Angemessenheit Sozialrecht vs. Familienrecht
+    var wohnSR_map = {1:50, 2:60, 3:75, 4:85, 5:95};
+    var wohnSR_qm = wohnSR_map[parseInt(anzPersonen)] || 50;
+    var wohnFR_qm_map = {1:45, 2:55, 3:65, 4:75, 5:85};
+    var wohnFR_qm = wohnFR_qm_map[parseInt(anzPersonen)] || 45;
 
-    // ── Phase 2+3: Nach der Geburt (§ 1615l Abs. 2 BGB) ──────────────────
-    // 3/7 der Einkommensdifferenz, mind. 960 €
-    var bedarf = 0;
-    var berechnungsgrundlage = "";
-    if (betreuungDurch === "mutter") {
-      if (berM < 100) {
-        bedarf = Math.round(berV * 3 / 7);
-        berechnungsgrundlage = "3/7 des Einkommens des and. Elternteils (betr. ET ohne Einkommen)";
-      } else {
-        bedarf = Math.max(0, Math.round((berV - berM) * 3 / 7));
-        berechnungsgrundlage = "3/7 der Einkommensdifferenz";
-      }
-    } else {
-      if (berV < 100) {
-        bedarf = Math.round(berM * 3 / 7);
-        berechnungsgrundlage = "3/7 des Einkommens des betr. Elternteils (and. ET ohne Einkommen)";
-      } else {
-        bedarf = Math.max(0, Math.round((berM - berV) * 3 / 7));
-        berechnungsgrundlage = "3/7 der Einkommensdifferenz";
-      }
-    }
-    bedarf = Math.max(bedarf, 960); // Mindestbedarf
-    var zahlbar = Math.min(bedarf, verfuegbar);
-    var mangelfall = zahlbar < bedarf;
-
-    // Verlängerungsgründe
-    var verlaengerungen = [];
-    if (erwerbshindernis === "kita_fehlt") verlaengerungen.push("Kein Kita-Platz verfügbar (§ 1615l Abs. 2 S. 5)");
-    if (erwerbshindernis === "krankheit") verlaengerungen.push("Krankheit / Behinderung des Kindes");
-    if (erwerbshindernis === "pflege") verlaengerungen.push("Weiteres Kind unter 3 Jahren in Betreuung");
-    if (erwerbshindernis === "kindeswohl") verlaengerungen.push("Sonstige Kindeswohlgründe (Einzelfallprüfung)");
+    // Selbstbehalt vs. SGB II Bedarf
+    var diffSelbstbehalt = gesamtbedarfSR - selbstbehaltNE;
+    var diffWohn = kduSR - wohnFR;
 
     setResult({
-      berM: berM.toFixed(2), berV: berV.toFixed(2),
-      sbVater, kuAbzug,
-      verfuegbar: verfuegbar.toFixed(2),
-      // Vor Geburt
-      lebenshaltungVorGeburt: lebenshaltungVorGeburt.toFixed(2),
-      zahlbarVorGeburt: zahlbarVorGeburt.toFixed(2),
-      entbindungskosten: entbindungskosten.toFixed(2),
-      zahlbareEntbindungskosten: zahlbareEntbindungskosten.toFixed(2),
-      berechnungVorGeburt,
-      // Nach Geburt
-      bedarf: bedarf.toFixed(2),
-      zahlbar: zahlbar.toFixed(2),
-      mangelfall,
-      berechnungsgrundlage,
-      // Allgemein
-      info,
-      verlaengerungen,
+      n, kdu, kinderAnz,
+      // Familienrecht
+      selbstbehaltNE, selbstbehaltErwerb, wohnFR, wohnFR_qm,
+      // Sozialrecht
+      regelAllein, mbAE, kinderRegel, kduSR, gesamtbedarfSR,
+      einkAnrechSR, anspruchSR, wohnSR_qm,
+      // Vergleiche
+      diffSelbstbehalt, diffWohn,
+      kduDeckung: kdu <= kduSR ? "angemessen" : "über Grenze",
+      srHoeherAlsFR: gesamtbedarfSR > selbstbehaltNE
     });
-  };
-
-  var u = rStyles;
-  var info = getPhaseInfo();
-
-  // Phasen-Badge Farben
-  var phaseFarbe = info.phase === "vor_geburt" ? "#7b1fa2" : info.phase === "mutterschaftsschutz" ? "#1565c0" : "#2e7d32";
-  var phaseLabel = info.phase === "vor_geburt" ? "📅 Vor der Geburt" : info.phase === "mutterschaftsschutz" ? "🏥 Entbindungsphase (bis 8 Wo. nach Geburt)" : info.phase === "betreuungsunterhalt" ? "👶 Betreuungsunterhalt (nach 8 Wo.)" : "";
+  }
 
   return (
     <div>
-      <h4 style={u.modTitle}>👶 Betreuungsunterhalt (§ 1615l BGB)</h4>
-      <div style={u.infoBox}>ℹ️ Gilt unabhängig vom Familienstand. Umfasst: Unterhalt ab 6 Wochen vor Geburt (Entbindungsschaden) sowie Betreuungsunterhalt für mind. 3 Jahre nach der Geburt.</div>
+      <h4 style={u.modTitle}>⚖️ Rechtsvergleich: Familienrecht vs. Sozialrecht</h4>
+      <InfoBox typ="vergl" titel="Was wird verglichen?"
+        kinder={<span>Dieser Rechner zeigt Unterschiede zwischen familienrechtlichem Selbstbehalt und sozialrechtlichem Bedarf (SGB II). Oft ist der sozialrechtliche Anspruch <strong>höher</strong> als der familienrechtliche Selbstbehalt — das kann strategisch wichtig sein.</span>} />
 
-      {/* Block 1: Zeitpunkt / Datum */}
-      <div style={{ backgroundColor:"#f0f4ff", borderRadius:"8px", padding:"12px", marginBottom:"10px", borderLeft:"3px solid #7b1fa2" }}>
-        <div style={{ fontWeight:"bold", fontSize:"12px", color:"#7b1fa2", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.5px" }}>📅 Zeitpunkt bestimmen</div>
-        <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
-          <div>
-            <label style={u.sectionLabel}>Geburtsdatum (tatsächlich oder erwartet):</label>
-            <input type="date" style={u.input} value={geburtsdatum}
-              onChange={function(e) { setGeburtsdatum(e.target.value); setErwartetAm(""); setResult(null); }} />
-          </div>
-          {!geburtsdatum && (
-            <div>
-              <label style={u.sectionLabel}>Oder: Errechneter Geburtstermin (ET):</label>
-              <input type="date" style={u.input} value={erwartetAm}
-                onChange={function(e) { setErwartetAm(e.target.value); setResult(null); }} />
+      <label style={u.sectionLabel}>Nettoeinkommen (€/Monat):</label>
+      <input type="number" style={u.input} placeholder="z.B. 1200" value={netto} onChange={e=>setNetto(e.target.value)} />
+      <label style={u.sectionLabel}>Anzahl Personen im Haushalt:</label>
+      <div style={{ display:"flex", gap:"6px", marginBottom:"10px" }}>
+        {["1","2","3","4","5"].map(function(v){
+          return <div key={v} onClick={function(){setAnzPersonen(v); setAnzKinder(String(Math.max(0,parseInt(v)-1)));}}
+            style={{ padding:"6px 12px", borderRadius:"8px", fontSize:"12px", cursor:"pointer",
+              backgroundColor:anzPersonen===v?"#003366":"#eee", color:anzPersonen===v?"#fff":"#333" }}>{v}</div>;
+        })}
+      </div>
+      <label style={u.sectionLabel}>Davon Kinder:</label>
+      <div style={{ display:"flex", gap:"6px", marginBottom:"10px" }}>
+        {["0","1","2","3","4"].map(function(v){
+          return <div key={v} onClick={function(){setAnzKinder(v);}}
+            style={{ padding:"6px 12px", borderRadius:"8px", fontSize:"12px", cursor:"pointer",
+              backgroundColor:anzKinder===v?"#00afad":"#eee", color:anzKinder===v?"#fff":"#333" }}>{v}</div>;
+        })}
+      </div>
+      <div style={u.row}>
+        <input type="number" style={u.input} placeholder="Kaltmiete (€)" value={mieteKalt} onChange={e=>setMieteKalt(e.target.value)} />
+        <input type="number" style={u.input} placeholder="Nebenkosten (€)" value={nebenkosten} onChange={e=>setNebenkosten(e.target.value)} />
+      </div>
+      <input type="number" style={u.input} placeholder="Heizkosten (€)" value={heizkosten} onChange={e=>setHeizkosten(e.target.value)} />
+      <input type="number" style={u.input} placeholder="Erhaltener Unterhalt (€, falls vorhanden)" value={unterhalt} onChange={e=>setUnterhalt(e.target.value)} />
+      <button style={u.btnPrimary} onClick={berechne}>🔀 Vergleich berechnen</button>
+
+      {result && (
+        <div>
+          {/* Ampel-Übersicht */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", margin:"12px 0" }}>
+            <div style={{ backgroundColor:"#e8f0fb", border:"1px solid #4a7bbf", borderRadius:"8px", padding:"10px", textAlign:"center" }}>
+              <div style={{ fontSize:"10px", color:"#003366", fontWeight:"bold", marginBottom:"4px" }}>⚖️ FAMILIENRECHT</div>
+              <div style={{ fontSize:"11px", color:"#555" }}>Selbstbehalt (n.e.)</div>
+              <div style={{ fontSize:"18px", fontWeight:"bold", color:"#003366" }}>{result.selbstbehaltNE} €</div>
+              <div style={{ fontSize:"10px", color:"#777" }}>erw.: {result.selbstbehaltErwerb} €</div>
             </div>
+            <div style={{ backgroundColor: result.srHoeherAlsFR ? "#e8f5e9" : "#fff9e6", border:"1px solid "+(result.srHoeherAlsFR?"#4caf50":"#ffc107"), borderRadius:"8px", padding:"10px", textAlign:"center" }}>
+              <div style={{ fontSize:"10px", color: result.srHoeherAlsFR?"#1b5e20":"#856404", fontWeight:"bold", marginBottom:"4px" }}>🏛️ SOZIALRECHT</div>
+              <div style={{ fontSize:"11px", color:"#555" }}>Gesamtbedarf SGB II</div>
+              <div style={{ fontSize:"18px", fontWeight:"bold", color: result.srHoeherAlsFR?"#2e7d32":"#e65100" }}>{result.gesamtbedarfSR.toFixed(0)} €</div>
+              <div style={{ fontSize:"10px", color:"#777" }}>Anspruch: {result.anspruchSR.toFixed(0)} €</div>
+            </div>
+          </div>
+
+          {result.srHoeherAlsFR && (
+            <InfoBox typ="positiv" titel={"Sozialrechtlicher Bedarf übersteigt familienrechtlichen Selbstbehalt um " + result.diffSelbstbehalt.toFixed(0) + " €"}
+              kinder={<span>Dies kann bedeuten: Trotz Unterhaltspflicht kann Bürgergeld beantragt werden. Der Selbstbehalt im Familienrecht schützt nicht vor SGB II-Ansprüchen — beide Systeme sind unabhängig zu prüfen.</span>} />
           )}
-        </div>
 
-        {/* Automatische Phasen-Erkennung */}
-        {(geburtsdatum || erwartetAm) && info.phase !== "unbekannt" && (
-          <div style={{ marginTop:"10px", backgroundColor: phaseFarbe, color:"#fff", borderRadius:"7px", padding:"10px 12px" }}>
-            <div style={{ fontWeight:"bold", fontSize:"12px", marginBottom:"4px" }}>{phaseLabel}</div>
-            {info.phase === "vor_geburt" && info.tageVorGeburt !== null && (
-              <div style={{ fontSize:"11px" }}>Noch <strong>{info.tageVorGeburt} Tage</strong> bis zur Geburt · Anspruch beginnt 42 Tage (6 Wochen) vor Geburtstermin</div>
+          {/* Wohnraum-Vergleich */}
+          <div style={{ backgroundColor:"#f3e5f5", border:"1px solid #ce93d8", borderRadius:"8px", padding:"10px", marginBottom:"10px" }}>
+            <div style={{ fontWeight:"bold", color:"#4a148c", fontSize:"11px", marginBottom:"6px" }}>🏠 Wohnraumvergleich</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px", fontSize:"11px" }}>
+              <div>
+                <div style={{ color:"#003366", fontWeight:"bold" }}>Familienrecht</div>
+                <div>Angemessen: ca. {result.wohnFR_qm} m²</div>
+                <div>KdU-Grenze ca.: {result.wohnFR} €</div>
+              </div>
+              <div>
+                <div style={{ color:"#1b5e20", fontWeight:"bold" }}>Sozialrecht (SGB II)</div>
+                <div>Angemessen: ca. {result.wohnSR_qm} m²</div>
+                <div>KdU-Grenze ca.: {result.kduSR} €</div>
+              </div>
+            </div>
+            {result.diffWohn !== 0 && (
+              <div style={{ marginTop:"6px", fontSize:"10px", color:"#4a148c", fontWeight:"bold" }}>
+                {result.diffWohn > 0
+                  ? "✅ Sozialrecht gewährt " + result.diffWohn + " € mehr Wohnkostenübernahme als familienrechtlich angemessen"
+                  : "⚠️ Familienrecht großzügiger beim Wohnraum in diesem Fall"}
+              </div>
             )}
-            {info.phase === "mutterschaftsschutz" && (
-              <div style={{ fontSize:"11px" }}>Tag <strong>{info.tageNachGeburt}</strong> nach Geburt · Mutterschaftsschutzphase (bis Tag 56 = 8 Wochen)</div>
-            )}
-            {info.phase === "betreuungsunterhalt" && !info.anspruchAbgelaufen && (
-              <div style={{ fontSize:"11px" }}>Kind ist <strong>{info.monateNach} Monate</strong> alt · Grundanspruch noch <strong>{info.verbleibendeAnspruchsmonate} Monate</strong></div>
-            )}
-            {info.anspruchAbgelaufen && (
-              <div style={{ fontSize:"11px" }}>⚠️ Kind ist bereits über 3 Jahre alt – Grundanspruch abgelaufen. Verlängerung nur aus besonderen Gründen.</div>
+            {result.kinderAnz > 0 && (
+              <div style={{ marginTop:"4px", fontSize:"10px", color:"#4a148c" }}>
+                💡 Sozialrecht berücksichtigt Kinder bei der Wohnraumangemessenheit stärker: +{result.kinderAnz * 10} m² je Kind (Richtwert je nach Jobcenter)
+              </div>
             )}
           </div>
-        )}
+
+          {/* Detailtabelle */}
+          <details>
+            <summary style={{ fontSize:"11px", color:"#003366", cursor:"pointer", fontWeight:"bold", marginBottom:"6px" }}>▶ Vollständige Vergleichstabelle</summary>
+            <div style={u.resultBox}>
+              <div style={{ fontWeight:"bold", fontSize:"11px", color:"#003366", marginBottom:"6px" }}>Familienrecht:</div>
+              <div style={u.calcStep}><span>Selbstbehalt (nicht erwerbstätig):</span><span>{result.selbstbehaltNE} €</span></div>
+              <div style={u.calcStep}><span>Selbstbehalt (erwerbstätig):</span><span>{result.selbstbehaltErwerb} €</span></div>
+              <div style={u.calcStep}><span>Angemessene KdU (FR):</span><span>ca. {result.wohnFR} €/Monat</span></div>
+              <div style={{ fontWeight:"bold", fontSize:"11px", color:"#1b5e20", margin:"8px 0 4px" }}>Sozialrecht (SGB II):</div>
+              <div style={u.calcStep}><span>Regelbedarf Alleinstehend:</span><span>{result.regelAllein} €</span></div>
+              {result.mbAE > 0 && <div style={u.calcStep}><span>+ Mehrbedarf Alleinerziehend:</span><span>{result.mbAE} €</span></div>}
+              {result.kinderRegel > 0 && <div style={u.calcStep}><span>+ Kinderregelbedarfe ({result.kinderAnz}×):</span><span>{result.kinderRegel} €</span></div>}
+              <div style={u.calcStep}><span>+ KdU (max. angemessen):</span><span>{Math.min(result.kdu||0, result.kduSR).toFixed(2)} €</span></div>
+              <div style={{ ...u.calcStep, fontWeight:"bold", borderTop:"1px solid #ddd", paddingTop:"4px" }}><span>= Gesamtbedarf SGB II:</span><span>{result.gesamtbedarfSR.toFixed(2)} €</span></div>
+              <div style={u.calcStep}><span>- Anrechenbares Einkommen:</span><span>- {result.einkAnrechSR.toFixed(2)} €</span></div>
+              <div style={{ ...u.calcStep, fontWeight:"bold", color:"#00afad" }}><span>= Bürgergeld-Anspruch ca.:</span><span>{result.anspruchSR.toFixed(2)} €</span></div>
+              <div style={{ marginTop:"8px", fontSize:"10px", color:"#888" }}>
+                📖 Rechtsgrundlagen: § 20 SGB II (Regelbedarf) · § 21 SGB II (Mehrbedarf) · § 22 SGB II (KdU) · Düsseldorfer Tabelle 2024 (Selbstbehalt)
+              </div>
+            </div>
+          </details>
+
+          <InfoBox typ="recht" titel="Rechtsprechung Sozialgerichte"
+            kinder={<span>BSG B 14 AS 1/22 R: Jobcenter muss tatsächlichen Bedarf anerkennen. LSG NRW: Wohnraumangemessenheit bei Kindern nach Quadratmetern je Person. BSG B 4 AS 44/12 R: Umgangsrecht begründet eigenständigen KdU-Anspruch beim nicht-betreuenden Elternteil.</span>} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================
+// MODUL: KINDESUNTERHALT mit Düsseldorfer Tabelle 2024
+// =============================================
+var DT2024 = {
+  // [einkommensgruppe][altersgruppe] = unterhalt
+  gruppen: [
+    {bis:1900, name:"Gruppe 1"},
+    {bis:2300, name:"Gruppe 2"},
+    {bis:2700, name:"Gruppe 3"},
+    {bis:3100, name:"Gruppe 4"},
+    {bis:3700, name:"Gruppe 5"},
+    {bis:4300, name:"Gruppe 6"},
+    {bis:5100, name:"Gruppe 7"},
+    {bis:5900, name:"Gruppe 8"},
+    {bis:6700, name:"Gruppe 9"},
+    {bis:7500, name:"Gruppe 10"},
+  ],
+  tabelle: [
+    // 0-5, 6-11, 12-17, ab18
+    [480,551,645,688],[506,581,681,725],[532,611,716,763],
+    [565,647,759,809],[618,709,832,886],[672,771,904,964],
+    [745,855,1003,1069],[818,938,1102,1174],[891,1022,1199,1278],[964,1106,1298,1383]
+  ],
+  selbstbehalt: { erwerb:1450, nErwerb:1200 }
+};
+function getDTUnterhalt(einkommen, alter) {
+  var gruppe = DT2024.gruppen.findIndex(function(g){ return einkommen <= g.bis; });
+  if(gruppe < 0) gruppe = 9;
+  var alterIdx = alter < 6 ? 0 : alter < 12 ? 1 : alter < 18 ? 2 : 3;
+  return DT2024.tabelle[gruppe][alterIdx];
+}
+
+function KindesunterhaltsRechnerNeu({ ext, onSaveErgebnis }) {
+  var u = rStyles;
+  const [rolle, setRolle] = React.useState("");
+  const [einkommenPflichtig, setEinkommenPflichtig] = React.useState(ext ? String(ext.einkommenNetto||"") : "");
+  const [einkommenBerechtigt, setEinkommenBerechtigt] = React.useState(ext ? String(ext.einkommenGegenseite||"") : "");
+  const [erwerbstaetig, setErwerbstaetig] = React.useState("ja");
+  const [kinder, setKinder] = React.useState(
+    ext && ext.kinder && ext.kinder.length > 0
+      ? ext.kinder.map(function(k,i){
+          var alter = 10;
+          if(k.geburt){ var d=new Date(k.geburt); alter=Math.floor((new Date()-d)/(365.25*24*3600*1000)); }
+          return {id:i, name:k.name||("Kind "+(i+1)), alter:String(alter), wohnort:k.wohnort||"beim anderen Elternteil"};
+        })
+      : [{id:0, name:"Kind 1", alter:"8", wohnort:"beim anderen Elternteil"}]
+  );
+  const [result, setResult] = React.useState(null);
+
+  function addKind(){ setKinder(function(p){ return p.concat([{id:Date.now(),name:"Kind "+(p.length+1),alter:"8",wohnort:"beim anderen Elternteil"}]); }); }
+  function updK(id,f,v){ setKinder(function(p){ return p.map(function(k){ return k.id===id?Object.assign({},k,{[f]:v}):k; }); }); }
+  function remK(id){ setKinder(function(p){ return p.filter(function(k){ return k.id!==id; }); }); }
+
+  function berechne() {
+    var ep = parseFloat(einkommenPflichtig)||0;
+    var selbst = erwerbstaetig==="ja" ? DT2024.selbstbehalt.erwerb : DT2024.selbstbehalt.nErwerb;
+    var verfuegbar = ep - selbst;
+
+    var berechnungen = kinder.map(function(k){
+      var alter = parseInt(k.alter)||8;
+      var tabellenwert = getDTUnterhalt(ep, alter);
+      var gruppe = DT2024.gruppen.findIndex(function(g){ return ep <= g.bis; });
+      if(gruppe<0)gruppe=9;
+      var kg = 125; // halbes Kindergeld abzuziehen wenn nicht beim Pflichtigen wohnend
+      var nettounterhalt = tabellenwert - kg;
+      return { name:k.name, alter:alter, tabellenwert:tabellenwert, kg:kg, netto:nettounterhalt, gruppe:gruppe, wohnort:k.wohnort };
+    });
+
+    var gesamtUnterhalt = berechnungen.reduce(function(s,b){ return s+b.netto; }, 0);
+    var mangelfall = verfuegbar < gesamtUnterhalt;
+
+    var res = { ep, selbst, verfuegbar, berechnungen, gesamtUnterhalt, mangelfall, rolle };
+    setResult(res);
+    if(onSaveErgebnis) onSaveErgebnis({
+      typ:"Kindesunterhalt (Düsseldorfer Tabelle)",
+      rechtsbereich:"Familienrecht",
+      ergebnis: mangelfall ? "Mangelfall – " + gesamtUnterhalt.toFixed(0)+"€ nicht voll zahlbar" : gesamtUnterhalt.toFixed(0) + " €/Monat",
+      details: kinder.length + " Kind(er), Einkommen " + ep + " €",
+      detailSchritte: [
+        {label:"Nettoeinkommen Unterhaltspflichtiger", wert: ep.toFixed(2)+" €"},
+        {label:"Selbstbehalt ("+( erwerbstaetig==="ja"?"erwerbstätig":"nicht erwerbstätig")+")", wert:"- "+selbst+" €"},
+        {label:"Verfügbar für Unterhalt", wert: verfuegbar.toFixed(2)+" €", bold:true},
+        ...berechnungen.map(function(b){ return {label:b.name+" ("+b.alter+"J, Gruppe "+(b.gruppe+1)+")", wert:b.tabellenwert+"€ - "+b.kg+"€ KG = "+b.netto+"€"}; }),
+        {label:"Gesamtunterhalt", wert:gesamtUnterhalt.toFixed(2)+" €/Monat", bold:true},
+      ],
+      rechtsgrundlagen:"§§ 1601 ff. BGB · Düsseldorfer Tabelle 2024 · § 1612b BGB (Kindergeldanrechnung)"
+    });
+  }
+
+  return (
+    <div>
+      <h4 style={u.modTitle}>👶 Kindesunterhalt (Düsseldorfer Tabelle 2024)</h4>
+
+      <InfoBox typ="recht" titel="Ihre Rolle"
+        kinder={<span>Die Berechnung unterscheidet sich je nach Rolle: <strong>Unterhaltspflichtig</strong> = zahlt Unterhalt. <strong>Unterhaltsberechtigt</strong> = erhält Unterhalt (Kind/betreuender Elternteil).</span>} />
+
+      <label style={u.sectionLabel}>Ihre Rolle:</label>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"12px" }}>
+        {[{id:"pflichtig",label:"💸 Unterhaltspflichtig (zahlend)"},{id:"berechtigt",label:"💰 Unterhaltsberechtigt (empfangend)"}].map(function(r){
+          return <div key={r.id} onClick={function(){setRolle(r.id);}}
+            style={{ flex:1, padding:"8px", borderRadius:"8px", fontSize:"11px", cursor:"pointer", textAlign:"center",
+              backgroundColor:rolle===r.id?"#003366":"#f0f4f7", color:rolle===r.id?"#fff":"#333",
+              border:"2px solid "+(rolle===r.id?"#003366":"#ddd"), fontWeight:"bold" }}>{r.label}</div>;
+        })}
       </div>
 
-      {/* Block 2: Situation vor der Geburt – nur anzeigen wenn relevant */}
-      {(info.phase === "vor_geburt" || info.phase === "mutterschaftsschutz") && (
-        <div style={{ backgroundColor:"#f9f0ff", borderRadius:"8px", padding:"12px", marginBottom:"10px", borderLeft:"3px solid #7b1fa2" }}>
-          <div style={{ fontWeight:"bold", fontSize:"12px", color:"#7b1fa2", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.5px" }}>🏥 Entbindungsschaden (§ 1615l Abs. 1)</div>
-          <div style={{ fontSize:"11px", color:"#555", marginBottom:"8px" }}>6 Wochen vor bis 8 Wochen nach der Geburt: Lebensunterhalt bei Erwerbsausfall + konkrete Entbindungskosten.</div>
-          <label style={u.sectionLabel}>Kann der betreuende Elternteil wegen der Schwangerschaft nicht arbeiten?</label>
+      {rolle && (
+        <div>
+          {rolle==="pflichtig" && (
+            <InfoBox typ="warnung" titel="Selbstbehalt schützt Sie"
+              kinder={<span>Als Unterhaltspflichtiger müssen Sie den Selbstbehalt nicht unterschreiten: {erwerbstaetig==="ja"?"1.450":"1.200"} €/Monat. Was darüber bleibt, ist für Unterhalt verfügbar.</span>} />
+          )}
+          {rolle==="berechtigt" && (
+            <InfoBox typ="empf" titel="Tipp: Sozialrechtliche Alternativen prüfen"
+              kinder={<span>Falls Unterhalt nicht oder zu wenig gezahlt wird: <strong>Unterhaltsvorschuss (UVG)</strong> beantragen (bis 18 Jahre). Zusätzlich <strong>Bürgergeld aufstocken</strong> möglich — der Unterhalt wird dort als Einkommen angerechnet, aber Mehrbedarf bleibt.</span>} />
+          )}
+
+          <label style={u.sectionLabel}>Nettoeinkommen des Unterhaltspflichtigen (€/Monat):</label>
+          <input type="number" style={u.input} placeholder="z.B. 2200" value={einkommenPflichtig} onChange={e=>setEinkommenPflichtig(e.target.value)} />
+          <label style={u.sectionLabel}>Erwerbsstatus:</label>
           <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
-            {[{v:"ja", l:"Ja – Erwerbsausfall"}, {v:"nein", l:"Nein / Teilzeit möglich"}].map(function(opt) {
-              return (
-                <div key={opt.v} onClick={function() { setKannNichtArbeiten(opt.v); setResult(null); }}
-                  style={{ padding:"6px 12px", borderRadius:"8px", cursor:"pointer", fontSize:"12px",
-                    backgroundColor: kannNichtArbeiten === opt.v ? "#7b1fa2" : "#eee",
-                    color: kannNichtArbeiten === opt.v ? "#fff" : "#333" }}>
-                  {opt.l}
-                </div>
-              );
+            {[{id:"ja",label:"Erwerbstätig (SB: 1.450 €)"},{id:"nein",label:"Nicht erwerbstätig (SB: 1.200 €)"}].map(function(v){
+              return <div key={v.id} onClick={function(){setErwerbstaetig(v.id);}}
+                style={{ flex:1, padding:"6px", borderRadius:"7px", fontSize:"11px", cursor:"pointer", textAlign:"center",
+                  backgroundColor:erwerbstaetig===v.id?"#00afad":"#eee", color:erwerbstaetig===v.id?"#fff":"#333" }}>{v.label}</div>;
             })}
           </div>
-          <label style={u.sectionLabel}>Schwangerschafts- / Entbindungskosten (€, Einmalbetrag):</label>
-          <input type="number" style={u.input} placeholder="z.B. Hebamme, Entbindungsheim, Ausstattung" value={schwangerschaftskosten}
-            onChange={function(e) { setSchwangerschaftskosten(e.target.value); setResult(null); }} />
-          <div style={{ fontSize:"10px", color:"#888", marginTop:"2px" }}>Nur Kosten, die der gesetzlichen Krankenversicherung nicht ersetzt werden.</div>
-        </div>
-      )}
 
-      {/* Block 3: Einkommen */}
-      <div style={{ backgroundColor:"#f0f4ff", borderRadius:"8px", padding:"12px", marginBottom:"10px", borderLeft:"3px solid #003366" }}>
-        <div style={{ fontWeight:"bold", fontSize:"12px", color:"#003366", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.5px" }}>💶 Einkommen</div>
-        <label style={u.sectionLabel}>Wer betreut das Kind?</label>
-        <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
-          {[{v:"mutter", l:"Antragsteller*in betreut"}, {v:"vater", l:"Anderer Elternteil betreut"}].map(function(opt) {
+          <label style={u.sectionLabel}>Kinder:</label>
+          {kinder.map(function(k){
             return (
-              <div key={opt.v} onClick={function() { setBetreuungDurch(opt.v); setResult(null); }}
-                style={{ padding:"6px 14px", borderRadius:"8px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
-                  backgroundColor: betreuungDurch === opt.v ? "#003366" : "#eee",
-                  color: betreuungDurch === opt.v ? "#fff" : "#333" }}>
-                {opt.l}
+              <div key={k.id} style={{ backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"10px", marginBottom:"8px", borderLeft:"3px solid #003366" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                  <strong style={{ fontSize:"12px" }}>{k.name}</strong>
+                  {kinder.length > 1 && <button onClick={function(){remK(k.id);}} style={{ background:"none", border:"none", color:"#e53935", cursor:"pointer", fontSize:"16px" }}>×</button>}
+                </div>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <div style={{ flex:1 }}>
+                    <label style={{ fontSize:"10px", color:"#666", display:"block" }}>Name</label>
+                    <input style={u.input} value={k.name} onChange={function(e){updK(k.id,"name",e.target.value);}} />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <label style={{ fontSize:"10px", color:"#666", display:"block" }}>Alter</label>
+                    <input type="number" style={u.input} value={k.alter} onChange={function(e){updK(k.id,"alter",e.target.value);}} />
+                  </div>
+                </div>
+                {einkommenPflichtig && k.alter && (
+                  <div style={{ fontSize:"11px", color:"#003366", marginTop:"4px" }}>
+                    Tabellenwert: {getDTUnterhalt(parseFloat(einkommenPflichtig)||0, parseInt(k.alter)||8)} €/Monat (Gruppe {Math.min(9,DT2024.gruppen.findIndex(function(g){return (parseFloat(einkommenPflichtig)||0)<=g.bis;})>=0?DT2024.gruppen.findIndex(function(g){return (parseFloat(einkommenPflichtig)||0)<=g.bis;})+1:10)})
+                  </div>
+                )}
               </div>
             );
           })}
-        </div>
-        <label style={u.sectionLabel}>Nettoeinkommen betreuender Elternteil (€/Monat):</label>
-        <div style={u.row}>
-          <input type="number" style={u.input} placeholder="Netto (€)" value={einkommenMutter} onChange={function(e) { setEinkommenMutter(e.target.value); setResult(null); }} />
-          <input type="number" style={u.input} placeholder="Abzüge (Vorsorge, Kredit)" value={abzuegeMutter} onChange={function(e) { setAbzuegeMutter(e.target.value); setResult(null); }} />
-        </div>
-        <label style={u.sectionLabel}>Nettoeinkommen barunterhaltspflichtiger Elternteil (€/Monat):</label>
-        <div style={u.row}>
-          <input type="number" style={u.input} placeholder="Netto (€)" value={einkommenVater} onChange={function(e) { setEinkommenVater(e.target.value); setResult(null); }} />
-          <input type="number" style={u.input} placeholder="Abzüge (Vorsorge, Kredit)" value={abzuegeVater} onChange={function(e) { setAbzuegeVater(e.target.value); setResult(null); }} />
-        </div>
-        <label style={u.sectionLabel}>Weitere unterhaltspflichtige Kinder des Pflichtigen:</label>
-        <div style={{ display:"flex", gap:"8px", marginBottom:"6px" }}>
-          {[{v:"nein",l:"Keine"},{v:"ja",l:"Ja"}].map(function(opt) {
-            return (
-              <div key={opt.v} onClick={function() { setWeitereKinder(opt.v); setResult(null); }}
-                style={{ padding:"5px 12px", borderRadius:"8px", cursor:"pointer", fontSize:"12px",
-                  backgroundColor: weitereKinder === opt.v ? "#003366" : "#eee",
-                  color: weitereKinder === opt.v ? "#fff" : "#333" }}>
-                {opt.l}
-              </div>
-            );
-          })}
-        </div>
-        {weitereKinder === "ja" && (
-          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-            <span style={{ fontSize:"12px" }}>Anzahl:</span>
-            <select style={{ ...u.input, width:"80px" }} value={anzahlWeitereKinder} onChange={function(e) { setAnzahlWeitereKinder(e.target.value); setResult(null); }}>
-              {["1","2","3","4","5"].map(function(n) { return <option key={n} value={n}>{n}</option>; })}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Block 4: Verlängerungsgründe – nur nach Geburt relevant */}
-      {(info.phase === "betreuungsunterhalt" || !info.phase || info.phase === "unbekannt") && (
-        <div style={{ backgroundColor:"#f0f4ff", borderRadius:"8px", padding:"12px", marginBottom:"10px", borderLeft:"3px solid #00afad" }}>
-          <div style={{ fontWeight:"bold", fontSize:"12px", color:"#003366", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.5px" }}>⏳ Verlängerung über 3 Jahre?</div>
-          <div style={{ fontSize:"11px", color:"#555", marginBottom:"8px" }}>Liegt ein Grund vor, der den Anspruch über das 3. Lebensjahr des Kindes hinaus verlängert?</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:"6px" }}>
-            {[
-              {v:"kita_fehlt", l:"Kein Kita-Platz verfügbar"},
-              {v:"krankheit", l:"Krankheit / Behinderung des Kindes"},
-              {v:"pflege", l:"Weiteres Kind unter 3 Jahren in Betreuung"},
-              {v:"kindeswohl", l:"Sonstige Kindeswohlgründe"},
-              {v:"keine", l:"Kein Verlängerungsgrund"},
-            ].map(function(opt) {
-              return (
-                <div key={opt.v} onClick={function() { setErwerbshindernis(opt.v); setResult(null); }}
-                  style={{ padding:"8px 12px", borderRadius:"7px", cursor:"pointer", fontSize:"12px",
-                    backgroundColor: erwerbshindernis === opt.v ? "#00afad" : "#f9f9f9",
-                    color: erwerbshindernis === opt.v ? "#fff" : "#333",
-                    border: "1px solid " + (erwerbshindernis === opt.v ? "#00afad" : "#e0e0e0") }}>
-                  {erwerbshindernis === opt.v ? "✓ " : ""}{opt.l}
-                </div>
-              );
-            })}
-          </div>
+          <button onClick={addKind} style={{ width:"100%", padding:"8px", backgroundColor:"#f0f4f7", border:"1px dashed #003366", borderRadius:"8px", cursor:"pointer", fontSize:"12px", color:"#003366", marginBottom:"12px" }}>+ Kind hinzufügen</button>
+          <button style={u.btnPrimary} onClick={berechne}>🧮 Berechnen</button>
         </div>
       )}
-
-      <button style={u.btnPrimary} onClick={berechne}>Berechnen</button>
 
       {result && (
         <div style={u.resultBox}>
-          {result.mangelfall && <div style={u.warnung}>⚠️ <strong>Mangelfall:</strong> Verfügbare Masse reicht nicht für vollen Bedarf.</div>}
+          {result.mangelfall && (
+            <InfoBox typ="warnung" titel="Mangelfall"
+              kinder={<span>Das verfügbare Einkommen nach Selbstbehalt ({result.verfuegbar.toFixed(0)} €) reicht nicht für den vollen Unterhalt ({result.gesamtUnterhalt.toFixed(0)} €). Verhältnismäßige Kürzung möglich.</span>} />
+          )}
+          <div style={u.calcStep}><span>Nettoeinkommen:</span><span>{result.ep.toFixed(2)} €</span></div>
+          <div style={u.calcStep}><span>- Selbstbehalt:</span><span>- {result.selbst} €</span></div>
+          <div style={{ ...u.calcStep, fontWeight:"bold" }}><span>= Verfügbar:</span><span>{result.verfuegbar.toFixed(2)} €</span></div>
+          {result.berechnungen.map(function(b,i){
+            return (
+              <div key={i} style={{ marginTop:"8px", borderTop:"1px solid #eee", paddingTop:"8px" }}>
+                <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366" }}>{b.name} ({b.alter} Jahre, {DT2024.gruppen[b.gruppe].name})</div>
+                <div style={u.calcStep}><span>Tabellenwert:</span><span>{b.tabellenwert} €</span></div>
+                <div style={u.calcStep}><span>- ½ Kindergeld:</span><span>- {b.kg} €</span></div>
+                <div style={{ ...u.calcStep, fontWeight:"bold" }}><span>= Zahlbetrag:</span><span style={{ color:"#00afad" }}>{b.netto} €/Monat</span></div>
+              </div>
+            );
+          })}
+          <div style={{ ...u.calcStep, borderTop:"2px solid #003366", marginTop:"8px", paddingTop:"8px", fontWeight:"bold", fontSize:"14px" }}>
+            <span>Gesamt-Unterhalt:</span>
+            <span style={{ color: result.mangelfall?"#e53935":"#00afad" }}>{result.gesamtUnterhalt.toFixed(0)} €/Monat</span>
+          </div>
+          <div style={{ fontSize:"10px", color:"#888", marginTop:"6px" }}>§§ 1601 ff. BGB · Düsseldorfer Tabelle 2024 · § 1612b BGB</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
-          {/* Einkommensübersicht */}
-          <div style={u.calcStep}><span>Bereinigtes Einkommen betr. Elternteil:</span><span>{result.berM} €</span></div>
-          <div style={u.calcStep}><span>Bereinigtes Einkommen barunterh. Elternteil:</span><span>{result.berV} €</span></div>
-          <div style={u.calcStep}><span>– Selbstbehalt Pflichtiger:</span><span>{result.sbVater} €</span></div>
-          {result.kuAbzug > 0 && <div style={u.calcStep}><span>– Weitere Kinder (Abzug):</span><span>{result.kuAbzug} €</span></div>}
-          <div style={{ ...u.calcStep, borderTop:"1px solid #00afad", fontWeight:"bold", marginTop:"5px", paddingTop:"5px" }}>
-            <span>Verfügbare Masse:</span><span>{result.verfuegbar} €</span>
+// =============================================
+// MODUL: EHEGATTENUNTERHALT (Trennungs + Nachehelich)
+// =============================================
+function EhegattenUnterhaltsRechner({ ext, onSaveErgebnis, defaultTyp }) {
+  var u = rStyles;
+  const [typ, setTyp] = React.useState(defaultTyp || "trennung"); // trennung | nachehelich
+  const [rolle, setRolle] = React.useState(""); // pflichtig | berechtigt
+  const [einPflichtig, setEinPflichtig] = React.useState(ext ? String(ext.einkommenNetto||"") : "");
+  const [einBerechtigt, setEinBerechtigt] = React.useState(ext ? String(ext.einkommenGegenseite||"") : "");
+  const [ehedauer, setEhedauer] = React.useState("");
+  const [kinderAnz, setKinderAnz] = React.useState(ext && ext.kinder ? String(ext.kinder.length) : "0");
+  const [erwerbslos, setErwerbslos] = React.useState("nein");
+  const [grund, setGrund] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  const [showDetail, setShowDetail] = React.useState(false);
+
+  function berechne() {
+    var ep = parseFloat(einPflichtig)||0;
+    var eb = parseFloat(einBerechtigt)||0;
+    var kinder = parseInt(kinderAnz)||0;
+
+    // Bereinigtes Einkommen (Erwerbstätigenbonus 1/7 bei Erwerbstätigkeit)
+    var bonus = 1/7;
+    var berEp = ep * (1 - bonus); // wenn erwerbstätig
+    var berEb = eb > 0 ? eb * (1 - bonus) : 0;
+
+    // Halbteilungsgrundsatz § 1578 BGB
+    var differenz = berEp - berEb;
+    var anspruchBrutto = differenz / 2;
+
+    // Selbstbehalt beim Unterhaltspflichtigen: 1.475 € (2024)
+    var selbstbehalt = 1475;
+    var verfuegbarNachSB = Math.max(0, ep - selbstbehalt);
+    var anspruchNachSB = Math.min(anspruchBrutto, verfuegbarNachSB);
+    var anspruch = Math.max(0, anspruchNachSB);
+
+    // Nachehelich: Begrenzung nach § 1578b BGB möglich
+    var begrenzung = "";
+    if(typ === "nachehelich") {
+      var edJahre = parseInt(ehedauer)||0;
+      if(edJahre < 3) begrenzung = "Kurze Ehe (< 3 Jahre): Begrenzung sehr wahrscheinlich (§ 1578b BGB)";
+      else if(edJahre < 10) begrenzung = "Mittlere Ehedauer: Begrenzung/Befristung möglich nach § 1578b BGB";
+      else begrenzung = "Lange Ehe: Unbefristeter Unterhalt eher möglich, Einzelfall prüfen";
+    }
+
+    // Kinderbonus: bei Kinder erhöhter Bedarf des betreuenden Elternteils
+    var kinderZuschlag = kinder > 0 ? kinder * 100 : 0; // vereinfacht
+
+    // Sozialrecht-Vergleich
+    var regelbedarfSR = 563 + (kinder > 0 ? Math.round(563*0.36) : 0) + kinder * 390;
+    var diffSR = regelbedarfSR - selbstbehalt;
+
+    setResult({ ep, eb, berEp, berEb, differenz, anspruchBrutto, selbstbehalt,
+      verfuegbarNachSB, anspruch, begrenzung, kinder, kinderZuschlag,
+      regelbedarfSR, diffSR, typ, rolle });
+    if(onSaveErgebnis) onSaveErgebnis({
+      typ: typ==="trennung" ? "Trennungsunterhalt" : "Nachehelicher Unterhalt",
+      rechtsbereich: "Familienrecht",
+      ergebnis: anspruch > 0 ? anspruch.toFixed(0) + " €/Monat (Richtwert)" : "Kein Anspruch",
+      details: "EP: " + ep + "€ · EB: " + eb + "€ · Halbteilung",
+      detailSchritte: [
+        {label:"Einkommen Unterhaltspflichtiger (EP)", wert: ep.toFixed(2)+" €"},
+        {label:"Bereinigt EP (–1/7 Erwerbsbonus)", wert: berEp.toFixed(2)+" €"},
+        {label:"Einkommen Unterhaltsberechtiger (EB)", wert: eb.toFixed(2)+" €"},
+        {label:"Bereinigt EB", wert: berEb.toFixed(2)+" €"},
+        {label:"Differenz", wert: differenz.toFixed(2)+" €"},
+        {label:"÷ 2 (Halbteilungsgrundsatz)", wert: anspruchBrutto.toFixed(2)+" €"},
+        {label:"Selbstbehalt EP (2024)", wert: selbstbehalt+" €"},
+        {label:"Verfügbar nach Selbstbehalt", wert: verfuegbarNachSB.toFixed(2)+" €"},
+        {label:"Unterhalt (nach Selbstbehalt)", wert: anspruch.toFixed(2)+" €", bold:true},
+      ],
+      rechtsgrundlagen: "§§ 1361, 1569 ff. BGB · § 1578 BGB (Halbteilung) · § 1578b BGB (Begrenzung) · BGH XII ZR 281/09"
+    });
+  }
+
+  return (
+    <div>
+      <h4 style={u.modTitle}>💍 Ehegattenunterhalt</h4>
+      <InfoBox typ="recht" titel={null}
+        kinder={<span><strong>§§ 1361, 1569 ff. BGB:</strong> Trennungsunterhalt sichert den bisherigen Lebensstandard. Nachehelicher Unterhalt nach Scheidung ist an Unterhaltstatbestände geknüpft (§ 1570 ff. BGB) und kann nach § 1578b BGB begrenzt/befristet werden.</span>} />
+
+      <label style={u.sectionLabel}>Art des Unterhalts:</label>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"12px" }}>
+        {[{id:"trennung",label:"👫 Trennungsunterhalt (§ 1361 BGB)"},{id:"nachehelich",label:"📄 Nachehelich (§§ 1569 ff. BGB)"}].map(function(t){
+          return <div key={t.id} onClick={function(){setTyp(t.id);}}
+            style={{ flex:1, padding:"8px", borderRadius:"8px", fontSize:"10px", cursor:"pointer", textAlign:"center",
+              backgroundColor:typ===t.id?"#003366":"#f0f4f7", color:typ===t.id?"#fff":"#333",
+              border:"2px solid "+(typ===t.id?"#003366":"#ddd"), fontWeight:"bold" }}>{t.label}</div>;
+        })}
+      </div>
+
+      <label style={u.sectionLabel}>Ihre Rolle:</label>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"12px" }}>
+        {[{id:"pflichtig",label:"💸 Unterhaltspflichtig"},{id:"berechtigt",label:"💰 Unterhaltsberechtigt"}].map(function(r){
+          return <div key={r.id} onClick={function(){setRolle(r.id);}}
+            style={{ flex:1, padding:"8px", borderRadius:"8px", fontSize:"11px", cursor:"pointer", textAlign:"center",
+              backgroundColor:rolle===r.id?"#003366":"#f0f4f7", color:rolle===r.id?"#fff":"#333",
+              border:"2px solid "+(rolle===r.id?"#003366":"#ddd"), fontWeight:"bold" }}>{r.label}</div>;
+        })}
+      </div>
+
+      {rolle === "pflichtig" && (
+        <InfoBox typ="warnung" titel="Selbstbehalt 2024"
+          kinder={<span>Als Unterhaltspflichtiger schützt Sie der Selbstbehalt: <strong>1.475 €/Monat</strong> (gegenüber Ehegatten). Darunter müssen Sie nichts zahlen. Beachten: Unterhaltsansprüche von Kindern haben Vorrang!</span>} />
+      )}
+      {rolle === "berechtigt" && (
+        <InfoBox typ="empf" titel="Sozialrechtliche Alternative prüfen"
+          kinder={<span>Wenn Unterhalt nicht gezahlt wird oder zu niedrig ist: <strong>Bürgergeld aufstocken</strong> (Unterhalt wird als Einkommen angerechnet, aber Regelbedarf + KdU bleiben). Bei Kinderbetreuung: § 1615l BGB (Betreuungsunterhalt) zusätzlich prüfen.</span>} />
+      )}
+
+      <label style={u.sectionLabel}>Nettoeinkommen Unterhaltspflichtiger (€/Monat):</label>
+      <input type="number" style={u.input} placeholder="z.B. 2800" value={einPflichtig} onChange={e=>setEinPflichtig(e.target.value)} />
+      <label style={u.sectionLabel}>Nettoeinkommen Unterhaltsberechtiger (€/Monat, 0 = keins):</label>
+      <input type="number" style={u.input} placeholder="z.B. 800 oder 0" value={einBerechtigt} onChange={e=>setEinBerechtigt(e.target.value)} />
+      <label style={u.sectionLabel}>Anzahl gemeinsamer Kinder:</label>
+      <div style={{ display:"flex", gap:"6px", marginBottom:"10px" }}>
+        {["0","1","2","3","4"].map(function(v){ return (
+          <div key={v} onClick={function(){setKinderAnz(v);}}
+            style={{ padding:"6px 12px", borderRadius:"8px", fontSize:"12px", cursor:"pointer",
+              backgroundColor:kinderAnz===v?"#00afad":"#eee", color:kinderAnz===v?"#fff":"#333" }}>{v}</div>
+        ); })}
+      </div>
+      {typ === "nachehelich" && (
+        <div>
+          <label style={u.sectionLabel}>Ehedauer (Jahre):</label>
+          <input type="number" style={u.input} placeholder="z.B. 12" value={ehedauer} onChange={e=>setEhedauer(e.target.value)} />
+          <label style={u.sectionLabel}>Unterhaltstatbestand (§§ 1570-1576 BGB):</label>
+          <select style={u.input} value={grund} onChange={e=>setGrund(e.target.value)}>
+            <option value="">– bitte wählen –</option>
+            <option value="betreuung">§ 1570 Kinderbetreuung</option>
+            <option value="alter">§ 1571 Alter/Krankheit</option>
+            <option value="erwerbslos">§ 1573 Erwerbslosigkeit</option>
+            <option value="aufstockung">§ 1573 Aufstockungsunterhalt</option>
+            <option value="ausbildung">§ 1575 Ausbildung/Umschulung</option>
+          </select>
+        </div>
+      )}
+      <button style={u.btnPrimary} onClick={berechne}>🧮 Berechnen</button>
+
+      {result && (
+        <div style={u.resultBox}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"8px" }}>
+            <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", textTransform:"uppercase" }}>Ergebnis</div>
+            <button onClick={function(){setShowDetail(!showDetail);}} style={{ fontSize:"10px", padding:"3px 8px", border:"1px solid #ddd", borderRadius:"5px", background:"#f5f5f5", cursor:"pointer" }}>{showDetail?"▲ Weniger":"▼ Details"}</button>
           </div>
 
-          {/* Entbindungsschaden (Phase 1) */}
-          {(result.info.phase === "vor_geburt" || result.info.phase === "mutterschaftsschutz") && (
-            <div style={{ backgroundColor:"#f9f0ff", borderRadius:"8px", padding:"10px", marginTop:"12px" }}>
-              <div style={{ fontWeight:"bold", fontSize:"12px", color:"#7b1fa2", marginBottom:"6px" }}>🏥 § 1615l Abs. 1 – Entbindungsschaden</div>
-              {parseFloat(result.lebenshaltungVorGeburt) > 0 && (
-                <div>
-                  <div style={{ fontSize:"11px", color:"#555", marginBottom:"4px" }}>Lebensunterhalt bei Erwerbsausfall ({result.berechnungVorGeburt}):</div>
-                  <div style={{ ...u.resRow, fontWeight:"bold" }}><span>Lebensunterhalt / Monat:</span><span>{result.zahlbarVorGeburt} €</span></div>
-                </div>
-              )}
-              {parseFloat(result.entbindungskosten) > 0 && (
-                <div style={{ marginTop:"6px" }}>
-                  <div style={{ ...u.resRow }}><span>Entbindungskosten (einmalig):</span><span>{result.zahlbareEntbindungskosten} €</span></div>
-                </div>
-              )}
-              {parseFloat(result.lebenshaltungVorGeburt) === 0 && parseFloat(result.entbindungskosten) === 0 && (
-                <div style={{ fontSize:"11px", color:"#888" }}>Keine Angaben zu Erwerbsausfall oder Kosten gemacht.</div>
-              )}
+          {showDetail && (
+            <div style={{ backgroundColor:"#f9f9f9", borderRadius:"7px", padding:"10px", marginBottom:"10px", fontSize:"11px" }}>
+              <div style={u.calcStep}><span>Einkommen EP:</span><span>{result.ep.toFixed(2)} €</span></div>
+              <div style={u.calcStep}><span>Bereinigt EP (–1/7):</span><span>{result.berEp.toFixed(2)} €</span></div>
+              <div style={u.calcStep}><span>Einkommen EB:</span><span>{result.eb.toFixed(2)} €</span></div>
+              <div style={u.calcStep}><span>Bereinigt EB (–1/7):</span><span>{result.berEb.toFixed(2)} €</span></div>
+              <div style={u.calcStep}><span>Differenz:</span><span>{result.differenz.toFixed(2)} €</span></div>
+              <div style={u.calcStep}><span>÷ 2 Halbteilung:</span><span style={{fontWeight:"bold"}}>{result.anspruchBrutto.toFixed(2)} €</span></div>
+              <div style={u.calcStep}><span>Selbstbehalt EP:</span><span>– {result.selbstbehalt} €</span></div>
+              <div style={u.calcStep}><span>Verfügbar:</span><span>{result.verfuegbarNachSB.toFixed(2)} €</span></div>
+              <div style={{ marginTop:"6px", fontSize:"10px", color:"#888" }}>§§ 1361/1578 BGB · Halbteilungsgrundsatz · BGH XII ZR 281/09</div>
             </div>
           )}
 
-          {/* Betreuungsunterhalt (Phase 2/3) */}
-          <div style={u.compositionBox}>
-            <div style={{ fontWeight:"bold", fontSize:"12px", color:"#003366", marginBottom:"6px" }}>👶 § 1615l Abs. 2 – Betreuungsunterhalt</div>
-            <div style={{ fontSize:"11px", color:"#666", marginBottom:"6px" }}>Grundlage: {result.berechnungsgrundlage}</div>
-            <div style={u.resRow}><span>Errechneter Bedarf:</span><span>{result.bedarf} €</span></div>
-            <div style={{ ...u.resRow, fontWeight:"bold", fontSize:"16px", borderTop:"2px solid #003366", paddingTop:"5px", marginTop:"8px" }}>
-              <span>Betreuungsunterhalt:</span><span>{result.zahlbar} € / Monat</span>
-            </div>
+          <div style={{ ...u.calcStep, borderTop:"2px solid #00afad", paddingTop:"8px", fontWeight:"bold", fontSize:"15px" }}>
+            <span>Unterhalt Richtwert:</span>
+            <span style={{ color: result.anspruch>0?"#00afad":"#e53935" }}>{result.anspruch>0 ? result.anspruch.toFixed(0)+" €/Monat" : "Kein Anspruch"}</span>
           </div>
 
-          {/* Anspruchsdauer */}
-          <div style={{ backgroundColor:"#e8f0fb", borderRadius:"6px", padding:"10px", marginTop:"10px" }}>
-            <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", marginBottom:"4px" }}>📅 Anspruchsdauer</div>
-            {result.info.anspruchAbgelaufen
-              ? <div style={{ fontSize:"11px", color:"#e53935" }}>Grundanspruch (3 Jahre) abgelaufen.</div>
-              : result.info.verbleibendeAnspruchsmonate !== undefined
-                ? <div style={{ fontSize:"11px" }}>Grundanspruch noch ca. <strong>{result.info.verbleibendeAnspruchsmonate} Monate</strong> (bis Kind 3 Jahre)</div>
-                : <div style={{ fontSize:"11px" }}>Grundanspruch: 3 Jahre ab Geburt (§ 1615l Abs. 2 S. 1)</div>
-            }
-            {result.verlaengerungen.length > 0 && (
-              <div style={{ marginTop:"6px" }}>
-                <div style={{ fontSize:"11px", fontWeight:"bold", color:"#00afad" }}>Verlängerungsgründe vorhanden:</div>
-                {result.verlaengerungen.map(function(v, i) { return <div key={i} style={{ fontSize:"11px", marginTop:"2px" }}>✓ {v}</div>; })}
-              </div>
-            )}
-          </div>
+          {result.begrenzung && (
+            <InfoBox typ={result.begrenzung.includes("wahrscheinlich")?"warnung":"empf"} titel={null}
+              kinder={<span>{result.begrenzung}</span>} style={{ marginTop:"8px" }} />
+          )}
 
-          <div style={{ fontSize:"10px", color:"#999", marginTop:"8px" }}>
-            ⚠️ Orientierungsberechnung nach § 1615l BGB. Gilt unabhängig vom Familienstand. Für rechtssichere Auskunft Rechtsberatung in Anspruch nehmen.
-          </div>
+          {result.diffSR > 0 && (
+            <InfoBox typ="vergl" titel={"Sozialrecht-Vergleich"}
+              kinder={<span>SGB II Gesamtbedarf ({result.regelbedarfSR} €) übersteigt den familienrechtlichen Selbstbehalt ({result.selbstbehalt} €) um <strong>{result.diffSR} €</strong>. Trotz Unterhaltspflicht kann Bürgergeld beantragt werden.</span>} style={{ marginTop:"8px" }} />
+          )}
+
+          <InfoBox typ="recht" titel={null} style={{ marginTop:"8px" }}
+            kinder={<span>⚠️ Orientierungsrechnung. Steuerliche Aspekte (Realsplitting § 10 EStG), Kindergeld-Anrechnung und individuelle Abzüge nicht berücksichtigt. Fachanwalt für Familienrecht empfohlen.</span>} />
         </div>
       )}
     </div>
@@ -1355,280 +1333,382 @@ function BetreuungsunterhaltsRechner() {
 }
 
 // =============================================
-// RECHNER-REITER NAVIGATION
+// MODUL: WECHSELMODELL-UNTERHALT (BGH XII ZB 234/15)
 // =============================================
-function RechnerReiter() {
-  const [kategorie, setKategorie] = useState(null);
-  const [unterkategorie, setUnterkategorie] = useState(null);
-  const [aktiverRechner, setAktivenRechner] = useState(null);
-
-  const familienRechner = [
-    { id: "kindes", label: "⚖️ Kindesunterhalt" },
-    { id: "betreuungsunterhalt", label: "👶 Betreuungsunterhalt (§ 1615l)" },
-    { id: "trennung", label: "👫 Trennungsunterhalt" },
-    { id: "nachehelich", label: "💍 Nachehelicher Unterhalt" },
-  ];
-  const sozialUnterkategorien = [
-    { id: "buergergeld", label: "🏛️ Bürgergeld (SGB II)", desc: "Bedarf, Freibeträge, KdU, Vermögen" },
-    { id: "betreuung", label: "👨‍👧 Betreuungs- / Umgangskosten", desc: "Mehrbedarf Alleinerziehende, Umgangskosten, TBG" },
-    { id: "wohngeld", label: "🏡 Wohngeld", desc: "Wohngeldberechnung nach WoGG" },
-  ];
-  const betreuungsRechner = [
-    { id: "mbAlleinerziehende", label: "👨‍👧 Mehrbedarf Alleinerziehende" },
-    { id: "mbUmgang", label: "🚗 Mehrbedarf Umgangskosten" },
-    { id: "tbg", label: "🏠 Temporäre Bedarfsgemeinschaft" },
-  ];
-
-  const backBtn = (label, onClick) => (
-    <button onClick={onClick} style={{ background: "none", border: "none", color: "#00afad", cursor: "pointer", fontWeight: "bold", marginBottom: "12px", padding: 0 }}>‹ {label}</button>
+function WechselmodellRechner({ ext, onSaveErgebnis }) {
+  var u = rStyles;
+  const [rolle, setRolle] = React.useState("");
+  const [einElt1, setEinElt1] = React.useState(ext ? String(ext.einkommenNetto||"") : "");
+  const [einElt2, setEinElt2] = React.useState(ext ? String(ext.einkommenGegenseite||"") : "");
+  const [betreuungElt1, setBetreuungElt1] = React.useState("50");
+  const [kmEinfach, setKmEinfach] = React.useState(ext ? String(ext.fahrtkostenKm||"") : "");
+  const [fahrtenProMonat, setFahrtenProMonat] = React.useState(ext ? String(ext.fahrtkostenFahrtenProMonat||"") : "");
+  const [kinder, setKinder] = React.useState(
+    ext && ext.kinder && ext.kinder.length > 0
+      ? ext.kinder.map(function(k,i){ var a=10; if(k.geburt){var d=new Date(k.geburt);a=Math.floor((new Date()-d)/(365.25*24*3600*1000));} return {id:i,name:k.name||("Kind "+(i+1)),alter:String(a)}; })
+      : [{id:0,name:"Kind 1",alter:"8"}]
   );
+  const [result, setResult] = React.useState(null);
+  const [showDetail, setShowDetail] = React.useState(false);
 
-  if (aktiverRechner) {
-    const zurueck = unterkategorie === "betreuung" ? "Betreuungs-/Umgangskosten" : "Familienrecht";
-    return (
-      <div>
-        {backBtn(zurueck, () => setAktivenRechner(null))}
-        {aktiverRechner === "kindes" && <KindesunterhaltsRechner />}
-        {aktiverRechner === "betreuungsunterhalt" && <BetreuungsunterhaltsRechner />}
-        {aktiverRechner === "trennung" && <TrennungsunterhaltsRechner />}
-        {aktiverRechner === "nachehelich" && <NachehelicherUnterhaltsRechner />}
-        {aktiverRechner === "mbAlleinerziehende" && <MehrbedarfAlleinerziehende />}
-        {aktiverRechner === "mbUmgang" && <MehrbedarfUmgangskosten />}
-        {aktiverRechner === "tbg" && <TemporaereBedarfsgemeinschaft />}
-        {aktiverRechner === "buergergeld" && <BuergergeldRechnerStandalone />}
-        {aktiverRechner === "wohngeld" && <WohngeldRechner />}
-      </div>
-    );
+  function addKind(){ setKinder(function(p){ return p.concat([{id:Date.now(),name:"Kind "+(p.length+1),alter:"8"}]); }); }
+  function updK(id,f,v){ setKinder(function(p){ return p.map(function(k){ return k.id===id?Object.assign({},k,{[f]:v}):k; }); }); }
+  function remK(id){ setKinder(function(p){ return p.filter(function(k){ return k.id!==id; }); }); }
+
+  function berechne() {
+    var e1 = parseFloat(einElt1)||0;
+    var e2 = parseFloat(einElt2)||0;
+    var ant1 = parseFloat(betreuungElt1)||50;
+    var ant2 = 100 - ant1;
+    var gesamtEink = e1 + e2;
+    var quote1 = gesamtEink > 0 ? e1 / gesamtEink : 0.5;
+    var quote2 = 1 - quote1;
+
+    // Kindesbedarf nach DT2024 berechnen
+    var kinderBedarf = kinder.map(function(k){
+      var alter = parseInt(k.alter)||8;
+      var tabellenUnterhalt = getDTUnterhalt(gesamtEink / Math.max(1,kinder.length), alter);
+      // Im Wechselmodell: Barunterhalt angepasst nach Betreuungsquote
+      var zahlungElternteil1 = 0, zahlungElternteil2 = 0;
+      // BGH: Mehrkostenbedarf wird nach Einkommensquoten aufgeteilt
+      var mehrkosten = tabellenUnterhalt * 0.2; // ca. 20% Mehrkosten im Wechselmodell
+      var gesamtBedarf = tabellenUnterhalt + mehrkosten;
+      zahlungElternteil1 = gesamtBedarf * quote1 * (ant2/100); // Elternteil 1 zahlt anteilig
+      zahlungElternteil2 = gesamtBedarf * quote2 * (ant1/100);
+      var nettoZahlung = zahlungElternteil1 - zahlungElternteil2; // >0: Elt1 zahlt an Elt2
+      return { name:k.name, alter:alter, tabellenUnterhalt, mehrkosten, gesamtBedarf,
+               zahlungElternteil1, zahlungElternteil2, nettoZahlung };
+    });
+
+    // Fahrtkosten nach BGH XII ZB 234/15
+    var km = parseFloat(kmEinfach)||0;
+    var fahrten = parseFloat(fahrtenProMonat)||0;
+    var fahrtkostenMtl = km * 2 * fahrten * 0.25; // BGH-Satz ~0,25 €/km
+    // Fahrtkostenaufteilung nach Einkommensquoten
+    var fkElt1 = fahrtkostenMtl * quote1;
+    var fkElt2 = fahrtkostenMtl * quote2;
+
+    // Kindergeld: wird aufgeteilt (§ 1612b BGB im Wechselmodell)
+    var kgProKind = 250; // 2024
+    var kgElt1 = kgProKind * kinder.length * (ant1/100);
+    var kgElt2 = kgProKind * kinder.length * (ant2/100);
+
+    // Sozialrecht TBG-Hinweis: Wer hat TBG-Anspruch?
+    var tbgHinweis = ant2 > 25 ? "Elternteil 2 (" + ant2 + "%) hat möglicherweise TBG-Anspruch beim Jobcenter" : "TBG-Anspruch erst ab ca. 25% Betreuungsanteil realistisch";
+
+    setResult({ e1, e2, ant1, ant2, quote1, quote2, kinderBedarf,
+      fahrtkostenMtl, fkElt1, fkElt2, kgElt1, kgElt2, tbgHinweis, rolle });
+
+    var gesamtNetto = kinderBedarf.reduce(function(s,k){ return s+k.nettoZahlung; }, 0);
+    if(onSaveErgebnis) onSaveErgebnis({
+      typ: "Wechselmodell-Unterhalt (BGH XII ZB 234/15)",
+      rechtsbereich: "Familienrecht",
+      ergebnis: Math.abs(gesamtNetto) < 5 ? "Ausgewogen – kein Zahlbetrag" : Math.abs(gesamtNetto).toFixed(0) + " €/Monat (" + (gesamtNetto > 0 ? "Elt.1 zahlt" : "Elt.2 zahlt") + ")",
+      details: ant1+"% / "+ant2+"% · "+kinder.length+" Kind(er) · FK "+fahrtkostenMtl.toFixed(0)+"€/Monat",
+      detailSchritte: [
+        {label:"Einkommen Elternteil 1", wert:e1.toFixed(2)+" €"},
+        {label:"Einkommen Elternteil 2", wert:e2.toFixed(2)+" €"},
+        {label:"Einkommensquote Elt.1 / Elt.2", wert:(quote1*100).toFixed(0)+"% / "+(quote2*100).toFixed(0)+"%"},
+        {label:"Betreuungsanteil Elt.1 / Elt.2", wert:ant1+"% / "+ant2+"%"},
+        {label:"Fahrtkosten gesamt", wert:fahrtkostenMtl.toFixed(2)+" €/Monat"},
+        {label:"Fahrtkosten Elt.1 (Anteil)", wert:fkElt1.toFixed(2)+" €/Monat"},
+        ...kinderBedarf.map(function(k){ return {label:"Zahlbetrag "+k.name, wert:k.nettoZahlung.toFixed(0)+" €/Monat", bold:true}; }),
+      ],
+      rechtsgrundlagen: "BGH XII ZB 234/15 · § 1606 Abs. 3 BGB · § 1612b BGB · § 21 VI SGB II (Fahrtkosten)"
+    });
   }
-
-  if (unterkategorie === "betreuung") return (
-    <div>
-      {backBtn("Sozialrecht", () => setUnterkategorie(null))}
-      <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", marginBottom: "8px", textTransform: "uppercase" }}>👨‍👧 Betreuungs- / Umgangskosten</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-        {betreuungsRechner.map(r => (
-          <div key={r.id} onClick={() => setAktivenRechner(r.id)} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <strong style={{ fontSize: "13px" }}>{r.label}</strong><span style={{ color: "#00afad" }}>›</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  if (kategorie === "sozialrecht") return (
-    <div>
-      {backBtn("Kategorien", () => { setKategorie(null); setUnterkategorie(null); })}
-      <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", marginBottom: "8px", textTransform: "uppercase" }}>🏛️ Sozialrecht – Bereich wählen:</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-        {sozialUnterkategorien.map(u => (
-          <div key={u.id} onClick={() => { if (u.id === "wohngeld" || u.id === "buergergeld") setAktivenRechner(u.id); else setUnterkategorie(u.id); }} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div><strong style={{ fontSize: "13px" }}>{u.label}</strong><div style={{ fontSize: "10px", color: "#999", marginTop: "2px" }}>{u.desc}</div></div>
-            <span style={{ color: "#00afad", marginLeft: "8px" }}>›</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  if (kategorie === "familienrecht") return (
-    <div>
-      {backBtn("Kategorien", () => setKategorie(null))}
-      <div style={{ fontSize: "11px", fontWeight: "bold", color: "#003366", marginBottom: "8px", textTransform: "uppercase" }}>⚖️ Familienrecht – Rechner wählen:</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-        {familienRechner.map(r => (
-          <div key={r.id} onClick={() => setAktivenRechner(r.id)} style={{ padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <strong style={{ fontSize: "13px" }}>{r.label}</strong><span style={{ color: "#00afad" }}>›</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-      <div onClick={() => setKategorie("familienrecht")} style={{ padding: "14px", backgroundColor: "#f9f9f9", borderRadius: "10px", cursor: "pointer", borderLeft: "4px solid #003366", display: "flex", alignItems: "center", gap: "12px" }}>
-        <span style={{ fontSize: "18px" }}>⚖️</span>
-        <div><div style={{ fontWeight: "bold", fontSize: "13px" }}>Familienrecht</div><div style={{ fontSize: "10px", color: "#aaa" }}>Kindes-, Trennungs- und nachehelicher Unterhalt</div></div>
-        <span style={{ marginLeft: "auto", color: "#00afad" }}>›</span>
-      </div>
-      <div onClick={() => setKategorie("sozialrecht")} style={{ padding: "14px", backgroundColor: "#f9f9f9", borderRadius: "10px", cursor: "pointer", borderLeft: "4px solid #00afad", display: "flex", alignItems: "center", gap: "12px" }}>
-        <span style={{ fontSize: "18px" }}>🏛️</span>
-        <div><div style={{ fontWeight: "bold", fontSize: "13px" }}>Sozialrecht</div><div style={{ fontSize: "10px", color: "#aaa" }}>Mehrbedarf, TBG, Wohngeld</div></div>
-        <span style={{ marginLeft: "auto", color: "#00afad" }}>›</span>
-      </div>
-    </div>
-  );
-}
-
-
-
-// =============================================
-// BUERGERGELD-RECHNER (SGB II) – Stand 2025
-// =============================================
-function BuergergeldRechnerCore({ ext, onSaveErgebnis, changedFields, changedDate }) {
-  var u = rStyles;
-  var REGEL = { allein:563, partner:506, k05:357, k613:390, k1417:471, k18:451 };
-  function getKR(a) { var age=parseInt(a)||10; return age<6?REGEL.k05:age<14?REGEL.k613:age<18?REGEL.k1417:REGEL.k18; }
-  function calcFB(b,hatK) { b=parseFloat(b)||0; if(b<=100)return b; var f=100; if(b>100)f+=(Math.min(b,1000)-100)*0.20; if(b>1000)f+=(Math.min(b,1200)-1000)*0.10; return Math.min(f,hatK?352:302); }
-  var initK=(ext&&ext.kinder)?ext.kinder.map(function(k,i){var age=10;if(k.geburt){var d=new Date(k.geburt);age=Math.floor((new Date()-d)/(365.25*24*3600*1000));}return{id:i+1,name:k.name||("Kind "+(i+1)),alter:String(age),kg:"250",uvg:k.uvg?"ja":"nein"};}):[]; 
-  const [schritt,setSchritt]=React.useState(1);
-  const [hatPartner,setHatPartner]=React.useState(false);
-  const [kinder,setKinder]=React.useState(initK);
-  const [mbA,setMbA]=React.useState(false);const [mbS,setMbS]=React.useState(false);const [mbB,setMbB]=React.useState(false);
-  const [einNetto,setEinNetto]=React.useState(ext?String(ext.einkommenNetto||""):"");
-  const [einBrutto,setEinBrutto]=React.useState(ext?String(ext.einkommenBrutto||""):"");
-  const [einPartner,setEinPartner]=React.useState("");
-  const [alg1,setAlg1]=React.useState("");const [rente,setRente]=React.useState("");const [weitereEink,setWeitereEink]=React.useState("");const [vermoegen,setVermoegen]=React.useState("");
-  const [fahrtkostenUmg,setFahrtkostenUmg]=React.useState(ext?String(ext.fahrtkostenUmgang||""):"");
-  const [fahrtkostenKm,setFahrtkostenKm]=React.useState(ext?String(ext.fahrtkostenKm||""):"");
-  const [fahrtkostenFahrten,setFahrtkostenFahrten]=React.useState(ext?String(ext.fahrtkostenFahrtenProMonat||""):"");
-  const [showBgDetail,setShowBgDetail]=React.useState(false);
-  const [mieteKalt,setMieteKalt]=React.useState(ext?String(ext.mieteKalt||""):"");
-  const [nebenkosten,setNebenkosten]=React.useState(ext?String(ext.nebenkosten||""):"");
-  const [heizkosten,setHeizkosten]=React.useState(ext?String(ext.heizkosten||""):"");
-  const [result,setResult]=React.useState(null);
-  function addK(){setKinder(function(p){return[...p,{id:Date.now(),name:"",alter:"10",kg:"250",uvg:"nein"}];});}
-  function remK(id){setKinder(function(p){return p.filter(function(k){return k.id!==id;});});}
-  function updK(id,f,v){setKinder(function(p){return p.map(function(k){return k.id===id?Object.assign({},k,{[f]:v}):k;});});}
-  function berechne(){
-    var rbH=hatPartner?REGEL.partner:REGEL.allein,rbP=hatPartner?REGEL.partner:0;
-    var rbK=kinder.reduce(function(s,k){return s+getKR(k.alter);},0);
-    var rb=rbH+rbP+rbK,mb=0,mbD=[];
-    if(mbA&&kinder.length>0){var bA=Math.round(rbH*0.36);mb+=bA;mbD.push({l:"Mehrbedarf Alleinerziehend (36%)",b:bA});}
-    // Fahrtkosten Umgang als Mehrbedarf § 21 VI SGB II
-    var fkKm=parseFloat(fahrtkostenKm)||0,fkFahrten=parseFloat(fahrtkostenFahrten)||0;
-    var fkMtl=parseFloat(fahrtkostenUmg)||0;
-    if(fkKm>0&&fkFahrten>0){fkMtl=Math.max(fkMtl,fkKm*2*fkFahrten*0.20);}
-    if(fkMtl>0){mb+=fkMtl;mbD.push({l:"Fahrtkosten Umgang § 21 VI SGB II",b:fkMtl});}
-    if(mbS){var bS=Math.round(rbH*0.17);mb+=bS;mbD.push({l:"Mehrbedarf Schwangerschaft (17%)",b:bS});}
-    if(mbB){var bB=Math.round(rbH*0.35);mb+=bB;mbD.push({l:"Mehrbedarf Schwerbehinderung (35%)",b:bB});}
-    var kduK=parseFloat(mieteKalt)||0,kduN=parseFloat(nebenkosten)||0,kduH=parseFloat(heizkosten)||0,kdu=kduK+kduN+kduH;
-    var bedarf=rb+mb+kdu;
-    var netto=parseFloat(einNetto)||0,brutto=parseFloat(einBrutto)||netto;
-    var fb=calcFB(brutto,kinder.length>0),einAnr=Math.max(0,netto-fb);
-    var nP=parseFloat(einPartner)||0,pAnr=hatPartner?Math.max(0,nP-calcFB(nP,false)):0;
-    var a1=parseFloat(alg1)||0,ren=parseFloat(rente)||0,we=parseFloat(weitereEink)||0;
-    var kg=kinder.reduce(function(s,k){return s+(parseFloat(k.kg)||0);},0);
-    var einGes=einAnr+pAnr+a1+ren+we+kg;
-    var anspruch=Math.max(0,bedarf-einGes);
-    var anzP=1+(hatPartner?1:0)+kinder.length,vFreig=anzP*15000,vB=parseFloat(vermoegen)||0;
-    var res={rbH,rbP,rbK,rb,mb,mbD,kdu,bedarf,fb,einAnr,pAnr,a1,ren,we,kg,einGes,anspruch,kein:anspruch===0,vB,vFreig,vUeber:Math.max(0,vB-vFreig)};
-    setResult(res);
-    if(onSaveErgebnis)onSaveErgebnis({typ:"Buergergeld",ergebnis:anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" EUR/Monat",details:anzP+" Personen, Bedarf "+bedarf.toFixed(2)+" EUR"});
-    setSchritt(4);
-  }
-  var inp={...u.input,marginBottom:"8px"};
-  var sH={fontSize:"10px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",backgroundColor:"#e8f0fb",borderRadius:"5px",padding:"5px 8px",marginBottom:"10px",letterSpacing:"0.5px"};
-  var btnZ={background:"none",border:"none",color:"#00afad",cursor:"pointer",fontWeight:"bold",padding:0,marginBottom:"12px",fontSize:"13px"};
-  return(
     <div>
-      <h4 style={u.modTitle}>Bürgergeld-Rechner (SGB II)</h4>
-      {changedFields&&changedFields.length>0&&(
-        <div style={{backgroundColor:"#fff3cd",border:"1px solid #ffc107",borderRadius:"7px",padding:"8px 10px",marginBottom:"10px",fontSize:"11px",color:"#856404"}}>
-          ⚠️ <strong>Achtung:</strong> Folgende Daten wurden am {changedDate} geändert: <strong>{changedFields.join(", ")}</strong>. Bitte Berechnung aktualisieren!
+      <h4 style={u.modTitle}>🔄 Wechselmodell-Unterhalt</h4>
+
+      <InfoBox typ="recht" titel="BGH XII ZB 234/15"
+        kinder={<span>Beim Wechselmodell trägt jeder Elternteil den Barunterhalt entsprechend seiner Einkommensquote. Fahrtkosten werden nach § 21 Abs. 6 SGB II als Mehrbedarf anerkannt (Jobcenter) und nach BGH als bereinigtes Einkommen abgezogen (Unterhalt). <strong>Mehrkosten des Wechselmodells</strong> (~20% Aufschlag auf Tabellenwert) werden ebenfalls quotal aufgeteilt.</span>} />
+
+      <InfoBox typ="empf" titel="TBG + Wohngeld-Tipp"
+        kinder={<span>Wenn der andere Elternteil SGB II erhält: <strong>Wohngeld/Kinderzuschlag ist günstiger</strong>, da mehr Umgang <em>nicht</em> zu Wohngeldkürzung führt (§ 5 Abs. 3 WoGG). TBG-Antrag bei Jobcenter stellen wenn Betreuungsanteil &gt; 25%.</span>} />
+
+      <label style={u.sectionLabel}>Ihre Rolle:</label>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"12px" }}>
+        {[{id:"pflichtig",label:"💸 Hauptverdiener"},{id:"berechtigt",label:"💰 Geringverdiener"}].map(function(r){
+          return <div key={r.id} onClick={function(){setRolle(r.id);}}
+            style={{ flex:1, padding:"8px", borderRadius:"8px", fontSize:"11px", cursor:"pointer", textAlign:"center",
+              backgroundColor:rolle===r.id?"#003366":"#f0f4f7", color:rolle===r.id?"#fff":"#333",
+              border:"2px solid "+(rolle===r.id?"#003366":"#ddd"), fontWeight:"bold" }}>{r.label}</div>;
+        })}
+      </div>
+
+      <div style={u.row}>
+        <input type="number" style={u.input} placeholder="Netto Elternteil 1 (€)" value={einElt1} onChange={e=>setEinElt1(e.target.value)} />
+        <input type="number" style={u.input} placeholder="Netto Elternteil 2 (€)" value={einElt2} onChange={e=>setEinElt2(e.target.value)} />
+      </div>
+
+      <label style={u.sectionLabel}>Betreuungsanteil Elternteil 1 (%):</label>
+      <div style={{ display:"flex", gap:"6px", marginBottom:"10px" }}>
+        {["50","60","40","70","30"].map(function(v){ return (
+          <div key={v} onClick={function(){setBetreuungElt1(v);}}
+            style={{ padding:"6px 10px", borderRadius:"8px", fontSize:"11px", cursor:"pointer",
+              backgroundColor:betreuungElt1===v?"#003366":"#eee", color:betreuungElt1===v?"#fff":"#333",
+              fontWeight:"bold" }}>{v}/{100-parseInt(v)}</div>
+        ); })}
+        <input type="number" style={{ ...u.input, width:"60px", marginBottom:0 }} value={betreuungElt1} onChange={e=>setBetreuungElt1(e.target.value)} />
+      </div>
+
+      <label style={u.sectionLabel}>Kinder:</label>
+      {kinder.map(function(k){ return (
+        <div key={k.id} style={{ backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"8px", marginBottom:"6px", borderLeft:"3px solid #003366", display:"flex", gap:"8px", alignItems:"center" }}>
+          <input style={{ ...u.input, flex:1, marginBottom:0 }} placeholder="Name" value={k.name} onChange={function(e){updK(k.id,"name",e.target.value);}} />
+          <input type="number" style={{ ...u.input, width:"60px", marginBottom:0 }} placeholder="Alter" value={k.alter} onChange={function(e){updK(k.id,"alter",e.target.value);}} />
+          {kinder.length>1 && <button onClick={function(){remK(k.id);}} style={{ background:"none", border:"none", color:"#e53935", cursor:"pointer", fontSize:"16px" }}>×</button>}
+        </div>
+      ); })}
+      <button onClick={addKind} style={{ width:"100%", padding:"7px", backgroundColor:"#f0f4f7", border:"1px dashed #003366", borderRadius:"8px", cursor:"pointer", fontSize:"12px", color:"#003366", marginBottom:"10px" }}>+ Kind hinzufügen</button>
+
+      <label style={u.sectionLabel}>Fahrtkosten (BGH: als bereinigtes Einkommen abziehbar):</label>
+      <div style={u.row}>
+        <input type="number" style={u.input} placeholder="km einfach" value={kmEinfach} onChange={e=>setKmEinfach(e.target.value)} />
+        <input type="number" style={u.input} placeholder="Fahrten/Monat" value={fahrtenProMonat} onChange={e=>setFahrtenProMonat(e.target.value)} />
+      </div>
+      {kmEinfach && fahrtenProMonat && (
+        <div style={{ fontSize:"11px", color:"#003366", marginBottom:"10px" }}>
+          Fahrtkosten: {((parseFloat(kmEinfach)||0)*2*(parseFloat(fahrtenProMonat)||0)*0.25).toFixed(2)} €/Monat (0,25 €/km BGH-Satz)
         </div>
       )}
-      <div style={{display:"flex",gap:"4px",marginBottom:"16px"}}>
-        {["1. Haushalt","2. Einkommen","3. Wohnen","4. Ergebnis"].map(function(s,i){return <div key={i} onClick={function(){if(i<3)setSchritt(i+1);}} style={{flex:1,textAlign:"center",padding:"5px 2px",fontSize:"9px",fontWeight:"bold",backgroundColor:schritt===i+1?"#003366":schritt>i+1?"#00afad":"#eee",color:schritt>=i+1?"#fff":"#999",borderRadius:"4px",cursor:i<3?"pointer":"default"}}>{s}</div>;})}
-      </div>
-      {schritt===1&&(<div>
-        <div style={sH}>Bedarfsgemeinschaft</div>
-        {[{v:false,l:"Alleinstehend / Alleinerziehend"},{v:true,l:"Mit Partner*in in BG"}].map(function(o){return <label key={String(o.v)} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"8px"}}><input type="radio" checked={hatPartner===o.v} onChange={function(){setHatPartner(o.v);}} />{o.l}</label>;})}
-        <label style={u.sectionLabel}>Kinder in der BG:</label>
-        {kinder.map(function(k,idx){return(
-          <div key={k.id} style={{backgroundColor:"#f9f9f9",borderRadius:"8px",padding:"10px",marginBottom:"8px",borderLeft:"3px solid #00afad"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}><strong style={{fontSize:"12px"}}>Kind {idx+1}</strong><button onClick={function(){remK(k.id);}} style={{background:"none",border:"none",color:"#e53935",cursor:"pointer",fontSize:"18px",lineHeight:1}}>x</button></div>
-            <input style={{...inp,marginBottom:"4px"}} placeholder="Name (optional)" value={k.name} onChange={function(e){updK(k.id,"name",e.target.value);}} />
-            <div style={{display:"flex",gap:"8px"}}>
-              <div style={{flex:1}}><label style={{fontSize:"10px",color:"#666"}}>Alter:</label><input type="number" style={inp} value={k.alter} onChange={function(e){updK(k.id,"alter",e.target.value);}} /></div>
-              <div style={{flex:1}}><label style={{fontSize:"10px",color:"#666"}}>Kindergeld (EUR):</label><input type="number" style={inp} value={k.kg} onChange={function(e){updK(k.id,"kg",e.target.value);}} /></div>
-            </div>
-            <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-              <span style={{fontSize:"11px",color:"#555"}}>UVG:</span>
-              {["ja","nein"].map(function(v){return <div key={v} onClick={function(){updK(k.id,"uvg",v);}} style={{padding:"3px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",backgroundColor:k.uvg===v?"#003366":"#eee",color:k.uvg===v?"#fff":"#333"}}>{v}</div>;})}
-            </div>
-          </div>
-        );})}
-        <button onClick={addK} style={{width:"100%",padding:"8px",backgroundColor:"#f0f4f7",border:"1px dashed #00afad",borderRadius:"8px",cursor:"pointer",fontSize:"12px",color:"#00afad",marginBottom:"10px"}}>+ Kind hinzufuegen</button>
-        <label style={u.sectionLabel}>Mehrbedarf:</label>
-        {[{s:setMbA,v:mbA,l:"Alleinerziehend (36%)"},{s:setMbS,v:mbS,l:"Schwangerschaft ab 13. SSW (17%)"},{s:setMbB,v:mbB,l:"Schwerbehinderung (35%)"}].map(function(o,i){return <label key={i} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"6px"}}><input type="checkbox" checked={o.v} onChange={function(e){o.s(e.target.checked);}} />{o.l}</label>;})}
-        <div style={{backgroundColor:"#e8f4fd",border:"1px solid #bee5f8",borderRadius:"7px",padding:"8px",marginTop:"6px",marginBottom:"8px"}}>
-          <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",marginBottom:"6px"}}>🚗 Fahrtkosten Umgang (§ 21 Abs. 6 SGB II)</div>
-          {(ext&&ext.fahrtkostenKm)&&<div style={{fontSize:"10px",color:"#00afad",marginBottom:"4px"}}>📂 Vorausgefüllt aus Akte</div>}
-          <div style={{display:"flex",gap:"6px",marginBottom:"4px"}}>
-            <div style={{flex:1}}><label style={{fontSize:"10px",color:"#555"}}>km einfach</label><input type="number" style={{...u.input,marginBottom:0}} placeholder="z.B. 30" value={fahrtkostenKm} onChange={function(e){setFahrtkostenKm(e.target.value);}}/></div>
-            <div style={{flex:1}}><label style={{fontSize:"10px",color:"#555"}}>Fahrten/Monat</label><input type="number" style={{...u.input,marginBottom:0}} placeholder="z.B. 4" value={fahrtkostenFahrten} onChange={function(e){setFahrtkostenFahrten(e.target.value);}}/></div>
-          </div>
-          <label style={{fontSize:"10px",color:"#555"}}>Oder direkt: monatlicher Betrag (€)</label>
-          <input type="number" style={u.input} placeholder="Direkt eingeben falls bekannt" value={fahrtkostenUmg} onChange={function(e){setFahrtkostenUmg(e.target.value);}}/>
-          {(fahrtkostenKm&&fahrtkostenFahrten)&&<div style={{fontSize:"10px",color:"#003366"}}>Berechnet: {(parseFloat(fahrtkostenKm)*2*(parseFloat(fahrtkostenFahrten)||0)*0.20).toFixed(2)} €/Monat (0,20 €/km)</div>}
-        </div>
-        <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={function(){setSchritt(2);}}>Weiter: Einkommen</button>
-      </div>)}
-      {schritt===2&&(<div>
-        <button style={btnZ} onClick={function(){setSchritt(1);}}>zurueck</button>
-        <div style={sH}>Einkommen und Transfers</div>
-        <div style={{backgroundColor:"#fff9e6",border:"1px solid #ffeeba",borderRadius:"7px",padding:"8px",marginBottom:"10px",fontSize:"11px",color:"#856404"}}>Freibetrag: 100 EUR frei + 20% (100-1000 EUR) + 10% (1000-1200 EUR), max. 302 EUR</div>
-        {ext&&ext.einkommenNetto&&<div style={u.infoBox}>Nettoeinkommen aus Akte vorausgefuellt.</div>}
-        <label style={u.sectionLabel}>Nettoeinkommen (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={einNetto} onChange={function(e){setEinNetto(e.target.value);}} />
-        <label style={u.sectionLabel}>Bruttoeinkommen (fuer Freibetrag):</label><input type="number" style={inp} placeholder="leer = gleich Netto" value={einBrutto} onChange={function(e){setEinBrutto(e.target.value);}} />
-        {hatPartner&&(<><label style={u.sectionLabel}>Einkommen Partner*in (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={einPartner} onChange={function(e){setEinPartner(e.target.value);}} /></>)}
-        <label style={u.sectionLabel}>ALG I (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={alg1} onChange={function(e){setAlg1(e.target.value);}} />
-        <label style={u.sectionLabel}>Rente / Pension (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={rente} onChange={function(e){setRente(e.target.value);}} />
-        <label style={u.sectionLabel}>Weitere Einkuenfte (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={weitereEink} onChange={function(e){setWeitereEink(e.target.value);}} />
-        <div style={sH}>Vermoegen</div>
-        <div style={{fontSize:"11px",color:"#666",marginBottom:"6px"}}>Freibetrag: 15.000 EUR je Person in der BG</div>
-        <label style={u.sectionLabel}>Verwertbares Vermoegen gesamt (EUR):</label><input type="number" style={inp} placeholder="0" value={vermoegen} onChange={function(e){setVermoegen(e.target.value);}} />
-        <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={function(){setSchritt(3);}}>Weiter: Wohnkosten</button>
-      </div>)}
-      {schritt===3&&(<div>
-        <button style={btnZ} onClick={function(){setSchritt(2);}}>zurueck</button>
-        <div style={sH}>Kosten der Unterkunft (KdU)</div>
-        {ext&&(ext.mieteKalt||ext.mieteWarm)&&<div style={u.infoBox}>Wohnkosten aus Akte vorausgefuellt.</div>}
-        <label style={u.sectionLabel}>Kaltmiete (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={mieteKalt} onChange={function(e){setMieteKalt(e.target.value);}} />
-        <label style={u.sectionLabel}>Nebenkosten ohne Heizung (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={nebenkosten} onChange={function(e){setNebenkosten(e.target.value);}} />
-        <label style={u.sectionLabel}>Heizkosten (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={heizkosten} onChange={function(e){setHeizkosten(e.target.value);}} />
-        <div style={{backgroundColor:"#e8f4fd",border:"1px solid #bee5f8",borderRadius:"7px",padding:"9px",marginBottom:"12px",fontSize:"12px"}}>KdU gesamt: {((parseFloat(mieteKalt)||0)+(parseFloat(nebenkosten)||0)+(parseFloat(heizkosten)||0)).toFixed(2)} EUR/Monat</div>
-        <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={berechne}>Jetzt berechnen</button>
-      </div>)}
-      {schritt===4&&result&&(<div>
-        <button style={btnZ} onClick={function(){setSchritt(3);}}>zurueck</button>
-        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"6px"}}>
-          <button onClick={function(){setShowBgDetail(!showBgDetail);}} style={{fontSize:"10px",padding:"4px 10px",border:"1px solid #ddd",borderRadius:"5px",background:"#f5f5f5",cursor:"pointer"}}>{showBgDetail?"▲ Kurzansicht":"▼ Detailansicht"}</button>
-        </div>
-        {result.vUeber>0&&<div style={{...u.warnung,marginBottom:"10px"}}>Vermoegen ({result.vB.toFixed(0)} EUR) ueber Freibetrag ({result.vFreig.toFixed(0)} EUR) um {result.vUeber.toFixed(0)} EUR!</div>}
+
+      <button style={u.btnPrimary} onClick={berechne}>🧮 Berechnen</button>
+
+      {result && (
         <div style={u.resultBox}>
-          <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",marginBottom:"6px"}}>Gesamtbedarf:</div>
-          <div style={u.calcStep}><span>Regelbedarf Antragsteller*in:</span><span>{result.rbH} EUR</span></div>
-          {result.rbP>0&&<div style={u.calcStep}><span>+ Regelbedarf Partner*in:</span><span>{result.rbP} EUR</span></div>}
-          {result.rbK>0&&<div style={u.calcStep}><span>+ Kindregelbedarfe:</span><span>{result.rbK} EUR</span></div>}
-          {result.mbD.map(function(d,i){return <div key={i} style={u.calcStep}><span>+ {d.l}:</span><span>{d.b} EUR</span></div>;})}
-          <div style={u.calcStep}><span>+ KdU:</span><span>{result.kdu.toFixed(2)} EUR</span></div>
-          <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #ddd",paddingTop:"4px",marginTop:"4px",marginBottom:"10px"}}><span>Gesamtbedarf:</span><span>{result.bedarf.toFixed(2)} EUR</span></div>
-          <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",marginBottom:"6px"}}>Anrechenbares Einkommen:</div>
-          {(parseFloat(einNetto)||0)>0&&(<><div style={u.calcStep}><span>Nettoeinkommen:</span><span>{(parseFloat(einNetto)||0).toFixed(2)} EUR</span></div><div style={u.calcStep}><span>- Freibetrag:</span><span>- {result.fb.toFixed(2)} EUR</span></div><div style={{...u.calcStep,marginBottom:"6px"}}><span>= Anrechenbar:</span><span style={{fontWeight:"bold"}}>{result.einAnr.toFixed(2)} EUR</span></div></>)}
-          {result.pAnr>0&&<div style={u.calcStep}><span>+ Partner*in:</span><span>{result.pAnr.toFixed(2)} EUR</span></div>}
-          {result.a1>0&&<div style={u.calcStep}><span>+ ALG I:</span><span>{result.a1.toFixed(2)} EUR</span></div>}
-          {result.ren>0&&<div style={u.calcStep}><span>+ Rente:</span><span>{result.ren.toFixed(2)} EUR</span></div>}
-          {result.we>0&&<div style={u.calcStep}><span>+ Weitere:</span><span>{result.we.toFixed(2)} EUR</span></div>}
-          {result.kg>0&&<div style={u.calcStep}><span>+ Kindergeld:</span><span>{result.kg.toFixed(2)} EUR</span></div>}
-          <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #ddd",paddingTop:"4px",marginTop:"4px",marginBottom:"10px"}}><span>Einkommen gesamt:</span><span>{result.einGes.toFixed(2)} EUR</span></div>
-          <div style={u.compositionBox}>
-            <div style={{...u.resRow,fontWeight:"bold",fontSize:"16px",borderTop:"2px solid #003366",paddingTop:"5px"}}>
-              <span>Buergergeld-Anspruch ca.:</span>
-              <span style={{color:result.kein?"#e53935":"#00afad"}}>{result.kein?"Kein Anspruch":result.anspruch.toFixed(2)+" EUR/Monat"}</span>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"8px" }}>
+            <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", textTransform:"uppercase" }}>Ergebnis</div>
+            <button onClick={function(){setShowDetail(!showDetail);}} style={{ fontSize:"10px", padding:"3px 8px", border:"1px solid #ddd", borderRadius:"5px", background:"#f5f5f5", cursor:"pointer" }}>{showDetail?"▲ Weniger":"▼ Details"}</button>
+          </div>
+
+          {/* Einkommensquoten-Übersicht */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"10px" }}>
+            <div style={{ backgroundColor:"#e8f0fb", borderRadius:"7px", padding:"8px", textAlign:"center" }}>
+              <div style={{ fontSize:"10px", color:"#003366", fontWeight:"bold" }}>Elternteil 1</div>
+              <div style={{ fontSize:"16px", fontWeight:"bold", color:"#003366" }}>{(result.quote1*100).toFixed(0)}%</div>
+              <div style={{ fontSize:"10px", color:"#666" }}>{result.ant1}% Betreuung · {result.e1} €</div>
+            </div>
+            <div style={{ backgroundColor:"#e8f5e9", borderRadius:"7px", padding:"8px", textAlign:"center" }}>
+              <div style={{ fontSize:"10px", color:"#1b5e20", fontWeight:"bold" }}>Elternteil 2</div>
+              <div style={{ fontSize:"16px", fontWeight:"bold", color:"#1b5e20" }}>{(result.quote2*100).toFixed(0)}%</div>
+              <div style={{ fontSize:"10px", color:"#666" }}>{result.ant2}% Betreuung · {result.e2} €</div>
             </div>
           </div>
-          {result.kein&&<div style={{fontSize:"11px",color:"#666",marginTop:"6px"}}>Einkommen ({result.einGes.toFixed(2)} EUR) deckt Bedarf ({result.bedarf.toFixed(2)} EUR).</div>}
-          <div style={{...u.infoBox,marginTop:"10px",fontSize:"10px"}}>Orientierungsberechnung nach SGB II. Kein Rechtsanspruch.</div>
-          {onSaveErgebnis&&<div style={{...u.infoBox,marginTop:"6px",color:"#0a4a0a",backgroundColor:"#e8f5e9",borderColor:"#a5d6a7"}}>Ergebnis in der Akte gespeichert.</div>}
+
+          {showDetail && (
+            <div style={{ backgroundColor:"#f9f9f9", borderRadius:"7px", padding:"10px", marginBottom:"10px", fontSize:"11px" }}>
+              {result.kinderBedarf.map(function(k,i){ return (
+                <div key={i} style={{ borderBottom:"1px solid #eee", paddingBottom:"6px", marginBottom:"6px" }}>
+                  <div style={{ fontWeight:"bold", color:"#003366", marginBottom:"3px" }}>{k.name} ({k.alter} J.)</div>
+                  <div style={u.calcStep}><span>Tabellenwert:</span><span>{k.tabellenUnterhalt.toFixed(0)} €</span></div>
+                  <div style={u.calcStep}><span>+ Mehrkosten WM (+20%):</span><span>{k.mehrkosten.toFixed(0)} €</span></div>
+                  <div style={u.calcStep}><span>= Gesamtbedarf:</span><span style={{fontWeight:"bold"}}>{k.gesamtBedarf.toFixed(0)} €</span></div>
+                  <div style={u.calcStep}><span>Netto-Zahlbetrag:</span><span style={{fontWeight:"bold",color:k.nettoZahlung>0?"#e53935":"#2e7d32"}}>{k.nettoZahlung > 0 ? "Elt.1 → Elt.2: " : "Elt.2 → Elt.1: "}{Math.abs(k.nettoZahlung).toFixed(0)} €</span></div>
+                </div>
+              ); })}
+              <div style={u.calcStep}><span>Fahrtkosten gesamt:</span><span>{result.fahrtkostenMtl.toFixed(2)} €/Monat</span></div>
+              <div style={u.calcStep}><span>Anteil Elt.1:</span><span>{result.fkElt1.toFixed(2)} €</span></div>
+              <div style={u.calcStep}><span>Anteil Elt.2:</span><span>{result.fkElt2.toFixed(2)} €</span></div>
+              <div style={{ fontSize:"10px", color:"#888", marginTop:"6px" }}>BGH XII ZB 234/15 · § 1606 Abs. 3 BGB · § 1612b BGB</div>
+            </div>
+          )}
+
+          <InfoBox typ="empf" titel={result.tbgHinweis} kinder={<span>Bei Bürgergeld-Bezug: TBG-Anlage beim Jobcenter einreichen. Fahrtkosten als Mehrbedarf § 21 VI SGB II beantragen.</span>} style={{ marginTop:"8px" }} />
+          <InfoBox typ="recht" titel={null} kinder={<span>⚠️ Orientierungsrechnung. BGH-Rechtsprechung zum Wechselmodell wird durch Instanzgerichte unterschiedlich angewandt. Familienrechtliche Beratung empfohlen.</span>} style={{ marginTop:"8px" }} />
         </div>
-      </div>)}
+      )}
     </div>
   );
 }
-function BuergergeldRechnerStandalone(){return React.createElement(BuergergeldRechnerCore,{ext:null,onSaveErgebnis:null});}
-function BuergergeldRechner(props){return React.createElement(BuergergeldRechnerCore,props);}
+
+// =============================================
+// DÜSSELDORFER TABELLE 2024 – Nachschlagewerk
+// =============================================
+function DuesseldorferTabelleNachschlag() {
+  var u = rStyles;
+  const [alter, setAlter] = React.useState("8");
+  const [einkommen, setEinkommen] = React.useState("");
+  const [showTabelle, setShowTabelle] = React.useState(false);
+  var alterKat = parseInt(alter)<6?0:parseInt(alter)<12?1:parseInt(alter)<18?2:3;
+  var ep = parseFloat(einkommen)||0;
+  var gruppe = ep>0 ? DT2024.gruppen.findIndex(function(g){return ep<=g.bis;}) : -1;
+  if(gruppe<0&&ep>0) gruppe=9;
+  var tv = gruppe>=0 ? DT2024.tabelle[gruppe][alterKat] : null;
+  var kg2 = alterKat<3?125:250;
+  return (
+    <div>
+      <h4 style={u.modTitle}>📊 Düsseldorfer Tabelle 2024</h4>
+      <InfoBox typ="recht" titel={null} kinder={<span>Richtwerte für Kindesunterhalt §§ 1601 ff. BGB. Stand 01.01.2024.</span>} />
+      <div style={u.row}>
+        <div style={{flex:1}}>
+          <label style={u.sectionLabel}>Alter des Kindes:</label>
+          <input type="number" style={u.input} placeholder="z.B. 10" value={alter} onChange={e=>setAlter(e.target.value)} />
+        </div>
+        <div style={{flex:1}}>
+          <label style={u.sectionLabel}>Nettoeinkommen Pflichtig (€):</label>
+          <input type="number" style={u.input} placeholder="z.B. 2200" value={einkommen} onChange={e=>setEinkommen(e.target.value)} />
+        </div>
+      </div>
+      {tv && (
+        <div style={u.resultBox}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px" }}>
+            <div style={{ backgroundColor:"#e8f0fb", borderRadius:"7px", padding:"8px", textAlign:"center" }}>
+              <div style={{ fontSize:"10px", color:"#003366" }}>Gruppe {gruppe+1}</div>
+              <div style={{ fontSize:"14px", fontWeight:"bold", color:"#003366" }}>{tv} €</div>
+              <div style={{ fontSize:"10px", color:"#666" }}>Tabellenwert</div>
+            </div>
+            <div style={{ backgroundColor:"#e8f5e9", borderRadius:"7px", padding:"8px", textAlign:"center" }}>
+              <div style={{ fontSize:"10px", color:"#1b5e20" }}>Zahlbetrag</div>
+              <div style={{ fontSize:"14px", fontWeight:"bold", color:"#1b5e20" }}>{tv-kg2} €/Monat</div>
+              <div style={{ fontSize:"10px", color:"#666" }}>– KG {kg2}€ (§ 1612b)</div>
+            </div>
+          </div>
+          <details>
+            <summary style={{ fontSize:"10px", cursor:"pointer", color:"#003366", fontWeight:"bold" }}>▶ Alle Altersgruppen</summary>
+            <div style={{ marginTop:"6px" }}>
+              {["0–5 J.","6–11 J.","12–17 J.","ab 18 J."].map(function(l,ai){
+                var v=DT2024.tabelle[gruppe][ai]; var kg3=ai<3?125:250;
+                return <div key={ai} style={{ ...u.calcStep, backgroundColor:ai===alterKat?"#e8f0fb":"transparent", padding:"2px 4px", borderRadius:"3px" }}>
+                  <span style={{fontWeight:ai===alterKat?"bold":"normal"}}>{l}</span>
+                  <span>{v}€ – {kg3}€ KG = <strong>{v-kg3}€</strong></span>
+                </div>;
+              })}
+            </div>
+          </details>
+        </div>
+      )}
+      <button onClick={function(){setShowTabelle(!showTabelle);}}
+        style={{ width:"100%", padding:"7px", marginTop:"8px", backgroundColor:"#f0f4f7", border:"1px solid #003366", borderRadius:"8px", cursor:"pointer", fontSize:"12px", color:"#003366" }}>
+        {showTabelle?"▲ Tabelle ausblenden":"▼ Vollständige Tabelle anzeigen"}
+      </button>
+      {showTabelle && (
+        <div style={{ overflowX:"auto", marginTop:"8px" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"10px" }}>
+            <thead><tr style={{ backgroundColor:"#003366", color:"#fff" }}>
+              <th style={{ padding:"4px 6px", textAlign:"left" }}>Gruppe</th>
+              <th style={{ padding:"4px", textAlign:"center" }}>0–5</th>
+              <th style={{ padding:"4px", textAlign:"center" }}>6–11</th>
+              <th style={{ padding:"4px", textAlign:"center" }}>12–17</th>
+              <th style={{ padding:"4px", textAlign:"center" }}>ab 18</th>
+            </tr></thead>
+            <tbody>
+              {DT2024.gruppen.map(function(g,gi){
+                return <tr key={gi} style={{ backgroundColor:gi===gruppe?"#e8f0fb":gi%2===0?"#f9f9f9":"#fff" }}>
+                  <td style={{ padding:"3px 6px", color:"#003366", fontSize:"9px", fontWeight:gi===gruppe?"bold":"normal" }}>{g.name}<br/>bis {g.bis}€</td>
+                  {DT2024.tabelle[gi].map(function(v,ai){
+                    return <td key={ai} style={{ padding:"3px 4px", textAlign:"center", fontWeight:gi===gruppe&&ai===alterKat?"bold":"normal" }}>{v}</td>;
+                  })}
+                </tr>;
+              })}
+            </tbody>
+          </table>
+          <div style={{ fontSize:"9px", color:"#999", marginTop:"3px" }}>SB: 1.450€ (erw.) / 1.200€ (n.erw.) · KG 2024: 250€/Kind</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================
+// FRISTENRECHNER
+// =============================================
+var FRIST_TYPEN = [
+  {id:"widerspruch",label:"📋 Widerspruch Bescheid",tage:28,rg:"§ 84 SGG",h:"Widerspruch gegen Jobcenter-Bescheid: 1 Monat ab Zugang. Fristversäumnis → Bestandskraft!"},
+  {id:"klage_sg",label:"🏛️ Klage Sozialgericht",tage:28,rg:"§ 87 SGG",h:"Nach Widerspruchsbescheid: 1 Monat Klagefrist. Beginnt mit Zugang des Widerspruchsbescheids."},
+  {id:"unterhalt_verjahr",label:"⚖️ Unterhaltsverjährung",tage:1095,rg:"§ 195 BGB",h:"Unterhaltsansprüche verjähren nach 3 Jahren. Rückwirkend nur ab Mahnung/Klage."},
+  {id:"uvg",label:"👶 UVG-Antrag",tage:0,rg:"§ 9 UVG",h:"Unterhaltsvorschuss ab Antragmonat — keine Rückwirkung. Antrag sofort stellen!"},
+  {id:"vollstreckung",label:"⚡ Vollstr.-Verjährung",tage:10950,rg:"§ 197 BGB",h:"Titulierte Unterhaltsansprüche verjähren erst nach 30 Jahren."},
+];
+function FristenRechner() {
+  var u = rStyles;
+  const [typ, setTyp] = React.useState("widerspruch");
+  const [datum, setDatum] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  var akt = FRIST_TYPEN.find(function(f){return f.id===typ;});
+  function berechne() {
+    if(!datum) return;
+    var start = new Date(datum);
+    var ende = new Date(start); ende.setDate(ende.getDate()+(akt.tage||0));
+    var rest = Math.round((ende-new Date())/(1000*60*60*24));
+    setResult({ende, rest, abgelaufen:rest<0});
+  }
+  return (
+    <div>
+      <h4 style={u.modTitle}>⏰ Fristenrechner</h4>
+      <InfoBox typ="warnung" titel="Fristen können Ansprüche vernichten!" kinder={<span>Verpasste Widerspruchs- und Klagefristen führen zur Bestandskraft. Immer sofort handeln!</span>} />
+      <label style={u.sectionLabel}>Fristtyp:</label>
+      <select style={u.input} value={typ} onChange={e=>setTyp(e.target.value)}>
+        {FRIST_TYPEN.map(function(f){return <option key={f.id} value={f.id}>{f.label}</option>;})}
+      </select>
+      {akt && <InfoBox typ="recht" titel={akt.rg} kinder={<span>{akt.h}</span>} />}
+      {akt && akt.tage>0 && (
+        <div>
+          <label style={u.sectionLabel}>Bescheiddatum / Zugangsdatum:</label>
+          <input type="date" style={u.input} value={datum} onChange={e=>setDatum(e.target.value)} />
+          <button style={u.btnPrimary} onClick={berechne}>⏰ Frist berechnen</button>
+        </div>
+      )}
+      {result && (
+        <div style={{ ...u.resultBox, borderColor:result.abgelaufen?"#e53935":result.rest<=7?"#f9a825":"#43a047" }}>
+          <div style={{ textAlign:"center", marginBottom:"8px", fontWeight:"bold" }}>Fristende: {result.ende.toLocaleDateString("de-DE")}</div>
+          {result.abgelaufen
+            ? <InfoBox typ="warnung" titel={"Frist abgelaufen vor "+Math.abs(result.rest)+" Tagen!"} kinder={<span>Prüfen: Wiedereinsetzung § 27 SGB X / § 67 SGG</span>} />
+            : <InfoBox typ={result.rest<=7?"warnung":"positiv"} titel={"Noch "+result.rest+" Tage"} kinder={<span>{result.rest<=7?"⚡ Sofort handeln!":"Einschreiben mit Rückschein empfohlen."}</span>} />
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================
+// FAMILIENRECHT-VIEW (Komponente statt IIFE)
+// =============================================
+function FamilienrechtView({ view, activeMember, memberExtras, setView, setMemberErgebnisse }) {
+  var INFO = {
+    "fr_kindesunterhalt":{ titel:"👶 Kindesunterhalt 2024", sub:"Düsseldorfer Tabelle · Rolle · Mangelfall" },
+    "fr_ehegatten":      { titel:"💍 Ehegattenunterhalt", sub:"§§ 1361 / 1569 ff. BGB · Halbteilung" },
+    "fr_wechselmodell":  { titel:"🔄 Wechselmodell-Unterhalt", sub:"BGH XII ZB 234/15 · Fahrtkosten · TBG" },
+    "fr_rechtsvergleich":{ titel:"⚖️ Rechtsvergleich", sub:"Familienrecht vs. Sozialrecht · BSG · OLG" },
+    "fr_dtTabelle":      { titel:"📊 Düsseldorfer Tabelle 2024", sub:"Nachschlagewerk · Vollständige Tabelle" },
+    "fr_fristen":        { titel:"⏰ Fristenrechner", sub:"Widerspruch · Klage · Verjährung" },
+  };
+  var info = INFO[view] || {titel:"Familienrecht", sub:""};
+  var ext = activeMember ? (memberExtras[activeMember.id]||null) : null;
+  var aend = ext && ext._letzteAenderung;
+  function saveErg(ergebnis) {
+    if(!activeMember) return;
+    var mid=activeMember.id, jetzt=new Date().toLocaleDateString("de-DE");
+    setMemberErgebnisse(function(prev){
+      return Object.assign({},prev,{[mid]:(prev[mid]||[]).slice(-29).concat([Object.assign({datum:jetzt},ergebnis)])});
+    });
+  }
+  return (
+    <div style={{ background:"#f5f7fa", minHeight:"100vh" }}>
+      <div style={{ textAlign:"center", padding:"20px 16px 12px", backgroundColor:"#fff", borderBottom:"1px solid #eee" }}>
+        <img src={window.ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+        <div style={{ fontSize:"14px", fontWeight:"bold", color:"#003366" }}>{info.titel}</div>
+        <div style={{ fontSize:"11px", color:"#666" }}>{info.sub}</div>
+      </div>
+      <div style={{ padding:"12px 16px 0" }}>
+        <button onClick={function(){setView("dashboard");}} style={{ background:"none", border:"none", color:"#003366", fontWeight:"bold", fontSize:"13px", cursor:"pointer", padding:0, marginBottom:"8px" }}>‹ Zurück</button>
+        {!activeMember && <InfoBox typ="empf" titel={null} kinder={<span>Kein Mitglied geöffnet – Ergebnisse nicht gespeichert.</span>} />}
+        {aend && <InfoBox typ="warnung" titel={"Akte geändert am "+aend.datum} kinder={<span>Felder: {(aend.felder||[]).join(", ")}</span>} />}
+      </div>
+      <div style={{ padding: window && window.innerWidth >= 600 ? "0 24px 32px" : "0 16px 24px" }}>
+        {view==="fr_kindesunterhalt" && <KindesunterhaltsRechnerNeu ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
+        {view==="fr_ehegatten" && <EhegattenUnterhaltsRechner ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
+        {view==="fr_wechselmodell" && <div><WechselmodellRechner ext={ext} onSaveErgebnis={activeMember?saveErg:null} /><div style={{marginTop:"20px",borderTop:"2px solid #e8f0fb",paddingTop:"16px"}}><RechtsvergleichModul ext={ext} /></div></div>}
+        {view==="fr_rechtsvergleich" && <RechtsvergleichModul ext={ext} />}
+        {view==="fr_dtTabelle" && <DuesseldorferTabelleNachschlag />}
+        {view==="fr_fristen" && <FristenRechner />}
+      </div>
+    </div>
+  );
+}
 
 // =============================================
 // BERECHNUNG MIT DATEN – Rechner vorausgefüllt
@@ -2117,11 +2197,30 @@ function MehrDatenView({ ext }) {
       {ext.unterhaltBetrag > 0 && <div style={dr}><span>Betrag:</span><strong>{ext.unterhaltBetrag} EUR/Monat</strong></div>}
 
       <div style={sh}>🏠 Wohnen</div>
-      <div style={dr}><span>Wohnungsgroesse:</span><strong>{ext.wohnungGroesse} m²</strong></div>
-      <div style={dr}><span>Miete warm:</span><strong>{ext.mieteWarm} EUR/Monat</strong></div>
-      <div style={dr}><span>Miete kalt:</span><strong>{ext.mieteKalt} EUR/Monat</strong></div>
-      <div style={dr}><span>Heizkosten:</span><strong>{ext.heizkosten} EUR/Monat</strong></div>
-      <div style={dr}><span>Mietenstufe:</span><strong>Stufe {ext.mietStufe}</strong></div>
+      {ext.wohnungGroesse && <div style={dr}><span>Wohnungsgröße:</span><strong>{ext.wohnungGroesse} m²</strong></div>}
+      {(ext.mieteWarm||ext.mieteKalt) && <div style={dr}><span>Miete warm / kalt:</span><strong>{ext.mieteWarm||"-"} / {ext.mieteKalt||"-"} €/Monat</strong></div>}
+      {ext.heizkosten && <div style={dr}><span>Heizkosten:</span><strong>{ext.heizkosten} €/Monat</strong></div>}
+      {ext.mietStufe && <div style={dr}><span>Mietenstufe:</span><strong>Stufe {ext.mietStufe}</strong></div>}
+
+      {(ext.fahrtkostenKm || ext.fahrtkostenFahrtenProMonat) && (
+        <div>
+          <div style={sh}>🚗 Fahrtkosten Umgang</div>
+          {ext.fahrtkostenKm && <div style={dr}><span>Entfernung (einfach):</span><strong>{ext.fahrtkostenKm} km</strong></div>}
+          {ext.fahrtkostenFahrtenProMonat && <div style={dr}><span>Fahrten/Monat:</span><strong>{ext.fahrtkostenFahrtenProMonat}</strong></div>}
+          {ext.fahrtkostenKm && ext.fahrtkostenFahrtenProMonat && (
+            <div style={dr}><span>Geschätzte Kosten (0,20 €/km):</span><strong style={{ color:"#003366" }}>{((parseFloat(ext.fahrtkostenKm)||0)*2*(parseFloat(ext.fahrtkostenFahrtenProMonat)||0)*0.20).toFixed(2)} €/Monat</strong></div>
+          )}
+        </div>
+      )}
+
+      {(ext.einkommenNetto||ext.einkommenBrutto||ext.arbeitsstatus) && (
+        <div>
+          <div style={sh}>💰 Einkommen</div>
+          {ext.arbeitsstatus && <div style={dr}><span>Status:</span><strong>{ext.arbeitsstatus}</strong></div>}
+          {ext.einkommenNetto && <div style={dr}><span>Nettoeinkommen:</span><strong>{ext.einkommenNetto} €/Monat</strong></div>}
+          {ext.einkommenBrutto && <div style={dr}><span>Bruttoeinkommen:</span><strong>{ext.einkommenBrutto} €/Monat</strong></div>}
+        </div>
+      )}
 
       {ext.notizen && (
         <div style={{ marginTop:"12px", backgroundColor:"#f0f4f7", borderRadius:"8px", padding:"10px", fontSize:"12px", color:"#444", borderLeft:"3px solid #00afad" }}>
@@ -2563,9 +2662,9 @@ function App() {
         </div>
       </header>
 
-      <main style={["formular_ausfuellen","tbg_form","buergergeld_form","eingang_detail"].includes(view) ? {...styles.main, padding:"0", maxWidth:"100%"} : styles.main} className="app-main">
+      <main style={["formular_ausfuellen","tbg_form","buergergeld_form","eingang_detail"].includes(view) ? {...styles.main, padding:"0", maxWidth:"800px"} : styles.main} className="app-main">
         {view === "dashboard" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: window.innerWidth >= 720 ? "1fr 1fr" : "1fr", gap: "12px" }}>
 
             {/* MITGLIEDER */}
             <div style={styles.card}>
@@ -2640,14 +2739,16 @@ function App() {
               </div>
               {showFormulare && (
                 <div style={{ marginTop:"10px" }}>
+                  {/* ── SOZIALRECHT ── */}
+                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#1b5e20", textTransform:"uppercase", backgroundColor:"#e8f5e9", borderRadius:"5px", padding:"4px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>🏛️ Sozialrecht (SGB II / WoGG)</div>
                   {[
-                    { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Wohnen" },
-                    { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen" },
-                    { id:"tbg", label:"📋 Anlage TBG (Bürgergeld)", desc:"Temporäre Bedarfsgemeinschaft" },
+                    { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Wohnen", farbe:"#1b5e20" },
+                    { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen", farbe:"#1b5e20" },
+                    { id:"tbg", label:"📋 Anlage TBG (Bürgergeld)", desc:"Temporäre Bedarfsgemeinschaft", farbe:"#1b5e20" },
                   ].map(function(f) {
                     return (
                       <div key={f.id}
-                        style={{ backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"12px", marginBottom:"8px", borderLeft:"4px solid #003366", cursor:"pointer", transition:"background-color 0.15s, box-shadow 0.15s" }}
+                        style={{ backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"12px", marginBottom:"8px", borderLeft:"4px solid "+(f.farbe||"#003366"), cursor:"pointer", transition:"background-color 0.15s, box-shadow 0.15s" }}
                         onClick={function() {
                           if (f.id === "stammdaten") { setView("formular_ausfuellen"); setFormFelderDaten({}); }
                           else if (f.id === "buergergeld") { setView("buergergeld_form"); setFormFelderDaten({}); }
@@ -2712,6 +2813,25 @@ function App() {
                             ✅ Gesendet an {versandMail[f.id + "_gesendet"]} · im Ausgang als <strong>unbeantwortet</strong> gespeichert
                           </div>
                         )}
+                      </div>
+                    );
+                  })}
+
+                  {/* ── FAMILIENRECHT ── */}
+                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"4px 8px", marginBottom:"8px", marginTop:"12px", letterSpacing:"0.5px" }}>⚖️ Familienrecht (BGB / Unterhaltsrecht)</div>
+                  {[
+                    { id:"fr_kindesunterhalt", label:"👶 Kindesunterhalt-Fragebogen", desc:"Düsseldorfer Tabelle, Selbstbehalt, Mangelfall", farbe:"#003366" },
+                    { id:"fr_wechselmodell", label:"🔄 Wechselmodell-Fragebogen", desc:"Betreuungsaufteilung, Fahrtkosten, BGH XII ZB 234/15", farbe:"#003366" },
+                    { id:"fr_rechtsvergleich", label:"⚖️ Familienrecht vs. Sozialrecht", desc:"Vergleich Selbstbehalt / SGB II Bedarf / Wohnraum", farbe:"#6a1b9a" },
+                  ].map(function(f) {
+                    return (
+                      <div key={f.id}
+                        style={{ backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"12px", marginBottom:"8px", borderLeft:"4px solid "+(f.farbe||"#003366"), cursor:"pointer" }}
+                        onClick={function() { setView(f.id); }}
+                        onMouseEnter={function(e){ e.currentTarget.style.backgroundColor="#edf2fb"; }}
+                        onMouseLeave={function(e){ e.currentTarget.style.backgroundColor="#f9f9f9"; }}>
+                        <div style={{ fontWeight:"bold", fontSize:"13px" }}>{f.label}</div>
+                        <div style={{ fontSize:"10px", color:"#999", marginTop:"2px" }}>{f.desc}</div>
                       </div>
                     );
                   })}
@@ -3265,12 +3385,44 @@ function App() {
                 </div>
                 {[...memberErgebnisse[activeMember.id]].reverse().map((e, i) => (
                   <div key={i} style={{ backgroundColor: i===0 ? "#f0fdfd" : "#f9f9f9", border: i===0 ? "1px solid #00afad" : "1px solid #eee", borderRadius:"8px", padding:"10px", marginBottom:"6px" }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"4px" }}>
-                      <strong style={{ fontSize:"12px", color:"#003366" }}>{e.typ}</strong>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"4px" }}>
+                      <div>
+                        <strong style={{ fontSize:"12px", color:"#003366" }}>{e.typ}</strong>
+                        {e.rechtsbereich && (
+                          <span style={{ marginLeft:"6px", fontSize:"9px", padding:"2px 6px", borderRadius:"10px",
+                            backgroundColor: e.rechtsbereich==="Familienrecht" ? "#e8f0fb" : "#e8f5e9",
+                            color: e.rechtsbereich==="Familienrecht" ? "#003366" : "#1b5e20" }}>
+                            {e.rechtsbereich}
+                          </span>
+                        )}
+                      </div>
                       <span style={{ fontSize:"10px", color:"#999" }}>{e.datum}</span>
                     </div>
                     <div style={{ fontSize:"13px", fontWeight:"bold", color:"#00afad" }}>{e.ergebnis}</div>
                     {e.details && <div style={{ fontSize:"11px", color:"#666", marginTop:"3px" }}>{e.details}</div>}
+                    {e.detailSchritte && e.detailSchritte.length > 0 && (
+                      <details style={{ marginTop:"6px" }}>
+                        <summary style={{ fontSize:"10px", color:"#003366", cursor:"pointer", fontWeight:"bold" }}>▶ Detailrechnung anzeigen</summary>
+                        <div style={{ backgroundColor:"#fff", border:"1px solid #ddd", borderRadius:"6px", padding:"8px", marginTop:"6px" }}>
+                          {e.detailSchritte.map(function(s,si){ return (
+                            <div key={si} style={{ display:"flex", justifyContent:"space-between", fontSize:"11px", borderBottom:"1px solid #f5f5f5", padding:"3px 0" }}>
+                              <span style={{ color:"#555" }}>{s.label}</span>
+                              <span style={{ fontWeight: s.bold?"bold":"normal", color: s.bold?"#003366":"#333" }}>{s.wert}</span>
+                            </div>
+                          ); })}
+                          {e.rechtsgrundlagen && (
+                            <div style={{ marginTop:"6px", fontSize:"10px", color:"#888", borderTop:"1px solid #eee", paddingTop:"4px" }}>
+                              📖 {e.rechtsgrundlagen}
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    )}
+                    {e.rechtsvergleich && (
+                      <div style={{ marginTop:"6px", backgroundColor:"#fff9e6", border:"1px solid #ffc107", borderRadius:"6px", padding:"7px 9px", fontSize:"10px" }}>
+                        ⚖️ <strong>Familienrecht vs. Sozialrecht:</strong> {e.rechtsvergleich}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {(function() {
@@ -4596,16 +4748,20 @@ function App() {
                 <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Antrag auf Bürgergeld</div>
                 <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Anlage TBG – Temporäre Bedarfsgemeinschaft</div>
               </div>
+              <button onClick={function(){ setView("dashboard"); }}
+                style={{ background:"none", border:"none", color:"#003366", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"12px", padding:"0 16px", display:"block" }}>
+                ‹ Zurück
+              </button>
               <div style={infoBox}>
                 ℹ️ <strong>Erklärung</strong> zur Aufteilung der Kindesbetreuung bei zeitweisem Aufenthalt eines Kindes im Haushalt (temporäre Bedarfsgemeinschaft – TBG)
               </div>
+              {/* TBG Wohngeld/Kinderzuschlag Hinweis */}
+              <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"10px", fontSize:"11px", color:"#1b5e20" }}>
+                💡 <strong>Tipp für den anderen Elternteil:</strong> Wenn der andere Elternteil Wohngeld oder Kinderzuschlag beantragt, hat dieser <strong>keinen Nachteil</strong> durch mehr Umgang — im Gegenteil: Wohngeld wird nicht gekürzt, wenn das Kind zeitweise beim anderen Elternteil lebt (§ 5 Abs. 3 WoGG). Kinderzuschlag bleibt bei Wechselmodell ebenfalls bestehen.
+              </div>
 
-              {/* Toolbar: Vorausfüllen + Jahreskopie */}
+              {/* Toolbar: Jahreskopie + Leeren (Vorausfüllen entfernt) */}
               <div style={{ display:"flex", gap:"8px", marginBottom:"12px", flexWrap:"wrap" }}>
-                <button onClick={prefillFromAkte}
-                  style={{ flex:1, padding:"9px 10px", backgroundColor: activeMember ? "#e8f5e9" : "#f5f5f5", color: activeMember ? "#2e7d32" : "#aaa", border:"1px solid "+(activeMember?"#a5d6a7":"#ddd"), borderRadius:"8px", cursor: activeMember ? "pointer" : "not-allowed", fontWeight:"bold", fontSize:"12px" }}>
-                  {activeMember ? "📂 Aus Akte vorausfüllen: " + activeMember.vorname + " " + activeMember.name : "📂 Kein Mitglied geöffnet"}
-                </button>
                 <button onClick={jahreskopie}
                   style={{ padding:"9px 12px", backgroundColor:"#fff3e0", color:"#e65100", border:"1px solid #ffcc02", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"12px", whiteSpace:"nowrap" }}>
                   📅 Nächstes Jahr
@@ -4818,13 +4974,11 @@ function App() {
                   value={fd.sigAntragsteller||""}
                   onChange={function(v){tbgUpd("sigAntragsteller",v);}}
                 />
-                {kinder.length>0 && kinder[0].epVorname && (
-                  <SignatureCanvas
-                    label={"✍️ Unterschrift anderer Elternteil: " + (kinder[0].epVorname||"") + " " + (kinder[0].epNachname||"")}
-                    value={fd.sigAndererElternteil||""}
-                    onChange={function(v){tbgUpd("sigAndererElternteil",v);}}
-                  />
-                )}
+                <SignatureCanvas
+                  label={"✍️ Unterschrift anderer Elternteil: " + (kinder.length>0 ? (kinder[0].epVorname||"") + " " + (kinder[0].epNachname||"") : "– Name eintragen –")}
+                  value={fd.sigAndererElternteil||""}
+                  onChange={function(v){tbgUpd("sigAndererElternteil",v);}}
+                />
                 <div style={{ backgroundColor:"#fff9e6", border:"1px solid #ffd54f", borderRadius:"6px", padding:"8px 10px", fontSize:"10px", color:"#6d4c00", marginTop:"8px" }}>
                   ⚠️ <strong>Rechtlicher Hinweis:</strong> Eine digitale Unterschrift auf diesem Formular ersetzt nicht eine notarielle Beurkundung oder gerichtliche Genehmigung. Für vollstreckbare Umgangsvereinbarungen wird eine Beurkundung beim Jugendamt oder Gericht empfohlen.
                 </div>
@@ -4870,6 +5024,62 @@ function App() {
             </div>
           );
         })()}
+
+        {/* ============================================= */}
+        {/* FAMILIENRECHT-FORMULARE                       */}
+        {/* ============================================= */}
+        {(view === "fr_kindesunterhalt" || view === "fr_wechselmodell" || view === "fr_rechtsvergleich") && (
+          <div style={styles.formPage}>
+            <div style={{ textAlign:"center", padding:"24px 16px 16px" }}>
+              <img src={window.ISUV_LOGO} alt="ISUV" style={{ width:"160px", height:"auto", marginBottom:"12px" }} />
+              <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>ISUV Anspruchslotse</div>
+              <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>
+                {view==="fr_kindesunterhalt" ? "Kindesunterhalt – Düsseldorfer Tabelle" :
+                 view==="fr_rechtsvergleich" ? "Rechtsvergleich: Familienrecht vs. Sozialrecht" :
+                 "Wechselmodell-Fragebogen"}
+              </div>
+            </div>
+            <button onClick={function(){ setView("dashboard"); }} style={{ background:"none", border:"none", color:"#003366", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"12px", padding:"0 16px", display:"block" }}>‹ Zurück</button>
+            <div style={{ padding:"0 16px" }}>
+              {view === "fr_kindesunterhalt" && (
+                <KindesunterhaltsRechnerNeu
+                  ext={activeMember ? (memberExtras[activeMember.id] || null) : null}
+                  onSaveErgebnis={activeMember ? function(ergebnis) {
+                    var mid = activeMember.id;
+                    var jetzt = new Date().toLocaleDateString("de-DE");
+                    setMemberErgebnisse(function(prev) {
+                      var liste = (prev[mid] || []).slice(-19);
+                      return Object.assign({}, prev, { [mid]: liste.concat([Object.assign({datum:jetzt}, ergebnis)]) });
+                    });
+                  } : null}
+                />
+              )}
+              {view === "fr_rechtsvergleich" && (
+                <RechtsvergleichModul
+                  ext={activeMember ? (memberExtras[activeMember.id] || null) : null}
+                />
+              )}
+              {view === "fr_wechselmodell" && (
+                <div>
+                  <FahrtkostenUmgang
+                    ext={activeMember ? (memberExtras[activeMember.id] || null) : null}
+                    onSaveErgebnis={activeMember ? function(ergebnis) {
+                      var mid = activeMember.id;
+                      var jetzt = new Date().toLocaleDateString("de-DE");
+                      setMemberErgebnisse(function(prev) {
+                        var liste = (prev[mid] || []).slice(-19);
+                        return Object.assign({}, prev, { [mid]: liste.concat([Object.assign({datum:jetzt}, ergebnis)]) });
+                      });
+                    } : null}
+                  />
+                  <div style={{ marginTop:"16px" }}>
+                    <RechtsvergleichModul ext={activeMember ? (memberExtras[activeMember.id] || null) : null} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ============================================= */}
         {/* PROFIL-SEITE */}
@@ -5794,9 +6004,9 @@ function App() {
 }
 
 const styles = {
-  appFrame: { minHeight: "100dvh", backgroundColor: "#f4f7f9", fontFamily: "sans-serif" },
-  header: { display: "flex", justifyContent: "space-between", padding: "15px", backgroundColor: "#fff", borderBottom: "3px solid #00afad", alignItems: "center", position: "sticky", top: 0, zIndex: 50 },
-  main: { padding: "15px", maxWidth: "500px", margin: "0 auto", paddingBottom: "40px" },
+  appFrame: { minHeight: "100dvh", backgroundColor: "#f4f7f9", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: "800px", margin: "0 auto", position: "relative" },
+  header: { display: "flex", justifyContent: "space-between", padding: "15px 20px", backgroundColor: "#fff", borderBottom: "3px solid #00afad", alignItems: "center", position: "sticky", top: 0, zIndex: 50, width: "100%", boxSizing: "border-box" },
+  main: { padding: "15px", maxWidth: "800px", margin: "0 auto", paddingBottom: "40px" },
   card: { backgroundColor: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: "10px" },
   reiterHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" },
   input: { width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "13px", boxSizing: "border-box" },
@@ -5805,7 +6015,7 @@ const styles = {
   btnSecondary: { padding: "12px", backgroundColor: "#eee", border: "none", borderRadius: "10px", cursor: "pointer" },
   btnLogout: { border: "none", background: "#f0f0f0", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontSize: "11px" },
   miniLogo: { width: "24px", height: "24px", backgroundColor: "#00afad", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "4px", fontWeight: "bold" },
-  formPage: { backgroundColor: "#f4f7f9", padding: "0 0 24px", minHeight: "calc(100vh - 64px)" },
+  formPage: { backgroundColor: "#f4f7f9", padding: "0 0 24px", minHeight: "calc(100vh - 64px)", maxWidth: "800px", marginLeft: "auto", marginRight: "auto", boxSizing: "border-box" },
   formSection: { marginTop: "15px" },
   sectionTitle: { fontSize: "10px", color: "#003366", marginBottom: "8px", fontWeight: "bold", borderBottom: "1px solid #eee", textTransform: "uppercase", paddingTop: "5px" },
   label: { fontSize: "12px", fontWeight: "bold", display: "block", marginBottom: "5px" },
@@ -5820,7 +6030,7 @@ const styles = {
   btnBack: { background: "none", border: "none", color: "#00afad", cursor: "pointer", marginBottom: "15px", fontWeight: "bold" },
   calGridTBG: { display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: "5px", alignItems: "center" },
   loginPage: { height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#f0f4f7" },
-  loginCard: { width: "280px", padding: "30px", backgroundColor: "#fff", borderRadius: "20px" },
+  loginCard: { width: "min(320px, 90vw)", padding: "30px", backgroundColor: "#fff", borderRadius: "20px", boxShadow: "0 4px 24px rgba(0,0,0,0.12)" },
   logo: { width: "50px", height: "50px", backgroundColor: "#003366", color: "#fff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 15px", fontWeight: "bold" },
   memberRow: { padding: "10px", borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between", alignItems: "center" },
   formItem: { padding: "12px", backgroundColor: "#f9f9f9", borderRadius: "8px", cursor: "pointer", borderLeft: "4px solid #00afad" },
