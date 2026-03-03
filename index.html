@@ -474,79 +474,208 @@ function MehrbedarfAlleinerziehende() {
 }
 
 // =============================================
-// MODUL 5: MEHRBEDARF UMGANGSKOSTEN
 // =============================================
-function MehrbedarfUmgangskosten() {
-  const [fahrtkosten, setFahrtkosten] = useState("");
-  const [uebernachtung, setUebernachtung] = useState("");
-  const [telefon, setTelefon] = useState("");
-  const [sonstige, setSonstige] = useState("");
-  const [umgangsart, setUmgangsart] = useState("regelmaessig");
-  const [umgangsItems, setUmgangsItems] = useState([]);
-  const [result, setResult] = useState(null);
+// MODUL 5: FAHRTKOSTEN UMGANG – erweitert mit Rechtsprechung
+// =============================================
+function FahrtkostenUmgang({ ext, onSaveErgebnis, changedFields }) {
+  var u = rStyles;
+  // Intelligente Vorausfüllung aus Akte
+  var initKm = ext && ext.fahrtkostenKm ? String(ext.fahrtkostenKm) : "";
+  var initFahrten = ext && ext.fahrtkostenFahrtenProMonat ? String(ext.fahrtkostenFahrtenProMonat) : "";
+  var initModell = ext && ext.betreuungsmodell ? (
+    ext.betreuungsmodell.toLowerCase().includes("wechsel") ? "wechsel" :
+    ext.betreuungsmodell.toLowerCase().includes("parit") ? "wechsel" : "umgang"
+  ) : "umgang";
 
-  const umgangsOptionen = [
-    "Fahrtkosten Kind zum umgangsberechtigten Elternteil",
-    "Fahrtkosten Kind vom Wohnort zur Schule",
-    "Bring- und Abholfahrten des Elternteils",
-    "Fahrten zum Umgang am Wohnort des Kindes",
-    "Übernachtungskosten am Wohnort des Kindes",
-    "Telefonkosten / Internetkosten (weite Entfernung)",
-    "Fahrten zum Kind in Obhut / Behinderteneinrichtung",
-    "Fahrten zum inhaftierten Kind / Elternteil",
+  const [modell, setModell] = React.useState(initModell);
+  const [km, setKm] = React.useState(initKm);
+  const [fahrtenProMonat, setFahrtenProMonat] = React.useState(initFahrten);
+  const [kmSatz, setKmSatz] = React.useState("0.20");
+  const [rechtsBasis, setRechtsBasis] = React.useState("jobcenter");
+  const [uebernachtung, setUebernachtung] = React.useState("");
+  const [telefon, setTelefon] = React.useState("");
+  const [sonstige, setSonstige] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  const [showDetail, setShowDetail] = React.useState(false);
+
+  var rechtsBasisOptionen = [
+    { id: "jobcenter", label: "Jobcenter (§ 21 VI SGB II)", kmSatz: "0.20",
+      hinweis: "Jobcenter gewährt Fahrtkosten als Mehrbedarf nach § 21 Abs. 6 SGB II bei regelmäßigem Umgang. Einzelfallentscheidung, oft 0,20 €/km. Belege und Umgangsregelung erforderlich." },
+    { id: "bgh", label: "Unterhalt BGH (XII ZB 234/15)", kmSatz: "0.25",
+      hinweis: "BGH: Fahrtkosten für Umgang beim barunterhaltspflichtigen Elternteil als bereinigtes Einkommen abziehbar (0,20–0,30 €/km je nach OLG). Mindert Unterhaltspflicht." },
+    { id: "olg", label: "OLG-Durchschnitt (Unterhaltsrecht)", kmSatz: "0.30",
+      hinweis: "Viele OLG erkennen bis 0,30 €/km an, ggf. auch höher bei weiter Entfernung. Als Abzug beim bereinigten Einkommen oder direkte Aufteilung zwischen Eltern." },
+    { id: "wohngeld", label: "Wohngeld (§ 16 WoGG)", kmSatz: "0.20",
+      hinweis: "Bei Wohngeld: Fahrtkosten zum Umgang sind kein direkter Abzugsposten, können aber als außergewöhnliche Belastung das relevante Jahreseinkommen mindern." },
   ];
 
-  const toggleItem = (opt) => setUmgangsItems(prev => prev.includes(opt) ? prev.filter(i => i !== opt) : [...prev, opt]);
+  var aktuelleBasis = rechtsBasisOptionen.find(function(r) { return r.id === rechtsBasis; }) || rechtsBasisOptionen[0];
 
-  const berechne = () => {
-    const gesamt = parseFloat(fahrtkosten || 0) + parseFloat(uebernachtung || 0) + parseFloat(telefon || 0) + parseFloat(sonstige || 0);
-    const hinweis = umgangsart === "regelmaessig" ? "Regelmäßige Umgangskosten können als Mehrbedarf anerkannt werden. Belege und Umgangsregelung bereithalten." : "Seltene Umgangskosten werden häufig nur eingeschränkt anerkannt.";
-    setResult({ gesamt: gesamt.toFixed(2), hinweis });
-  };
+  function berechne() {
+    var kmZahl = parseFloat(km) || 0;
+    var fahrten = parseFloat(fahrtenProMonat) || 0;
+    var satz = parseFloat(kmSatz) || 0.20;
+    // Hin- und Rückfahrt
+    var kmProFahrt = kmZahl * 2;
+    var kmGesamt = kmProFahrt * fahrten;
+    var fahrtkostenMtl = kmGesamt * satz;
+    var uebMtl = parseFloat(uebernachtung) || 0;
+    var telMtl = parseFloat(telefon) || 0;
+    var sonsMtl = parseFloat(sonstige) || 0;
+    var gesamt = fahrtkostenMtl + uebMtl + telMtl + sonsMtl;
+    // Jahreswert
+    var jahrFahrt = fahrtkostenMtl * 12;
+    var jahrGes = gesamt * 12;
+    // Steuerlicher Wert (außergewöhnliche Belastung)
+    var steuerWert = Math.max(0, jahrGes - 300); // vereinfacht
 
-  const u = rStyles;
+    var res = {
+      kmZahl, fahrten, kmProFahrt, kmGesamt, satz,
+      fahrtkostenMtl, uebMtl, telMtl, sonsMtl,
+      gesamt, jahrFahrt, jahrGes, steuerWert,
+      basis: aktuelleBasis
+    };
+    setResult(res);
+    if (onSaveErgebnis) onSaveErgebnis({
+      typ: "Fahrtkosten Umgang (" + aktuelleBasis.label + ")",
+      ergebnis: gesamt.toFixed(2) + " €/Monat",
+      details: kmGesamt.toFixed(0) + " km/Monat × " + satz.toFixed(2) + " €/km"
+    });
+  }
+
+  var changedHint = changedFields && changedFields.length > 0 ? (
+    <div style={{ backgroundColor:"#fff3cd", border:"1px solid #ffc107", borderRadius:"7px", padding:"8px 10px", marginBottom:"10px", fontSize:"11px", color:"#856404" }}>
+      ⚠️ <strong>Daten geändert</strong> am {new Date().toLocaleDateString("de-DE")}: {changedFields.join(", ")} – Berechnung aktualisieren!
+    </div>
+  ) : null;
+
   return (
     <div>
-      <h4 style={u.modTitle}>🚗 Mehrbedarf Umgangskosten (§ 21 SGB II)</h4>
-      <div style={u.infoBox}>ℹ️ Nur Fahrtkosten und ggf. Übernachtungskosten – keine Kosten, die das Kind beim Umgangsberechtigten verursacht.</div>
-      <label style={u.sectionLabel}>Art der Umgangskontakte:</label>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-        {[{ id: "regelmaessig", label: "Regelmäßig" }, { id: "selten", label: "Selten / Weit entfernt" }].map(a => (
-          <div key={a.id} onClick={() => setUmgangsart(a.id)} style={{ padding: "6px 12px", borderRadius: "8px", fontSize: "11px", cursor: "pointer", backgroundColor: umgangsart === a.id ? "#00afad" : "#eee", color: umgangsart === a.id ? "#fff" : "#333" }}>{a.label}</div>
-        ))}
+      <h4 style={u.modTitle}>🚗 Fahrtkosten Umgang – Rechtsprechung</h4>
+      {changedHint}
+      {(ext && ext.betreuungsmodell) && (
+        <div style={u.infoBox}>📂 Betreuungsmodell aus Akte: <strong>{ext.betreuungsmodell}</strong></div>
+      )}
+
+      <label style={u.sectionLabel}>Betreuungssituation:</label>
+      <div style={{ display:"flex", gap:"6px", marginBottom:"12px", flexWrap:"wrap" }}>
+        {[
+          { id:"umgang", label:"Umgang (Residenz)" },
+          { id:"wechsel", label:"Wechselmodell" },
+          { id:"fern", label:"Fernkontakt (>100km)" }
+        ].map(function(o) {
+          return <div key={o.id} onClick={function(){ setModell(o.id); }}
+            style={{ padding:"6px 12px", borderRadius:"8px", fontSize:"11px", cursor:"pointer",
+              backgroundColor: modell===o.id ? "#00afad" : "#eee",
+              color: modell===o.id ? "#fff" : "#333" }}>{o.label}</div>;
+        })}
       </div>
-      <label style={u.sectionLabel}>Kostenarten (zur Dokumentation):</label>
-      <div style={{ marginBottom: "12px" }}>
-        {umgangsOptionen.map((opt, i) => (
-          <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "11px", cursor: "pointer", marginBottom: "5px" }}>
-            <input type="checkbox" checked={umgangsItems.includes(opt)} onChange={() => toggleItem(opt)} style={{ marginTop: "2px" }} />{opt}
-          </label>
-        ))}
+
+      <label style={u.sectionLabel}>Rechtliche Grundlage / Berechnung nach:</label>
+      <div style={{ marginBottom:"12px" }}>
+        {rechtsBasisOptionen.map(function(rb) {
+          return (
+            <label key={rb.id} style={{ display:"flex", gap:"8px", fontSize:"11px", cursor:"pointer", alignItems:"center", marginBottom:"6px", padding:"6px 8px", borderRadius:"6px", backgroundColor: rechtsBasis===rb.id ? "#e8f0fb" : "transparent", border: rechtsBasis===rb.id ? "1px solid #003366" : "1px solid transparent" }}>
+              <input type="radio" name="rb" checked={rechtsBasis===rb.id} onChange={function(){ setRechtsBasis(rb.id); setKmSatz(rb.kmSatz); }} />
+              <div>
+                <div style={{ fontWeight:"bold" }}>{rb.label}</div>
+              </div>
+            </label>
+          );
+        })}
       </div>
-      <label style={u.sectionLabel}>Monatliche Kosten (€):</label>
+
+      <div style={{ backgroundColor:"#e8f4fd", border:"1px solid #bee5f8", borderRadius:"7px", padding:"8px 10px", marginBottom:"12px", fontSize:"11px", color:"#003366" }}>
+        ℹ️ {aktuelleBasis.hinweis}
+      </div>
+
+      <label style={u.sectionLabel}>Entfernung einfach (km):</label>
+      <input type="number" style={u.input} placeholder="z.B. 45" value={km} onChange={function(e){ setKm(e.target.value); }} />
+      {km && <div style={{ fontSize:"10px", color:"#666", marginBottom:"8px" }}>Hin- und Rückfahrt: {(parseFloat(km)||0)*2} km</div>}
+
+      <label style={u.sectionLabel}>Fahrten pro Monat (Hin- und Rückfahrt = 1 Fahrt):</label>
+      <input type="number" style={u.input} placeholder="z.B. 4" value={fahrtenProMonat} onChange={function(e){ setFahrtenProMonat(e.target.value); }} />
+      {modell === "wechsel" && <div style={{ fontSize:"10px", color:"#00afad", marginBottom:"8px" }}>💡 Bei Wechselmodell: ca. 8–10 Fahrten/Monat typisch (14-tägig)</div>}
+      {modell === "fern" && <div style={{ fontSize:"10px", color:"#e65100", marginBottom:"8px" }}>⚠️ Fernkontakt: OLG prüft Zumutbarkeit. BGH: Kosten können aufgeteilt werden.</div>}
+
+      <label style={u.sectionLabel}>Kilometersatz (€/km):</label>
+      <div style={{ display:"flex", gap:"6px", marginBottom:"10px" }}>
+        {["0.20","0.25","0.30","0.35"].map(function(s) {
+          return <div key={s} onClick={function(){ setKmSatz(s); }}
+            style={{ padding:"5px 10px", borderRadius:"6px", fontSize:"11px", cursor:"pointer",
+              backgroundColor: kmSatz===s ? "#003366" : "#eee",
+              color: kmSatz===s ? "#fff" : "#333" }}>{s} €</div>;
+        })}
+        <input type="number" step="0.01" style={{ ...u.input, width:"80px", marginBottom:0 }} value={kmSatz} onChange={function(e){ setKmSatz(e.target.value); }} />
+      </div>
+
+      <label style={u.sectionLabel}>Weitere monatliche Kosten (€):</label>
       <div style={u.row}>
-        <input type="number" style={u.input} placeholder="Fahrtkosten" value={fahrtkosten} onChange={e => setFahrtkosten(e.target.value)} />
-        <input type="number" style={u.input} placeholder="Übernachtung" value={uebernachtung} onChange={e => setUebernachtung(e.target.value)} />
+        <input type="number" style={u.input} placeholder="Übernachtung" value={uebernachtung} onChange={function(e){ setUebernachtung(e.target.value); }} />
+        <input type="number" style={u.input} placeholder="Telefon/Video" value={telefon} onChange={function(e){ setTelefon(e.target.value); }} />
       </div>
-      <div style={u.row}>
-        <input type="number" style={u.input} placeholder="Telefon/Internet" value={telefon} onChange={e => setTelefon(e.target.value)} />
-        <input type="number" style={u.input} placeholder="Sonstige" value={sonstige} onChange={e => setSonstige(e.target.value)} />
-      </div>
-      <button style={u.btnPrimary} onClick={berechne}>Berechnen</button>
+      <input type="number" style={u.input} placeholder="Sonstige (Verpflegung, etc.)" value={sonstige} onChange={function(e){ setSonstige(e.target.value); }} />
+
+      <button style={u.btnPrimary} onClick={berechne}>🧮 Berechnen</button>
+
       {result && (
         <div style={u.resultBox}>
-          <div style={u.calcStep}><span>Fahrtkosten:</span><span>{parseFloat(fahrtkosten || 0).toFixed(2)} €</span></div>
-          <div style={u.calcStep}><span>Übernachtung:</span><span>{parseFloat(uebernachtung || 0).toFixed(2)} €</span></div>
-          <div style={u.calcStep}><span>Telefon/Internet:</span><span>{parseFloat(telefon || 0).toFixed(2)} €</span></div>
-          <div style={u.calcStep}><span>Sonstige:</span><span>{parseFloat(sonstige || 0).toFixed(2)} €</span></div>
-          <div style={{ ...u.calcStep, borderTop: "1px solid #00afad", fontWeight: "bold", marginTop: "5px", paddingTop: "5px" }}><span>Gesamte Umgangskosten:</span><span>{result.gesamt} €</span></div>
-          <div style={{ ...u.infoBox, marginTop: "10px" }}>📋 {result.hinweis}</div>
-          <div style={{ fontSize: "10px", color: "#999", marginTop: "8px" }}>⚠️ Anerkennung liegt im Ermessen des Jobcenters. Belege bereithalten.</div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+            <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", textTransform:"uppercase" }}>Ergebnis</div>
+            <button onClick={function(){ setShowDetail(!showDetail); }}
+              style={{ fontSize:"10px", padding:"3px 8px", border:"1px solid #ddd", borderRadius:"5px", background:"#f5f5f5", cursor:"pointer" }}>
+              {showDetail ? "▲ Weniger" : "▼ Details"}
+            </button>
+          </div>
+
+          {showDetail && (
+            <div style={{ backgroundColor:"#f9f9f9", borderRadius:"7px", padding:"10px", marginBottom:"10px", fontSize:"11px" }}>
+              <div style={{ fontWeight:"bold", color:"#003366", marginBottom:"6px" }}>📐 Detailrechnung:</div>
+              <div style={u.calcStep}><span>Entfernung einfach:</span><span>{result.kmZahl} km</span></div>
+              <div style={u.calcStep}><span>× 2 (Hin+Rück):</span><span>{result.kmProFahrt} km</span></div>
+              <div style={u.calcStep}><span>× {result.fahrten} Fahrten/Monat:</span><span>{result.kmGesamt.toFixed(0)} km/Monat</span></div>
+              <div style={u.calcStep}><span>× {result.satz.toFixed(2)} €/km:</span><span style={{ fontWeight:"bold" }}>{result.fahrtkostenMtl.toFixed(2)} €/Monat</span></div>
+              {result.uebMtl > 0 && <div style={u.calcStep}><span>+ Übernachtung:</span><span>{result.uebMtl.toFixed(2)} €</span></div>}
+              {result.telMtl > 0 && <div style={u.calcStep}><span>+ Telefon/Video:</span><span>{result.telMtl.toFixed(2)} €</span></div>}
+              {result.sonsMtl > 0 && <div style={u.calcStep}><span>+ Sonstige:</span><span>{result.sonsMtl.toFixed(2)} €</span></div>}
+              <div style={{ borderTop:"1px solid #ddd", paddingTop:"6px", marginTop:"4px" }}>
+                <div style={u.calcStep}><span>Jahresbetrag Fahrt:</span><span>{result.jahrFahrt.toFixed(2)} €/Jahr</span></div>
+                <div style={u.calcStep}><span>Jahresbetrag gesamt:</span><span>{result.jahrGes.toFixed(2)} €/Jahr</span></div>
+                <div style={u.calcStep}><span>§ 33a EStG (außergewöhnl. Belastung, ca.):</span><span>{result.steuerWert.toFixed(2)} €/Jahr</span></div>
+              </div>
+              <div style={{ marginTop:"8px", padding:"6px 8px", backgroundColor:"#e8f0fb", borderRadius:"5px", fontSize:"10px", color:"#003366" }}>
+                📖 Rechtsgrundlagen: § 21 Abs. 6 SGB II · BGH XII ZB 234/15 · § 16 WoGG · § 33a EStG
+              </div>
+            </div>
+          )}
+
+          <div style={{ ...u.calcStep, borderTop:"2px solid #00afad", paddingTop:"8px", marginTop:"4px", fontWeight:"bold", fontSize:"14px" }}>
+            <span>Fahrtkosten gesamt:</span>
+            <span style={{ color:"#00afad" }}>{result.gesamt.toFixed(2)} €/Monat</span>
+          </div>
+          <div style={u.calcStep}><span>Jahreswert:</span><span style={{ fontWeight:"bold" }}>{result.jahrGes.toFixed(2)} €/Jahr</span></div>
+
+          <div style={{ ...u.infoBox, marginTop:"10px", backgroundColor:"#fff3cd", borderColor:"#ffc107", color:"#856404" }}>
+            💡 <strong>Empfehlung ({result.basis.label}):</strong> {result.basis.hinweis}
+          </div>
+
+          {rechtsBasis === "jobcenter" && (
+            <div style={{ fontSize:"10px", color:"#666", marginTop:"8px", lineHeight:"1.5" }}>
+              📋 <strong>Jobcenter-Antrag:</strong> Umgangsregelung (Urteil/Vereinbarung) + Fahrtnachweise + Formular "Weiterer Bedarf" einreichen. Erstattung rückwirkend bis 1 Jahr möglich.
+            </div>
+          )}
+          {rechtsBasis === "bgh" && (
+            <div style={{ fontSize:"10px", color:"#666", marginTop:"8px", lineHeight:"1.5" }}>
+              ⚖️ <strong>Unterhalt:</strong> {result.gesamt.toFixed(2)} €/Monat als Abzug beim bereinigten Einkommen geltend machen → mindert Unterhaltsanspruch des anderen Elternteils.
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+function MehrbedarfUmgangskosten(props) { return React.createElement(FahrtkostenUmgang, props); }
+
 
 // =============================================
 // MODUL 6: TEMPORÄRE BEDARFSGEMEINSCHAFT (TBG)
@@ -734,6 +863,7 @@ function WohngeldRechner() {
   const [unterhaltHoehe, setUnterhaltHoehe] = useState("");
   const [unterhaltWirdBedient, setUnterhaltWirdBedient] = useState("ja");
   const [weitereAbzuege, setWeitereAbzuege] = useState("");
+  const [fahrtkostenUmgang, setFahrtkostenUmgang] = useState("");
   const [mietStufe, setMietStufe] = useState("3");
   const [result, setResult] = useState(null);
 
@@ -765,7 +895,8 @@ function WohngeldRechner() {
       unterhaltAbzug = parseFloat(unterhaltHoehe || 0);
       netto = Math.max(0, netto - unterhaltAbzug);
     }
-    const verfuegbar = Math.max(0, netto - parseFloat(weitereAbzuege || 0));
+    const fahrtkAbzug = parseFloat(fahrtkostenUmgang || 0);
+    const verfuegbar = Math.max(0, netto - parseFloat(weitereAbzuege || 0) - fahrtkAbzug);
     const freibetrag = berechneFreibetrag(verfuegbar);
     const anzurechnendes = Math.max(0, verfuegbar - freibetrag);
     const miete = parseFloat(bruttomiete || 0);
@@ -822,12 +953,19 @@ function WohngeldRechner() {
           {unterhaltWirdBedient === "nein" && <div style={u.warnung}>⚠️ Nur tatsächlich gezahlter Unterhalt auf Basis eines Titels wird abgezogen.</div>}
         </div>
       )}
+      <label style={u.sectionLabel}>Fahrtkosten Umgang (€/Monat, als Einkommensabzug):</label>
+      <input type="number" style={u.input} placeholder="z.B. 80 – mindert anrechenbares Einkommen" value={fahrtkostenUmgang||""} onChange={e => setFahrtkostenUmgang(e.target.value)} />
+      {fahrtkostenUmgang && <div style={{ fontSize:"10px", color:"#666", marginBottom:"6px" }}>ℹ️ Fahrtkosten Umgang können als außergewöhnliche Belastung (§ 33a EStG) das Jahreseinkommen mindern – Orientierungswert.</div>}
       <label style={u.sectionLabel}>Weitere Abzüge (Altersvorsorge, Kredite, €/Monat):</label>
       <input type="number" style={u.input} placeholder="z.B. 100" value={weitereAbzuege} onChange={e => setWeitereAbzuege(e.target.value)} />
       <button style={u.btnPrimary} onClick={berechne}>Berechnen</button>
       {result && (
         <div style={u.resultBox}>
           {result.unterhaltNichtAbgezogen && <div style={u.warnung}>ℹ️ Unterhalt wird nicht abgezogen, da nicht bedient.</div>}
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"8px" }}>
+            <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366", textTransform:"uppercase" }}>Ergebnis</div>
+            <button onClick={() => setResult(r => ({...r, showDetail: !r.showDetail}))} style={{ fontSize:"10px", padding:"3px 8px", border:"1px solid #ddd", borderRadius:"5px", background:"#f5f5f5", cursor:"pointer" }}>{result.showDetail ? "▲ Weniger" : "▼ Details"}</button>
+          </div>
           <div style={u.calcStep}><span>Nettoeinkommen:</span><span>{result.netto} €</span></div>
           {parseFloat(result.unterhaltAbzug) > 0 && <div style={u.calcStep}><span>– Unterhalt (tituliert & gezahlt):</span><span>{result.unterhaltAbzug} €</span></div>}
           <div style={u.calcStep}><span>Verfügbares Einkommen:</span><span>{result.verfuegbar} €</span></div>
@@ -1327,7 +1465,7 @@ function RechnerReiter() {
 // =============================================
 // BUERGERGELD-RECHNER (SGB II) – Stand 2025
 // =============================================
-function BuergergeldRechnerCore({ ext, onSaveErgebnis }) {
+function BuergergeldRechnerCore({ ext, onSaveErgebnis, changedFields, changedDate }) {
   var u = rStyles;
   var REGEL = { allein:563, partner:506, k05:357, k613:390, k1417:471, k18:451 };
   function getKR(a) { var age=parseInt(a)||10; return age<6?REGEL.k05:age<14?REGEL.k613:age<18?REGEL.k1417:REGEL.k18; }
@@ -1341,6 +1479,10 @@ function BuergergeldRechnerCore({ ext, onSaveErgebnis }) {
   const [einBrutto,setEinBrutto]=React.useState(ext?String(ext.einkommenBrutto||""):"");
   const [einPartner,setEinPartner]=React.useState("");
   const [alg1,setAlg1]=React.useState("");const [rente,setRente]=React.useState("");const [weitereEink,setWeitereEink]=React.useState("");const [vermoegen,setVermoegen]=React.useState("");
+  const [fahrtkostenUmg,setFahrtkostenUmg]=React.useState(ext?String(ext.fahrtkostenUmgang||""):"");
+  const [fahrtkostenKm,setFahrtkostenKm]=React.useState(ext?String(ext.fahrtkostenKm||""):"");
+  const [fahrtkostenFahrten,setFahrtkostenFahrten]=React.useState(ext?String(ext.fahrtkostenFahrtenProMonat||""):"");
+  const [showBgDetail,setShowBgDetail]=React.useState(false);
   const [mieteKalt,setMieteKalt]=React.useState(ext?String(ext.mieteKalt||""):"");
   const [nebenkosten,setNebenkosten]=React.useState(ext?String(ext.nebenkosten||""):"");
   const [heizkosten,setHeizkosten]=React.useState(ext?String(ext.heizkosten||""):"");
@@ -1353,6 +1495,11 @@ function BuergergeldRechnerCore({ ext, onSaveErgebnis }) {
     var rbK=kinder.reduce(function(s,k){return s+getKR(k.alter);},0);
     var rb=rbH+rbP+rbK,mb=0,mbD=[];
     if(mbA&&kinder.length>0){var bA=Math.round(rbH*0.36);mb+=bA;mbD.push({l:"Mehrbedarf Alleinerziehend (36%)",b:bA});}
+    // Fahrtkosten Umgang als Mehrbedarf § 21 VI SGB II
+    var fkKm=parseFloat(fahrtkostenKm)||0,fkFahrten=parseFloat(fahrtkostenFahrten)||0;
+    var fkMtl=parseFloat(fahrtkostenUmg)||0;
+    if(fkKm>0&&fkFahrten>0){fkMtl=Math.max(fkMtl,fkKm*2*fkFahrten*0.20);}
+    if(fkMtl>0){mb+=fkMtl;mbD.push({l:"Fahrtkosten Umgang § 21 VI SGB II",b:fkMtl});}
     if(mbS){var bS=Math.round(rbH*0.17);mb+=bS;mbD.push({l:"Mehrbedarf Schwangerschaft (17%)",b:bS});}
     if(mbB){var bB=Math.round(rbH*0.35);mb+=bB;mbD.push({l:"Mehrbedarf Schwerbehinderung (35%)",b:bB});}
     var kduK=parseFloat(mieteKalt)||0,kduN=parseFloat(nebenkosten)||0,kduH=parseFloat(heizkosten)||0,kdu=kduK+kduN+kduH;
@@ -1375,7 +1522,12 @@ function BuergergeldRechnerCore({ ext, onSaveErgebnis }) {
   var btnZ={background:"none",border:"none",color:"#00afad",cursor:"pointer",fontWeight:"bold",padding:0,marginBottom:"12px",fontSize:"13px"};
   return(
     <div>
-      <h4 style={u.modTitle}>Buergergeld-Rechner (SGB II)</h4>
+      <h4 style={u.modTitle}>Bürgergeld-Rechner (SGB II)</h4>
+      {changedFields&&changedFields.length>0&&(
+        <div style={{backgroundColor:"#fff3cd",border:"1px solid #ffc107",borderRadius:"7px",padding:"8px 10px",marginBottom:"10px",fontSize:"11px",color:"#856404"}}>
+          ⚠️ <strong>Achtung:</strong> Folgende Daten wurden am {changedDate} geändert: <strong>{changedFields.join(", ")}</strong>. Bitte Berechnung aktualisieren!
+        </div>
+      )}
       <div style={{display:"flex",gap:"4px",marginBottom:"16px"}}>
         {["1. Haushalt","2. Einkommen","3. Wohnen","4. Ergebnis"].map(function(s,i){return <div key={i} onClick={function(){if(i<3)setSchritt(i+1);}} style={{flex:1,textAlign:"center",padding:"5px 2px",fontSize:"9px",fontWeight:"bold",backgroundColor:schritt===i+1?"#003366":schritt>i+1?"#00afad":"#eee",color:schritt>=i+1?"#fff":"#999",borderRadius:"4px",cursor:i<3?"pointer":"default"}}>{s}</div>;})}
       </div>
@@ -1400,6 +1552,17 @@ function BuergergeldRechnerCore({ ext, onSaveErgebnis }) {
         <button onClick={addK} style={{width:"100%",padding:"8px",backgroundColor:"#f0f4f7",border:"1px dashed #00afad",borderRadius:"8px",cursor:"pointer",fontSize:"12px",color:"#00afad",marginBottom:"10px"}}>+ Kind hinzufuegen</button>
         <label style={u.sectionLabel}>Mehrbedarf:</label>
         {[{s:setMbA,v:mbA,l:"Alleinerziehend (36%)"},{s:setMbS,v:mbS,l:"Schwangerschaft ab 13. SSW (17%)"},{s:setMbB,v:mbB,l:"Schwerbehinderung (35%)"}].map(function(o,i){return <label key={i} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"6px"}}><input type="checkbox" checked={o.v} onChange={function(e){o.s(e.target.checked);}} />{o.l}</label>;})}
+        <div style={{backgroundColor:"#e8f4fd",border:"1px solid #bee5f8",borderRadius:"7px",padding:"8px",marginTop:"6px",marginBottom:"8px"}}>
+          <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",marginBottom:"6px"}}>🚗 Fahrtkosten Umgang (§ 21 Abs. 6 SGB II)</div>
+          {(ext&&ext.fahrtkostenKm)&&<div style={{fontSize:"10px",color:"#00afad",marginBottom:"4px"}}>📂 Vorausgefüllt aus Akte</div>}
+          <div style={{display:"flex",gap:"6px",marginBottom:"4px"}}>
+            <div style={{flex:1}}><label style={{fontSize:"10px",color:"#555"}}>km einfach</label><input type="number" style={{...u.input,marginBottom:0}} placeholder="z.B. 30" value={fahrtkostenKm} onChange={function(e){setFahrtkostenKm(e.target.value);}}/></div>
+            <div style={{flex:1}}><label style={{fontSize:"10px",color:"#555"}}>Fahrten/Monat</label><input type="number" style={{...u.input,marginBottom:0}} placeholder="z.B. 4" value={fahrtkostenFahrten} onChange={function(e){setFahrtkostenFahrten(e.target.value);}}/></div>
+          </div>
+          <label style={{fontSize:"10px",color:"#555"}}>Oder direkt: monatlicher Betrag (€)</label>
+          <input type="number" style={u.input} placeholder="Direkt eingeben falls bekannt" value={fahrtkostenUmg} onChange={function(e){setFahrtkostenUmg(e.target.value);}}/>
+          {(fahrtkostenKm&&fahrtkostenFahrten)&&<div style={{fontSize:"10px",color:"#003366"}}>Berechnet: {(parseFloat(fahrtkostenKm)*2*(parseFloat(fahrtkostenFahrten)||0)*0.20).toFixed(2)} €/Monat (0,20 €/km)</div>}
+        </div>
         <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={function(){setSchritt(2);}}>Weiter: Einkommen</button>
       </div>)}
       {schritt===2&&(<div>
@@ -1430,6 +1593,9 @@ function BuergergeldRechnerCore({ ext, onSaveErgebnis }) {
       </div>)}
       {schritt===4&&result&&(<div>
         <button style={btnZ} onClick={function(){setSchritt(3);}}>zurueck</button>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"6px"}}>
+          <button onClick={function(){setShowBgDetail(!showBgDetail);}} style={{fontSize:"10px",padding:"4px 10px",border:"1px solid #ddd",borderRadius:"5px",background:"#f5f5f5",cursor:"pointer"}}>{showBgDetail?"▲ Kurzansicht":"▼ Detailansicht"}</button>
+        </div>
         {result.vUeber>0&&<div style={{...u.warnung,marginBottom:"10px"}}>Vermoegen ({result.vB.toFixed(0)} EUR) ueber Freibetrag ({result.vFreig.toFixed(0)} EUR) um {result.vUeber.toFixed(0)} EUR!</div>}
         <div style={u.resultBox}>
           <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",marginBottom:"6px"}}>Gesamtbedarf:</div>
@@ -1467,7 +1633,7 @@ function BuergergeldRechner(props){return React.createElement(BuergergeldRechner
 // =============================================
 // BERECHNUNG MIT DATEN – Rechner vorausgefüllt
 // =============================================
-function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis }) {
+function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis, changedFields, changedDate }) {
   const netto   = ext ? String(ext.einkommenNetto || "") : "";
   const nettoG  = ext ? String(ext.einkommenGegenseite || "") : "";
   const mieteW  = ext ? String(ext.mieteWarm || "") : "";
@@ -1851,7 +2017,7 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis }
   );
 
   if (rechner === "buergergeld") return (
-    <BuergergeldRechner ext={ext} onSaveErgebnis={onSaveErgebnis} />
+    <BuergergeldRechner ext={ext} onSaveErgebnis={onSaveErgebnis} changedFields={changedFields} changedDate={changedDate} />
   );
 
   if (rechner === "wohngeld") return (
@@ -2925,15 +3091,41 @@ function App() {
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
               <h2 style={{ color:"#003366", margin:0, fontSize:"17px" }}>Mitglieder-Stammdaten</h2>
               {!isEditing ? (
-                <button onClick={function() { setEditMemberDaten({ vorname:activeMember.vorname, name:activeMember.name, tel:activeMember.tel, mail:activeMember.mail, strasse:activeMember.strasse, plz:activeMember.plz, ort:activeMember.ort }); setEditMemberMode(true); }}
+                <button onClick={function() {
+                    var ext2=memberExtras[activeMember.id]||{};
+                    setEditMemberDaten({
+                      vorname:activeMember.vorname, name:activeMember.name, tel:activeMember.tel,
+                      mail:activeMember.mail, strasse:activeMember.strasse, plz:activeMember.plz, ort:activeMember.ort,
+                      geburt:activeMember.geburt||ext2.geburtsdatum||"",
+                      familienstand:ext2.familienstand||"", betreuungsmodell:ext2.betreuungsmodell||"",
+                      einkommenNetto:ext2.einkommenNetto||"", einkommenBrutto:ext2.einkommenBrutto||"",
+                      arbeitsstatus:ext2.arbeitsstatus||"",
+                      mieteKalt:ext2.mieteKalt||"", nebenkosten:ext2.nebenkosten||"", heizkosten:ext2.heizkosten||"",
+                      fahrtkostenKm:ext2.fahrtkostenKm||"", fahrtkostenFahrtenProMonat:ext2.fahrtkostenFahrtenProMonat||""
+                    });
+                    setEditMemberMode(true);
+                  }}
                   style={{ fontSize:"11px", padding:"5px 12px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px solid #003366", borderRadius:"6px", cursor:"pointer", fontWeight:"bold" }}>
                   ✏️ Bearbeiten
                 </button>
               ) : (
                 <div style={{ display:"flex", gap:"6px" }}>
                   <button onClick={function() {
-                    setMembers(function(prev) { return prev.map(function(m) { return m.id === mid ? Object.assign({}, m, editDaten) : m; }); });
-                    setActiveMember(function(prev) { return Object.assign({}, prev, editDaten); });
+                    var extrasFelder = ["familienstand","betreuungsmodell","einkommenNetto","einkommenBrutto","arbeitsstatus","mieteKalt","nebenkosten","heizkosten","fahrtkostenKm","fahrtkostenFahrtenProMonat","geburt"];
+                    var memberFelder = ["vorname","name","tel","mail","strasse","plz","ort"];
+                    var memberUpd = {}; memberFelder.forEach(function(f){ if(editDaten[f]!==undefined) memberUpd[f]=editDaten[f]; });
+                    var extrasUpd = {}; extrasFelder.forEach(function(f){ if(editDaten[f]!==undefined) extrasUpd[f]=editDaten[f]; });
+                    // Änderungshistorie
+                    var geaendert = Object.keys(extrasUpd).filter(function(f){ return extrasUpd[f] !== ((memberExtras[mid]||{})[f]||""); });
+                    if(geaendert.length>0){
+                      var hist=(memberExtras[mid]||{})._historie||[];
+                      var neuerEintrag={datum:new Date().toLocaleDateString("de-DE"),quelle:"Akte bearbeitet",felder:geaendert};
+                      extrasUpd._historie=hist.concat([neuerEintrag]).slice(-30);
+                      extrasUpd._letzteAenderung={datum:new Date().toLocaleDateString("de-DE"),felder:geaendert};
+                    }
+                    setMembers(function(prev) { return prev.map(function(m) { return m.id === mid ? Object.assign({}, m, memberUpd) : m; }); });
+                    setActiveMember(function(prev) { return Object.assign({}, prev, memberUpd); });
+                    setMemberExtras(function(prev){ return Object.assign({},prev,{[mid]:Object.assign({},prev[mid]||{},extrasUpd)}); });
                     setEditMemberMode(false);
                   }} style={{ fontSize:"11px", padding:"5px 12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"6px", cursor:"pointer", fontWeight:"bold" }}>
                     ✓ Speichern
@@ -2957,20 +3149,70 @@ function App() {
               </>
             ) : (
               <div style={{ backgroundColor:"#f9f9f9", borderRadius:"10px", padding:"12px", marginBottom:"10px", border:"1px solid #003366" }}>
+                {/* STAMMDATEN */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"4px", padding:"4px 8px", marginBottom:"8px" }}>👤 Stammdaten</div>
                 <div style={{ display:"flex", gap:"8px" }}>
-                  <div style={{ flex:1 }}><label style={styles.label}>Vorname</label><input style={styles.input} value={editDaten.vorname} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{vorname:v}); }); }} /></div>
-                  <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={editDaten.name} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{name:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Vorname</label><input style={styles.input} value={editDaten.vorname||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{vorname:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={editDaten.name||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{name:v}); }); }} /></div>
                 </div>
+                <label style={styles.label}>Geburtsdatum</label>
+                <input style={styles.input} type="date" value={editDaten.geburt||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{geburt:v}); }); }} />
                 <label style={styles.label}>Telefon</label>
-                <input style={styles.input} value={editDaten.tel} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{tel:v}); }); }} />
+                <input style={styles.input} value={editDaten.tel||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{tel:v}); }); }} />
                 <label style={styles.label}>E-Mail</label>
-                <input style={styles.input} value={editDaten.mail} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{mail:v}); }); }} />
+                <input style={styles.input} value={editDaten.mail||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{mail:v}); }); }} />
                 <label style={styles.label}>Straße</label>
-                <input style={styles.input} value={editDaten.strasse} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{strasse:v}); }); }} />
+                <input style={styles.input} value={editDaten.strasse||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{strasse:v}); }); }} />
                 <div style={{ display:"flex", gap:"8px" }}>
-                  <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} value={editDaten.plz} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{plz:v}); }); }} /></div>
-                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} value={editDaten.ort} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{ort:v}); }); }} /></div>
+                  <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} value={editDaten.plz||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{plz:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} value={editDaten.ort||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{ort:v}); }); }} /></div>
                 </div>
+
+                {/* FAMILIE & KINDER */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"4px", padding:"4px 8px", marginTop:"12px", marginBottom:"8px" }}>👨‍👩‍👧 Familie</div>
+                <label style={styles.label}>Familienstand</label>
+                <select style={styles.input} value={editDaten.familienstand||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{familienstand:v}); }); }}>
+                  <option value="">– wählen –</option>
+                  {["ledig","verheiratet","getrennt lebend","geschieden","verwitwet"].map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+                </select>
+                <label style={styles.label}>Betreuungsmodell</label>
+                <select style={styles.input} value={editDaten.betreuungsmodell||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{betreuungsmodell:v}); }); }}>
+                  <option value="">– wählen –</option>
+                  {["Residenzmodell","Wechselmodell paritätisch","Wechselmodell asymmetrisch","Fernkontakt"].map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+                </select>
+
+                {/* EINKOMMEN */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"4px", padding:"4px 8px", marginTop:"12px", marginBottom:"8px" }}>💰 Einkommen</div>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <div style={{ flex:1 }}><label style={styles.label}>Nettoeinkommen (€)</label><input type="number" style={styles.input} value={editDaten.einkommenNetto||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{einkommenNetto:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Bruttoeinkommen (€)</label><input type="number" style={styles.input} value={editDaten.einkommenBrutto||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{einkommenBrutto:v}); }); }} /></div>
+                </div>
+                <label style={styles.label}>Arbeitsstatus</label>
+                <select style={styles.input} value={editDaten.arbeitsstatus||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{arbeitsstatus:v}); }); }}>
+                  <option value="">– wählen –</option>
+                  {["erwerbstätig","selbstständig","arbeitslos","ALG I","Bürgergeld","Rente","Student*in","nicht erwerbstätig"].map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+                </select>
+
+                {/* WOHNEN */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"4px", padding:"4px 8px", marginTop:"12px", marginBottom:"8px" }}>🏠 Wohnen</div>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <div style={{ flex:1 }}><label style={styles.label}>Kaltmiete (€)</label><input type="number" style={styles.input} value={editDaten.mieteKalt||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{mieteKalt:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Nebenkosten (€)</label><input type="number" style={styles.input} value={editDaten.nebenkosten||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{nebenkosten:v}); }); }} /></div>
+                </div>
+                <label style={styles.label}>Heizkosten (€)</label>
+                <input type="number" style={styles.input} value={editDaten.heizkosten||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{heizkosten:v}); }); }} />
+
+                {/* FAHRTKOSTEN UMGANG */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f4fd", borderRadius:"4px", padding:"4px 8px", marginTop:"12px", marginBottom:"8px" }}>🚗 Fahrtkosten Umgang</div>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <div style={{ flex:1 }}><label style={styles.label}>km einfach</label><input type="number" style={styles.input} value={editDaten.fahrtkostenKm||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{fahrtkostenKm:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Fahrten/Monat</label><input type="number" style={styles.input} value={editDaten.fahrtkostenFahrtenProMonat||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{fahrtkostenFahrtenProMonat:v}); }); }} /></div>
+                </div>
+                {(editDaten.fahrtkostenKm&&editDaten.fahrtkostenFahrtenProMonat)&&(
+                  <div style={{ fontSize:"10px", color:"#003366", marginBottom:"6px" }}>
+                    → ca. {((parseFloat(editDaten.fahrtkostenKm)||0)*2*(parseFloat(editDaten.fahrtkostenFahrtenProMonat)||0)*0.20).toFixed(2)} €/Monat (0,20 €/km)
+                  </div>
+                )}
               </div>
             )}
             <button onClick={() => setShowMehrDaten(!showMehrDaten)}
@@ -3273,6 +3515,8 @@ function App() {
               rechner={berechnungRechner}
               member={activeMember}
               ext={memberExtras[activeMember.id] || null}
+              changedFields={(memberExtras[activeMember.id]||{})._letzteAenderung ? ((memberExtras[activeMember.id]._letzteAenderung)||{}).felder||[] : []}
+              changedDate={(memberExtras[activeMember.id]||{})._letzteAenderung ? ((memberExtras[activeMember.id]._letzteAenderung)||{}).datum||"" : ""}
               onSaveData={(newFields) => {
                 const mid = activeMember.id;
                 setMemberExtras(prev => ({
@@ -3843,6 +4087,26 @@ function App() {
                         <option value="beim anderen Elternteil">Beim anderen Elternteil</option>
                         <option value="Wechselmodell">Wechselmodell (abwechselnd)</option>
                       </select>
+                      {(kind.wohnort === "Wechselmodell" || kind.wohnort === "beim anderen Elternteil") && (
+                        <div style={{ backgroundColor:"#e8f4fd", border:"1px solid #bee5f8", borderRadius:"7px", padding:"10px", marginBottom:"8px" }}>
+                          <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", marginBottom:"6px" }}>🚗 Fahrtkosten Umgang (für Berechnungen)</div>
+                          <div style={{ display:"flex", gap:"6px" }}>
+                            <div style={{ flex:1 }}>
+                              <label style={{ fontSize:"11px", color:"#555", display:"block", marginBottom:"3px" }}>km einfach zum and. Elternteil</label>
+                              <input type="number" style={styles.input} placeholder="z.B. 25" value={kind.fahrtkostenKm||""} onChange={function(e){ updateKind("fahrtkostenKm", e.target.value); }} />
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={{ fontSize:"11px", color:"#555", display:"block", marginBottom:"3px" }}>Übergaben/Monat</label>
+                              <input type="number" style={styles.input} placeholder="z.B. 4" value={kind.fahrtkostenFahrten||""} onChange={function(e){ updateKind("fahrtkostenFahrten", e.target.value); }} />
+                            </div>
+                          </div>
+                          {(kind.fahrtkostenKm && kind.fahrtkostenFahrten) && (
+                            <div style={{ fontSize:"11px", color:"#003366", marginTop:"4px" }}>
+                              → ca. <strong>{((parseFloat(kind.fahrtkostenKm)||0)*2*(parseFloat(kind.fahrtkostenFahrten)||0)*0.20).toFixed(2)} €/Monat</strong> (0,20 €/km)
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <label style={styles.label}>Hat dieses Kind einen anderen Elternteil?</label>
                       <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
                         {["ja","nein"].map(function(v) {
