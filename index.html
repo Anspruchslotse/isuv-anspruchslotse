@@ -2613,6 +2613,7 @@ function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
   const [nettoEinkommen, setNettoEinkommen] = React.useState("");
   const [unterhalt, setUnterhalt] = React.useState("");
   const [wohngeld, setWohngeld] = React.useState("");
+  const [kindergeldBezieher, setKindergeldBezieher] = React.useState("ich");
   const [result, setResult] = React.useState(null);
   const [showDetail, setShowDetail] = React.useState(false);
 
@@ -2653,7 +2654,7 @@ function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
     var kzgGesamt = kzgJeKind * anzK;
 
     // Zusammenspiel mit Bürgergeld: KZG + Kindergeld deckt Kindesbedarf?
-    var kgGesamt = KINDERGELD * anzK;
+    var kgGesamt = kindergeldBezieher === "ich" ? KINDERGELD * anzK : 0;
     var gesamtFamLeistung = kzgGesamt + kgGesamt + wg;
     var buergergeldBesser = !mindestGrenze || kzgGesamt < 10;
 
@@ -2679,7 +2680,7 @@ function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
         typ: "Kinderzuschlag (§ 6a BKGG)",
         rechtsbereich: "Sozialrecht",
         ergebnis: kzgGesamt.toFixed(0) + " €/Monat (" + anzK + " Kind" + (anzK>1?"er":"") + ")",
-        details: "KZG " + kzgJeKind.toFixed(0) + " €/Kind + KG " + KINDERGELD + " € = " + (kzgJeKind+KINDERGELD).toFixed(0) + " €/Kind",
+        details: "KZG " + kzgJeKind.toFixed(0) + " €/Kind" + (kindergeldBezieher==="ich" ? " + KG " + KINDERGELD + " € = " + (kzgJeKind+KINDERGELD).toFixed(0) + " €/Kind" : " (ohne KG – anderer Elternteil)"),
         detailSchritte,
         rechtsgrundlagen: ["§ 6a BKGG", "§ 6b BKGG", "§ 20 SGB II"]
       });
@@ -2722,6 +2723,24 @@ function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
       })}
       {kinder.length < 5 && (
         <button onClick={addKind} style={{ ...u.btnAdd, marginBottom:"10px" }}>+ Kind hinzufügen</button>
+      )}
+
+      <label style={u.sectionLabel}>Kindergeld-Bezug:</label>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+        {[["ich","✅ Ich beziehe Kindergeld"],["anderer","❌ Anderer Elternteil bezieht es"]].map(function([v,l]){
+          return (
+            <button key={v} onClick={function(){ setKindergeldBezieher(v); setResult(null); }}
+              style={{ flex:1, padding:"9px", borderRadius:"8px", border:"2px solid "+(kindergeldBezieher===v?"#003366":"#ddd"),
+                backgroundColor:kindergeldBezieher===v?"#e8f0fb":"#f9f9f9", fontWeight:kindergeldBezieher===v?"bold":"normal",
+                cursor:"pointer", fontSize:"11px" }}>
+              {l}
+            </button>
+          );
+        })}
+      </div>
+      {kindergeldBezieher==="anderer" && (
+        <InfoBox typ="warnung" titel="§ 64 EStG – Kindergeld beim betreuenden Elternteil"
+          kinder={<span>Kindergeld wird an den betreuenden Elternteil ausgezahlt. Kein Kindergeld wird für diese Berechnung berücksichtigt.</span>} />
       )}
 
       <div style={u.row}>
@@ -3872,7 +3891,9 @@ function App() {
                       einkommenNetto:ext2.einkommenNetto||"", einkommenBrutto:ext2.einkommenBrutto||"",
                       arbeitsstatus:ext2.arbeitsstatus||"",
                       mieteKalt:ext2.mieteKalt||"", nebenkosten:ext2.nebenkosten||"", heizkosten:ext2.heizkosten||"",
-                      fahrtkostenKm:ext2.fahrtkostenKm||"", fahrtkostenFahrtenProMonat:ext2.fahrtkostenFahrtenProMonat||""
+                      fahrtkostenKm:ext2.fahrtkostenKm||"", fahrtkostenFahrtenProMonat:ext2.fahrtkostenFahrtenProMonat||"",
+                      anzahlKinder:ext2.anzahlKinder||"", kinderAlter:ext2.kinderAlter||"",
+                      kindergeldBezug:ext2.kindergeldBezug||"", kindGemeldetBei:ext2.kindGemeldetBei||""
                     });
                     setEditMemberMode(true);
                   }}
@@ -3950,6 +3971,33 @@ function App() {
                 <select style={styles.input} value={editDaten.betreuungsmodell||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{betreuungsmodell:v}); }); }}>
                   <option value="">– wählen –</option>
                   {["Residenzmodell","Wechselmodell paritätisch","Wechselmodell asymmetrisch","Fernkontakt"].map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+                </select>
+
+                {/* KINDER */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"4px", padding:"4px 8px", marginTop:"12px", marginBottom:"8px" }}>👶 Kinder</div>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <div style={{ flex:1 }}>
+                    <label style={styles.label}>Anzahl Kinder</label>
+                    <input type="number" min="0" max="10" style={styles.input} value={editDaten.anzahlKinder||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{anzahlKinder:v}); }); }} />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <label style={styles.label}>Alter (kommagetrennt)</label>
+                    <input style={styles.input} placeholder="z.B. 8, 12" value={editDaten.kinderAlter||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{kinderAlter:v}); }); }} />
+                  </div>
+                </div>
+                <label style={styles.label}>Kindergeld-Bezug</label>
+                <select style={styles.input} value={editDaten.kindergeldBezug||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{kindergeldBezug:v}); }); }}>
+                  <option value="">– wählen –</option>
+                  <option value="ich">Ich beziehe Kindergeld</option>
+                  <option value="anderer">Andere Person bezieht Kindergeld</option>
+                  <option value="keines">Kein Kindergeld (kein Anspruch)</option>
+                </select>
+                <label style={styles.label}>Betreuungssituation (Kind gemeldet bei)</label>
+                <select style={styles.input} value={editDaten.kindGemeldetBei||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{kindGemeldetBei:v}); }); }}>
+                  <option value="">– wählen –</option>
+                  <option value="mir">Bei mir gemeldet</option>
+                  <option value="anderem">Bei anderem Elternteil gemeldet</option>
+                  <option value="wechsel">Wechselweise gemeldet</option>
                 </select>
 
                 {/* EINKOMMEN */}
