@@ -6573,7 +6573,7 @@ function App() {
                           <div style={{ fontSize:"10px", padding:"6px 8px", borderRadius:"5px", marginBottom:"6px",
                             backgroundColor: sbReady() ? "#e8f5e9" : "#fff3e0",
                             color: sbReady() ? "#2e7d32" : "#e65100" }}>
-                            {sbReady() ? "✅ Supabase verbunden – Link wird generiert" : "⚠️ Kein Supabase – E-Mail wird ohne Link gesendet. Bitte Profil → Supabase einrichten & Speichern."}
+                            {sbReady() ? "✅ Supabase verbunden – personalisierter Link wird generiert" : "⚠️ Kein Supabase – Formular wird mit öffentlichem Link gesendet (ohne Vorausfüllung)."}
                           </div>
                           <button
                             onClick={async function() {
@@ -6612,6 +6612,15 @@ function App() {
                                   alert("Supabase konnte Formular nicht speichern. Prüfen Sie URL und Key im Profil.");
                                   return;
                                 }
+                              }
+                              // Fallback-Link wenn kein Supabase konfiguriert
+                              if (!formLink) {
+                                var fbId2 = "F" + Math.random().toString(36).slice(2,8).toUpperCase();
+                                var fbUrl2 = "https://anspruchslotse.github.io/isuv-anspruchslotse/formular.html"
+                                  + "?typ=" + encodeURIComponent(fTyp)
+                                  + "&name=" + encodeURIComponent(m ? (m.vorname + " " + m.name) : "")
+                                  + "&ref=" + fbId2;
+                                formLink = "\n\n🔗 Formular-Link (im Browser ausfüllen):\n" + fbUrl2;
                               }
                               var betreff = "ISUV Anspruchslotse – " + fLabel + (m ? " für " + m.vorname + " " + m.name : "");
                               var body = linkText + formLink + "\n\nMit freundlichen Grüßen\n" + (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
@@ -6679,6 +6688,15 @@ function App() {
                                 if (sbResult) {
                                   formLink = "\n\n🔗 Formular-Link (direkt im Browser ausfüllen):\n" + sbResult.url;
                                 }
+                              }
+                              // Fallback-Link wenn kein Supabase konfiguriert
+                              if (!formLink) {
+                                var fbId = "F" + Math.random().toString(36).slice(2,8).toUpperCase();
+                                var fbUrl = "https://anspruchslotse.github.io/isuv-anspruchslotse/formular.html"
+                                  + "?typ=" + encodeURIComponent(fTyp)
+                                  + "&name=" + encodeURIComponent(m ? (m.vorname + " " + m.name) : "")
+                                  + "&ref=" + fbId;
+                                formLink = "\n\n🔗 Formular-Link (im Browser ausfüllen):\n" + fbUrl;
                               }
                               var waMsg = "Hallo" + (m ? " " + m.vorname : "") + ",\n\n" + linkText + formLink + "\n\nNach dem Ausfüllen bitte zurücksenden an:\n📱 " + loginDaten.whatsapp + "\n\nVielen Dank!\n" + (loginDaten.leiter || "ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
                               var waUrl = "https://wa.me/" + empfTel + "?text=" + encodeURIComponent(waMsg);
