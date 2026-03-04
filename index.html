@@ -1733,6 +1733,7 @@ function RechnerReiter() {
     { id: "mbAlleinerziehende", label: "👨‍👧 Mehrbedarf Alleinerziehende" },
     { id: "mbUmgang", label: "🚗 Mehrbedarf Umgangskosten" },
     { id: "tbg", label: "🏠 Temporäre Bedarfsgemeinschaft" },
+    { id: "kinderzuschlag", label: "👶 Kinderzuschlag (§ 6a BKGG)" },
   ];
 
   const backBtn = (label, onClick) => (
@@ -1759,6 +1760,7 @@ function RechnerReiter() {
         {aktiverRechner === "tbg" && <TemporaereBedarfsgemeinschaft />}
         {aktiverRechner === "buergergeld" && <BuergergeldRechnerStandalone />}
         {aktiverRechner === "wohngeld" && <WohngeldRechner />}
+        {aktiverRechner === "kinderzuschlag" && <KinderzuschlagRechner />}
       </div>
     );
   }
@@ -1831,9 +1833,187 @@ function RechnerReiter() {
 
 
 
+
+
 // =============================================
-// BERECHNUNG MIT DATEN – Rechner vorausgefüllt
+// BUERGERGELD-RECHNER (SGB II) – Stand 2025
 // =============================================
+function BuergergeldRechnerCore({ ext, onSaveErgebnis, changedFields, changedDate }) {
+  var u = rStyles;
+  var REGEL = { allein:563, partner:506, k05:357, k613:390, k1417:471, k18:451 };
+  function getKR(a) { var age=parseInt(a)||10; return age<6?REGEL.k05:age<14?REGEL.k613:age<18?REGEL.k1417:REGEL.k18; }
+  function calcFB(b,hatK) { b=parseFloat(b)||0; if(b<=100)return b; var f=100; if(b>100)f+=(Math.min(b,1000)-100)*0.20; if(b>1000)f+=(Math.min(b,1200)-1000)*0.10; return Math.min(f,hatK?352:302); }
+  var initK=(ext&&ext.kinder)?ext.kinder.map(function(k,i){var age=10;if(k.geburt){var d=new Date(k.geburt);age=Math.floor((new Date()-d)/(365.25*24*3600*1000));}return{id:i+1,name:k.name||("Kind "+(i+1)),alter:String(age),kg:"250",uvg:k.uvg?"ja":"nein"};}):[]; 
+  const [schritt,setSchritt]=React.useState(1);
+  const [hatPartner,setHatPartner]=React.useState(false);
+  const [kinder,setKinder]=React.useState(initK);
+  const [mbA,setMbA]=React.useState(false);const [mbS,setMbS]=React.useState(false);const [mbB,setMbB]=React.useState(false);
+  const [einNetto,setEinNetto]=React.useState(ext?String(ext.einkommenNetto||""):"");
+  const [einBrutto,setEinBrutto]=React.useState(ext?String(ext.einkommenBrutto||""):"");
+  const [einPartner,setEinPartner]=React.useState("");
+  const [alg1,setAlg1]=React.useState("");const [rente,setRente]=React.useState("");const [weitereEink,setWeitereEink]=React.useState("");const [vermoegen,setVermoegen]=React.useState("");
+  const [fahrtkostenUmg,setFahrtkostenUmg]=React.useState(ext?String(ext.fahrtkostenUmgang||""):"");
+  const [fahrtkostenKm,setFahrtkostenKm]=React.useState(ext?String(ext.fahrtkostenKm||""):"");
+  const [fahrtkostenFahrten,setFahrtkostenFahrten]=React.useState(ext?String(ext.fahrtkostenFahrtenProMonat||""):"");
+  const [showBgDetail,setShowBgDetail]=React.useState(false);
+  const [mieteKalt,setMieteKalt]=React.useState(ext?String(ext.mieteKalt||""):"");
+  const [nebenkosten,setNebenkosten]=React.useState(ext?String(ext.nebenkosten||""):"");
+  const [heizkosten,setHeizkosten]=React.useState(ext?String(ext.heizkosten||""):"");
+  const [result,setResult]=React.useState(null);
+  function addK(){setKinder(function(p){return[...p,{id:Date.now(),name:"",alter:"10",kg:"250",uvg:"nein"}];});}
+  function remK(id){setKinder(function(p){return p.filter(function(k){return k.id!==id;});});}
+  function updK(id,f,v){setKinder(function(p){return p.map(function(k){return k.id===id?Object.assign({},k,{[f]:v}):k;});});}
+  function berechne(){
+    var rbH=hatPartner?REGEL.partner:REGEL.allein,rbP=hatPartner?REGEL.partner:0;
+    var rbK=kinder.reduce(function(s,k){return s+getKR(k.alter);},0);
+    var rb=rbH+rbP+rbK,mb=0,mbD=[];
+    if(mbA&&kinder.length>0){var bA=Math.round(rbH*0.36);mb+=bA;mbD.push({l:"Mehrbedarf Alleinerziehend (36%)",b:bA});}
+    // Fahrtkosten Umgang als Mehrbedarf § 21 VI SGB II
+    var fkKm=parseFloat(fahrtkostenKm)||0,fkFahrten=parseFloat(fahrtkostenFahrten)||0;
+    var fkMtl=parseFloat(fahrtkostenUmg)||0;
+    if(fkKm>0&&fkFahrten>0){fkMtl=Math.max(fkMtl,fkKm*2*fkFahrten*0.20);}
+    if(fkMtl>0){mb+=fkMtl;mbD.push({l:"Fahrtkosten Umgang § 21 VI SGB II",b:fkMtl});}
+    if(mbS){var bS=Math.round(rbH*0.17);mb+=bS;mbD.push({l:"Mehrbedarf Schwangerschaft (17%)",b:bS});}
+    if(mbB){var bB=Math.round(rbH*0.35);mb+=bB;mbD.push({l:"Mehrbedarf Schwerbehinderung (35%)",b:bB});}
+    var kduK=parseFloat(mieteKalt)||0,kduN=parseFloat(nebenkosten)||0,kduH=parseFloat(heizkosten)||0,kdu=kduK+kduN+kduH;
+    var bedarf=rb+mb+kdu;
+    var netto=parseFloat(einNetto)||0,brutto=parseFloat(einBrutto)||netto;
+    var fb=calcFB(brutto,kinder.length>0),einAnr=Math.max(0,netto-fb);
+    var nP=parseFloat(einPartner)||0,pAnr=hatPartner?Math.max(0,nP-calcFB(nP,false)):0;
+    var a1=parseFloat(alg1)||0,ren=parseFloat(rente)||0,we=parseFloat(weitereEink)||0;
+    var kg=kinder.reduce(function(s,k){return s+(parseFloat(k.kg)||0);},0);
+    var einGes=einAnr+pAnr+a1+ren+we+kg;
+    var anspruch=Math.max(0,bedarf-einGes);
+    var anzP=1+(hatPartner?1:0)+kinder.length,vFreig=anzP*15000,vB=parseFloat(vermoegen)||0;
+    var res={rbH,rbP,rbK,rb,mb,mbD,kdu,bedarf,fb,einAnr,pAnr,a1,ren,we,kg,einGes,anspruch,kein:anspruch===0,vB,vFreig,vUeber:Math.max(0,vB-vFreig)};
+    setResult(res);
+    if(onSaveErgebnis)onSaveErgebnis({typ:"Buergergeld",ergebnis:anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" EUR/Monat",details:anzP+" Personen, Bedarf "+bedarf.toFixed(2)+" EUR"});
+    setSchritt(4);
+  }
+  var inp={...u.input,marginBottom:"8px"};
+  var sH={fontSize:"10px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",backgroundColor:"#e8f0fb",borderRadius:"5px",padding:"5px 8px",marginBottom:"10px",letterSpacing:"0.5px"};
+  var btnZ={background:"none",border:"none",color:"#00afad",cursor:"pointer",fontWeight:"bold",padding:0,marginBottom:"12px",fontSize:"13px"};
+  return(
+    <div>
+      <h4 style={u.modTitle}>Bürgergeld-Rechner (SGB II)</h4>
+      {changedFields&&changedFields.length>0&&(
+        <div style={{backgroundColor:"#fff3cd",border:"1px solid #ffc107",borderRadius:"7px",padding:"8px 10px",marginBottom:"10px",fontSize:"11px",color:"#856404"}}>
+          ⚠️ <strong>Achtung:</strong> Folgende Daten wurden am {changedDate} geändert: <strong>{changedFields.join(", ")}</strong>. Bitte Berechnung aktualisieren!
+        </div>
+      )}
+      <div style={{display:"flex",gap:"4px",marginBottom:"16px"}}>
+        {["1. Haushalt","2. Einkommen","3. Wohnen","4. Ergebnis"].map(function(s,i){return <div key={i} onClick={function(){if(i<3)setSchritt(i+1);}} style={{flex:1,textAlign:"center",padding:"5px 2px",fontSize:"9px",fontWeight:"bold",backgroundColor:schritt===i+1?"#003366":schritt>i+1?"#00afad":"#eee",color:schritt>=i+1?"#fff":"#999",borderRadius:"4px",cursor:i<3?"pointer":"default"}}>{s}</div>;})}
+      </div>
+      {schritt===1&&(<div>
+        <div style={sH}>Bedarfsgemeinschaft</div>
+        {[{v:false,l:"Alleinstehend / Alleinerziehend"},{v:true,l:"Mit Partner*in in BG"}].map(function(o){return <label key={String(o.v)} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"8px"}}><input type="radio" checked={hatPartner===o.v} onChange={function(){setHatPartner(o.v);}} />{o.l}</label>;})}
+        <label style={u.sectionLabel}>Kinder in der BG:</label>
+        {kinder.map(function(k,idx){return(
+          <div key={k.id} style={{backgroundColor:"#f9f9f9",borderRadius:"8px",padding:"10px",marginBottom:"8px",borderLeft:"3px solid #00afad"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}><strong style={{fontSize:"12px"}}>Kind {idx+1}</strong><button onClick={function(){remK(k.id);}} style={{background:"none",border:"none",color:"#e53935",cursor:"pointer",fontSize:"18px",lineHeight:1}}>x</button></div>
+            <input style={{...inp,marginBottom:"4px"}} placeholder="Name (optional)" value={k.name} onChange={function(e){updK(k.id,"name",e.target.value);}} />
+            <div style={{display:"flex",gap:"8px"}}>
+              <div style={{flex:1}}><label style={{fontSize:"10px",color:"#666"}}>Alter:</label><input type="number" style={inp} value={k.alter} onChange={function(e){updK(k.id,"alter",e.target.value);}} /></div>
+              <div style={{flex:1}}><label style={{fontSize:"10px",color:"#666"}}>Kindergeld (EUR):</label><input type="number" style={inp} value={k.kg} onChange={function(e){updK(k.id,"kg",e.target.value);}} /></div>
+            </div>
+            <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+              <span style={{fontSize:"11px",color:"#555"}}>UVG:</span>
+              {["ja","nein"].map(function(v){return <div key={v} onClick={function(){updK(k.id,"uvg",v);}} style={{padding:"3px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",backgroundColor:k.uvg===v?"#003366":"#eee",color:k.uvg===v?"#fff":"#333"}}>{v}</div>;})}
+            </div>
+          </div>
+        );})}
+        <button onClick={addK} style={{width:"100%",padding:"8px",backgroundColor:"#f0f4f7",border:"1px dashed #00afad",borderRadius:"8px",cursor:"pointer",fontSize:"12px",color:"#00afad",marginBottom:"10px"}}>+ Kind hinzufuegen</button>
+        <label style={u.sectionLabel}>Mehrbedarf:</label>
+        {[{s:setMbA,v:mbA,l:"Alleinerziehend (36%)"},{s:setMbS,v:mbS,l:"Schwangerschaft ab 13. SSW (17%)"},{s:setMbB,v:mbB,l:"Schwerbehinderung (35%)"}].map(function(o,i){return <label key={i} style={{display:"flex",gap:"8px",fontSize:"12px",cursor:"pointer",alignItems:"center",marginBottom:"6px"}}><input type="checkbox" checked={o.v} onChange={function(e){o.s(e.target.checked);}} />{o.l}</label>;})}
+        <div style={{backgroundColor:"#e8f4fd",border:"1px solid #bee5f8",borderRadius:"7px",padding:"8px",marginTop:"6px",marginBottom:"8px"}}>
+          <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",marginBottom:"6px"}}>🚗 Fahrtkosten Umgang (§ 21 Abs. 6 SGB II)</div>
+          {(ext&&ext.fahrtkostenKm)&&<div style={{fontSize:"10px",color:"#00afad",marginBottom:"4px"}}>📂 Vorausgefüllt aus Akte</div>}
+          <div style={{display:"flex",gap:"6px",marginBottom:"4px"}}>
+            <div style={{flex:1}}><label style={{fontSize:"10px",color:"#555"}}>km einfach</label><input type="number" style={{...u.input,marginBottom:0}} placeholder="z.B. 30" value={fahrtkostenKm} onChange={function(e){setFahrtkostenKm(e.target.value);}}/></div>
+            <div style={{flex:1}}><label style={{fontSize:"10px",color:"#555"}}>Fahrten/Monat</label><input type="number" style={{...u.input,marginBottom:0}} placeholder="z.B. 4" value={fahrtkostenFahrten} onChange={function(e){setFahrtkostenFahrten(e.target.value);}}/></div>
+          </div>
+          <label style={{fontSize:"10px",color:"#555"}}>Oder direkt: monatlicher Betrag (€)</label>
+          <input type="number" style={u.input} placeholder="Direkt eingeben falls bekannt" value={fahrtkostenUmg} onChange={function(e){setFahrtkostenUmg(e.target.value);}}/>
+          {(fahrtkostenKm&&fahrtkostenFahrten)&&<div style={{fontSize:"10px",color:"#003366"}}>Berechnet: {(parseFloat(fahrtkostenKm)*2*(parseFloat(fahrtkostenFahrten)||0)*0.20).toFixed(2)} €/Monat (0,20 €/km)</div>}
+        </div>
+        <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={function(){setSchritt(2);}}>Weiter: Einkommen</button>
+      </div>)}
+      {schritt===2&&(<div>
+        <button style={btnZ} onClick={function(){setSchritt(1);}}>zurueck</button>
+        <div style={sH}>Einkommen und Transfers</div>
+        <div style={{backgroundColor:"#fff9e6",border:"1px solid #ffeeba",borderRadius:"7px",padding:"8px",marginBottom:"10px",fontSize:"11px",color:"#856404"}}>Freibetrag: 100 EUR frei + 20% (100-1000 EUR) + 10% (1000-1200 EUR), max. 302 EUR</div>
+        {ext&&ext.einkommenNetto&&<div style={u.infoBox}>Nettoeinkommen aus Akte vorausgefuellt.</div>}
+        <label style={u.sectionLabel}>Nettoeinkommen (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={einNetto} onChange={function(e){setEinNetto(e.target.value);}} />
+        <label style={u.sectionLabel}>Bruttoeinkommen (fuer Freibetrag):</label><input type="number" style={inp} placeholder="leer = gleich Netto" value={einBrutto} onChange={function(e){setEinBrutto(e.target.value);}} />
+        {hatPartner&&(<><label style={u.sectionLabel}>Einkommen Partner*in (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={einPartner} onChange={function(e){setEinPartner(e.target.value);}} /></>)}
+        <label style={u.sectionLabel}>ALG I (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={alg1} onChange={function(e){setAlg1(e.target.value);}} />
+        <label style={u.sectionLabel}>Rente / Pension (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={rente} onChange={function(e){setRente(e.target.value);}} />
+        <label style={u.sectionLabel}>Weitere Einkuenfte (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={weitereEink} onChange={function(e){setWeitereEink(e.target.value);}} />
+        <div style={sH}>Vermoegen</div>
+        <div style={{fontSize:"11px",color:"#666",marginBottom:"6px"}}>Freibetrag: 15.000 EUR je Person in der BG</div>
+        <label style={u.sectionLabel}>Verwertbares Vermoegen gesamt (EUR):</label><input type="number" style={inp} placeholder="0" value={vermoegen} onChange={function(e){setVermoegen(e.target.value);}} />
+        <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={function(){setSchritt(3);}}>Weiter: Wohnkosten</button>
+      </div>)}
+      {schritt===3&&(<div>
+        <button style={btnZ} onClick={function(){setSchritt(2);}}>zurueck</button>
+        <div style={sH}>Kosten der Unterkunft (KdU)</div>
+        {ext&&(ext.mieteKalt||ext.mieteWarm)&&<div style={u.infoBox}>Wohnkosten aus Akte vorausgefuellt.</div>}
+        <label style={u.sectionLabel}>Kaltmiete (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={mieteKalt} onChange={function(e){setMieteKalt(e.target.value);}} />
+        <label style={u.sectionLabel}>Nebenkosten ohne Heizung (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={nebenkosten} onChange={function(e){setNebenkosten(e.target.value);}} />
+        <label style={u.sectionLabel}>Heizkosten (EUR/Monat):</label><input type="number" style={inp} placeholder="0" value={heizkosten} onChange={function(e){setHeizkosten(e.target.value);}} />
+        <div style={{backgroundColor:"#e8f4fd",border:"1px solid #bee5f8",borderRadius:"7px",padding:"9px",marginBottom:"12px",fontSize:"12px"}}>KdU gesamt: {((parseFloat(mieteKalt)||0)+(parseFloat(nebenkosten)||0)+(parseFloat(heizkosten)||0)).toFixed(2)} EUR/Monat</div>
+        <button style={{...u.btnPrimary,marginTop:"8px"}} onClick={berechne}>Jetzt berechnen</button>
+      </div>)}
+      {schritt===4&&result&&(<div>
+        <button style={btnZ} onClick={function(){setSchritt(3);}}>zurueck</button>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"6px"}}>
+          <button onClick={function(){setShowBgDetail(!showBgDetail);}} style={{fontSize:"10px",padding:"4px 10px",border:"1px solid #ddd",borderRadius:"5px",background:"#f5f5f5",cursor:"pointer"}}>{showBgDetail?"▲ Kurzansicht":"▼ Detailansicht"}</button>
+        </div>
+        {result.vUeber>0&&<div style={{...u.warnung,marginBottom:"10px"}}>Vermoegen ({result.vB.toFixed(0)} EUR) ueber Freibetrag ({result.vFreig.toFixed(0)} EUR) um {result.vUeber.toFixed(0)} EUR!</div>}
+        <div style={u.resultBox}>
+          <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",marginBottom:"6px"}}>Gesamtbedarf:</div>
+          <div style={u.calcStep}><span>Regelbedarf Antragsteller*in:</span><span>{result.rbH} EUR</span></div>
+          {result.rbP>0&&<div style={u.calcStep}><span>+ Regelbedarf Partner*in:</span><span>{result.rbP} EUR</span></div>}
+          {result.rbK>0&&<div style={u.calcStep}><span>+ Kindregelbedarfe:</span><span>{result.rbK} EUR</span></div>}
+          {result.mbD.map(function(d,i){return <div key={i} style={u.calcStep}><span>+ {d.l}:</span><span>{d.b} EUR</span></div>;})}
+          <div style={u.calcStep}><span>+ KdU:</span><span>{result.kdu.toFixed(2)} EUR</span></div>
+          <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #ddd",paddingTop:"4px",marginTop:"4px",marginBottom:"10px"}}><span>Gesamtbedarf:</span><span>{result.bedarf.toFixed(2)} EUR</span></div>
+          <div style={{fontSize:"11px",fontWeight:"bold",color:"#003366",textTransform:"uppercase",marginBottom:"6px"}}>Anrechenbares Einkommen:</div>
+          {(parseFloat(einNetto)||0)>0&&(<><div style={u.calcStep}><span>Nettoeinkommen:</span><span>{(parseFloat(einNetto)||0).toFixed(2)} EUR</span></div><div style={u.calcStep}><span>- Freibetrag:</span><span>- {result.fb.toFixed(2)} EUR</span></div><div style={{...u.calcStep,marginBottom:"6px"}}><span>= Anrechenbar:</span><span style={{fontWeight:"bold"}}>{result.einAnr.toFixed(2)} EUR</span></div></>)}
+          {result.pAnr>0&&<div style={u.calcStep}><span>+ Partner*in:</span><span>{result.pAnr.toFixed(2)} EUR</span></div>}
+          {result.a1>0&&<div style={u.calcStep}><span>+ ALG I:</span><span>{result.a1.toFixed(2)} EUR</span></div>}
+          {result.ren>0&&<div style={u.calcStep}><span>+ Rente:</span><span>{result.ren.toFixed(2)} EUR</span></div>}
+          {result.we>0&&<div style={u.calcStep}><span>+ Weitere:</span><span>{result.we.toFixed(2)} EUR</span></div>}
+          {result.kg>0&&<div style={u.calcStep}><span>+ Kindergeld:</span><span>{result.kg.toFixed(2)} EUR</span></div>}
+          <div style={{...u.calcStep,fontWeight:"bold",borderTop:"1px solid #ddd",paddingTop:"4px",marginTop:"4px",marginBottom:"10px"}}><span>Einkommen gesamt:</span><span>{result.einGes.toFixed(2)} EUR</span></div>
+          <div style={u.compositionBox}>
+            <div style={{...u.resRow,fontWeight:"bold",fontSize:"16px",borderTop:"2px solid #003366",paddingTop:"5px"}}>
+              <span>Buergergeld-Anspruch ca.:</span>
+              <span style={{color:result.kein?"#e53935":"#00afad"}}>{result.kein?"Kein Anspruch":result.anspruch.toFixed(2)+" EUR/Monat"}</span>
+            </div>
+          </div>
+          {result.kein&&<div style={{fontSize:"11px",color:"#666",marginTop:"6px"}}>Einkommen ({result.einGes.toFixed(2)} EUR) deckt Bedarf ({result.bedarf.toFixed(2)} EUR).</div>}
+          <div style={{...u.infoBox,marginTop:"10px",fontSize:"10px"}}>Orientierungsberechnung nach SGB II. Kein Rechtsanspruch.</div>
+          {onSaveErgebnis&&<div style={{...u.infoBox,marginTop:"6px",color:"#0a4a0a",backgroundColor:"#e8f5e9",borderColor:"#a5d6a7"}}>Ergebnis in der Akte gespeichert.</div>}
+        </div>
+      </div>)}
+    </div>
+  );
+}
+function BuergergeldRechnerStandalone(){return React.createElement(BuergergeldRechnerCore,{ext:null,onSaveErgebnis:null});}
+function BuergergeldRechner(props){return React.createElement(BuergergeldRechnerCore,props);}
+
+// =============================================
+// FARB-SYSTEM für Info-Boxen
+// =============================================
+var infoColors = {
+  recht:   { bg:"#e8f0fb", border:"#4a7bbf", color:"#003366", icon:"⚖️" },        // Blau = Rechtliche Info
+  empf:    { bg:"#fff8e1", border:"#ffc107", color:"#856404", icon:"💡" },         // Gelb = Empfehlung
+  positiv: { bg:"#e8f5e9", border:"#4caf50", color:"#1b5e20", icon:"✅" },         // Grün = Positiv
+  warnung: { bg:"#ffebee", border:"#ef9a9a", color:"#c62828", icon:"⚠️" },         // Rot = Warnung
+  vergl:   { bg:"#f3e5f5", border:"#ce93d8", color:"#4a148c", icon:"🔀" },         // Lila = Vergleich
+  frist:   { bg:"#fbe9e7", border:"#ff7043", color:"#bf360c", icon:"⏰" },         // Orange = Frist
+};
 function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis, changedFields, changedDate }) {
   const netto   = ext ? String(ext.einkommenNetto || "") : "";
   const nettoG  = ext ? String(ext.einkommenGegenseite || "") : "";
@@ -2278,8 +2458,358 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis, 
 }
 
 
+
 // =============================================
-// MEHR-DATEN-VIEW KOMPONENTE
+// PDF-EXPORT – Berechnungsergebnisse
+// =============================================
+function exportPDF(member, ergebnisse, beraterName) {
+  var doc = new window.jspdf.jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  var W = 210, H = 297;
+  var margin = 16;
+  var y = 0;
+
+  // ── Kopfzeile ──
+  doc.setFillColor(0, 51, 102);
+  doc.rect(0, 0, W, 28, "F");
+  doc.setFillColor(0, 175, 173);
+  doc.rect(0, 28, W, 2, "F");
+  doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold"); doc.setFontSize(14);
+  doc.text("ISUV Anspruchslotse", margin, 11);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9);
+  doc.setTextColor(180,210,240);
+  doc.text("Beratungsergebnisse – vertraulich", margin, 18);
+  var heute = new Date().toLocaleDateString("de-DE");
+  doc.text("Erstellt: " + heute, W - margin, 18, {align:"right"});
+  y = 38;
+
+  // ── Mitglied ──
+  doc.setFillColor(232, 240, 251);
+  doc.roundedRect(margin, y, W - 2*margin, 22, 3, 3, "F");
+  doc.setTextColor(0,51,102); doc.setFont("helvetica","bold"); doc.setFontSize(10);
+  doc.text("👤 Mitglied", margin+4, y+7);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(40,40,40);
+  var nameStr = ((member.vorname||"") + " " + (member.name||"")).trim() || "Unbekannt";
+  doc.text(nameStr, margin+4, y+14);
+  var kontakt = [member.tel, member.mail, member.ort].filter(Boolean).join("  ·  ");
+  if(kontakt) doc.text(kontakt, margin+4, y+20, {maxWidth: W-2*margin-8});
+  y += 28;
+
+  // ── Berater ──
+  if(beraterName) {
+    doc.setFontSize(8); doc.setTextColor(120,120,120);
+    doc.text("Berater/in: " + beraterName, margin, y);
+    y += 6;
+  }
+
+  // ── Ergebnisse ──
+  var alle = [...ergebnisse].reverse();
+  alle.forEach(function(e, i) {
+    // Seitenumbruch prüfen
+    if(y > H - 50) { doc.addPage(); y = 20; }
+
+    // Karte
+    var rechtsbereich = e.rechtsbereich || "";
+    var bgR = rechtsbereich === "Familienrecht" ? [232,240,251] : rechtsbereich === "Sozialrecht" ? [232,245,233] : [249,249,249];
+    var borderR = rechtsbereich === "Familienrecht" ? [0,51,102] : [0,175,173];
+    doc.setFillColor(bgR[0], bgR[1], bgR[2]);
+    // Höhe der Karte schätzen
+    var detailLines = 0;
+    if(e.details) detailLines += 1;
+    if(e.detailSchritte && e.detailSchritte.length) detailLines += Math.min(e.detailSchritte.length, 8);
+    if(e.rechtsgrundlagen && e.rechtsgrundlagen.length) detailLines += 1;
+    var cardH = 22 + detailLines * 5;
+    if(y + cardH > H - 20) { doc.addPage(); y = 20; }
+    doc.roundedRect(margin, y, W-2*margin, cardH, 2, 2, "F");
+    doc.setDrawColor(borderR[0], borderR[1], borderR[2]);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(margin, y, W-2*margin, cardH, 2, 2, "S");
+    // Linker farbiger Balken
+    doc.setFillColor(borderR[0], borderR[1], borderR[2]);
+    doc.rect(margin, y, 3, cardH, "F");
+
+    // Typ + Datum
+    doc.setTextColor(0,51,102); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text(e.typ || "Berechnung", margin+6, y+6);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(160,160,160);
+    doc.text(e.datum || "", W-margin-2, y+6, {align:"right"});
+    if(rechtsbereich) {
+      doc.setFillColor(borderR[0], borderR[1], borderR[2]);
+      doc.roundedRect(margin+6, y+8, rechtsbereich.length*2.2+4, 5, 1.5, 1.5, "F");
+      doc.setTextColor(255,255,255); doc.setFontSize(6.5);
+      doc.text(rechtsbereich, margin+8, y+12);
+    }
+
+    // Ergebnis
+    doc.setTextColor(0,175,173); doc.setFont("helvetica","bold"); doc.setFontSize(12);
+    doc.text(e.ergebnis || "", margin+6, y+20);
+
+    // Details
+    var dy = y + 26;
+    if(e.details) {
+      doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(80,80,80);
+      doc.text(e.details, margin+6, dy, {maxWidth: W-2*margin-10});
+      dy += 5;
+    }
+
+    // Detailschritte
+    if(e.detailSchritte && e.detailSchritte.length > 0) {
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(0,51,102);
+      doc.text("Detailrechnung:", margin+6, dy); dy += 4;
+      e.detailSchritte.slice(0,8).forEach(function(s) {
+        if(dy > H-25) return;
+        doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(60,60,60);
+        var label = s.label || s[0] || "";
+        var wert  = s.wert  || s[1] || "";
+        doc.text("• " + label, margin+8, dy);
+        doc.text(wert, W-margin-4, dy, {align:"right"});
+        dy += 4.5;
+      });
+    }
+
+    // Rechtsgrundlagen
+    if(e.rechtsgrundlagen && e.rechtsgrundlagen.length > 0) {
+      if(dy > H-20) { doc.addPage(); dy = 20; }
+      doc.setFont("helvetica","italic"); doc.setFontSize(7); doc.setTextColor(140,140,140);
+      doc.text("Rechtsgrundlagen: " + e.rechtsgrundlagen.join(" · "), margin+6, dy, {maxWidth: W-2*margin-10});
+      dy += 4;
+    }
+
+    y = dy + 4;
+  });
+
+  // ── Fußzeile letzte Seite ──
+  var pageCount = doc.getNumberOfPages();
+  for(var p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFillColor(0,51,102);
+    doc.rect(0, H-10, W, 10, "F");
+    doc.setTextColor(180,210,240); doc.setFont("helvetica","normal"); doc.setFontSize(7);
+    doc.text("ISUV Anspruchslotse  ·  Vertraulich  ·  Nur für interne Beratungszwecke", W/2, H-4, {align:"center"});
+    doc.setTextColor(255,255,255);
+    doc.text("Seite " + p + " / " + pageCount, W-margin, H-4, {align:"right"});
+  }
+
+  // Speichern
+  var filename = "ISUV_" + (nameStr.replace(/\s+/g,"_")) + "_Berechnungen_" + heute.replace(/\./g,"-") + ".pdf";
+  doc.save(filename);
+}
+
+
+// =============================================
+// KINDERZUSCHLAG-RECHNER (§ 6a BKGG) – 2024/2025
+// =============================================
+function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
+  var u = rStyles;
+  // Kinderzuschlag 2025: max 292 € je Kind (ab 01.01.2025)
+  // 2024: 292 €, Mindestbruttogrenze: Alleinerziehend 645 €, Paar 955 €
+  var KZG_MAX = 292;
+  var KINDERGELD = 250;
+  var REGELBEDARF_ALLEIN = 563;
+
+  const [personen, setPersonen] = React.useState("allein"); // allein | paar
+  const [kinder, setKinder] = React.useState([{id:1, alter:"8"}]);
+  const [bruttoEinkommen, setBruttoEinkommen] = React.useState("");
+  const [nettoEinkommen, setNettoEinkommen] = React.useState("");
+  const [unterhalt, setUnterhalt] = React.useState("");
+  const [wohngeld, setWohngeld] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  const [showDetail, setShowDetail] = React.useState(false);
+
+  function addKind() {
+    setKinder(function(k){ return k.concat([{id:Date.now(), alter:"8"}]); });
+  }
+  function removeKind(id) {
+    setKinder(function(k){ return k.filter(function(c){ return c.id!==id; }); });
+  }
+  function setKindAlter(id, val) {
+    setKinder(function(k){ return k.map(function(c){ return c.id===id ? {...c, alter:val} : c; }); });
+  }
+
+  function berechne() {
+    var brutto = parseFloat(bruttoEinkommen)||0;
+    var netto  = parseFloat(nettoEinkommen)||0;
+    var unt    = parseFloat(unterhalt)||0;
+    var wg     = parseFloat(wohngeld)||0;
+    var anzK   = kinder.length;
+
+    // Mindesteinkommensgrenze
+    var minBrutto = personen === "allein" ? 645 : 955;
+    // Höchsteinkommensgrenze: Grundbedarf + KdK + KZG_MAX * anzK
+    var bedarfEltern = personen === "allein" ? REGELBEDARF_ALLEIN : 1125; // § 20 SGB II Paar
+    var kdk = anzK * 357; // Kinderbedarf SGB II (Ø Grundbedarf Kind)
+    var maxBrutto = bedarfEltern + kdk + KZG_MAX * anzK;
+
+    var mindestGrenze = brutto >= minBrutto;
+    var hoechstGrenze = netto <= maxBrutto;
+
+    // KZG-Berechnung
+    // Elterneinkommen das anrechenbar ist: netto + Unterhalt + Wohngeld - Elterneigenbedarf
+    var eigenbedarf = personen === "allein" ? REGELBEDARF_ALLEIN : 1125;
+    var anrechenbaresEink = Math.max(0, netto + unt - eigenbedarf - wg);
+    // KZG je Kind: max KZG_MAX, Minderung um 45% des übersteigenden Einkommens
+    var kzgJeKind = Math.max(0, KZG_MAX - anrechenbaresEink * 0.45 / anzK);
+    kzgJeKind = Math.min(kzgJeKind, KZG_MAX);
+    var kzgGesamt = kzgJeKind * anzK;
+
+    // Zusammenspiel mit Bürgergeld: KZG + Kindergeld deckt Kindesbedarf?
+    var kgGesamt = KINDERGELD * anzK;
+    var gesamtFamLeistung = kzgGesamt + kgGesamt + wg;
+    var buergergeldBesser = !mindestGrenze || kzgGesamt < 10;
+
+    var detailSchritte = [
+      { label:"Anzahl Kinder", wert: anzK + " Kind(er)" },
+      { label:"Haushalt", wert: personen === "allein" ? "Alleinerziehend" : "Paar" },
+      { label:"Brutto-Einkommen", wert: brutto.toFixed(2) + " €" },
+      { label:"Netto-Einkommen", wert: netto.toFixed(2) + " €" },
+      { label:"Mindesteinkommensgrenze", wert: minBrutto + " € " + (mindestGrenze?"✅ erfüllt":"❌ nicht erfüllt") },
+      { label:"Elterneigenbedarf", wert: eigenbedarf.toFixed(0) + " €" },
+      { label:"Anrechenbares Einkommen", wert: anrechenbaresEink.toFixed(2) + " €" },
+      { label:"KZG je Kind (max " + KZG_MAX + " €)", wert: kzgJeKind.toFixed(2) + " €" },
+      { label:"Kindergeld gesamt", wert: kgGesamt.toFixed(0) + " €" },
+      { label:"KZG + Kindergeld gesamt", wert: (kzgGesamt + kgGesamt).toFixed(2) + " €" },
+    ];
+
+    setResult({ kzgJeKind, kzgGesamt, kgGesamt, gesamtFamLeistung,
+      mindestGrenze, hoechstGrenze, buergergeldBesser,
+      anrechenbaresEink, detailSchritte, anzK, brutto, minBrutto });
+
+    if(onSaveErgebnis && (mindestGrenze && kzgGesamt > 0)) {
+      onSaveErgebnis({
+        typ: "Kinderzuschlag (§ 6a BKGG)",
+        rechtsbereich: "Sozialrecht",
+        ergebnis: kzgGesamt.toFixed(0) + " €/Monat (" + anzK + " Kind" + (anzK>1?"er":"") + ")",
+        details: "KZG " + kzgJeKind.toFixed(0) + " €/Kind + KG " + KINDERGELD + " € = " + (kzgJeKind+KINDERGELD).toFixed(0) + " €/Kind",
+        detailSchritte,
+        rechtsgrundlagen: ["§ 6a BKGG", "§ 6b BKGG", "§ 20 SGB II"]
+      });
+    }
+  }
+
+  return (
+    <div>
+      <h4 style={u.modTitle}>👶 Kinderzuschlag-Rechner</h4>
+      <InfoBox typ="recht" titel="§ 6a BKGG – Kinderzuschlag 2025"
+        kinder={<span>Max. <strong>292 €/Monat je Kind</strong> zusätzlich zum Kindergeld (250 €). Ziel: Familien knapp über Bürgergeld-Grenze aus dem SGB-II-Bezug herausholen. Mindestbrutto: <strong>645 € (Allein) / 955 € (Paar)</strong>.</span>} />
+
+      <label style={u.sectionLabel}>Haushalt:</label>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+        {[["allein","👤 Alleinerziehend"],["paar","👫 Paar"]].map(function([v,l]){
+          return (
+            <button key={v} onClick={function(){setPersonen(v); setResult(null);}}
+              style={{ flex:1, padding:"9px", borderRadius:"8px", border:"2px solid "+(personen===v?"#003366":"#ddd"),
+                backgroundColor:personen===v?"#e8f0fb":"#f9f9f9", fontWeight:personen===v?"bold":"normal",
+                cursor:"pointer", fontSize:"12px" }}>
+              {l}
+            </button>
+          );
+        })}
+      </div>
+
+      <label style={u.sectionLabel}>Kinder:</label>
+      {kinder.map(function(k){
+        return (
+          <div key={k.id} style={{ display:"flex", gap:"8px", alignItems:"center", marginBottom:"6px" }}>
+            <span style={{ fontSize:"11px", color:"#666", whiteSpace:"nowrap" }}>Kind {kinder.indexOf(k)+1}, Alter:</span>
+            <input type="number" min="0" max="24" style={{ ...u.inputMini, width:"60px" }}
+              value={k.alter} onChange={function(e){ setKindAlter(k.id, e.target.value); }} />
+            <span style={{ fontSize:"9px", color:"#999" }}>Jahre</span>
+            {kinder.length > 1 && (
+              <button onClick={function(){ removeKind(k.id); }} style={u.btnDel}>✕</button>
+            )}
+          </div>
+        );
+      })}
+      {kinder.length < 5 && (
+        <button onClick={addKind} style={{ ...u.btnAdd, marginBottom:"10px" }}>+ Kind hinzufügen</button>
+      )}
+
+      <div style={u.row}>
+        <div style={{flex:1}}>
+          <label style={u.sectionLabel}>Brutto-Einkommen (€/Monat):</label>
+          <input type="number" style={u.input} placeholder="z.B. 1800"
+            value={bruttoEinkommen} onChange={function(e){ setBruttoEinkommen(e.target.value); setResult(null); }} />
+        </div>
+        <div style={{flex:1}}>
+          <label style={u.sectionLabel}>Netto-Einkommen (€/Monat):</label>
+          <input type="number" style={u.input} placeholder="z.B. 1350"
+            value={nettoEinkommen} onChange={function(e){ setNettoEinkommen(e.target.value); setResult(null); }} />
+        </div>
+      </div>
+      <div style={u.row}>
+        <div style={{flex:1}}>
+          <label style={u.sectionLabel}>Unterhalt erhalten (€/Monat):</label>
+          <input type="number" style={u.input} placeholder="0"
+            value={unterhalt} onChange={function(e){ setUnterhalt(e.target.value); setResult(null); }} />
+        </div>
+        <div style={{flex:1}}>
+          <label style={u.sectionLabel}>Wohngeld (€/Monat, falls vorhanden):</label>
+          <input type="number" style={u.input} placeholder="0"
+            value={wohngeld} onChange={function(e){ setWohngeld(e.target.value); setResult(null); }} />
+        </div>
+      </div>
+
+      <button style={u.btnPrimary} onClick={berechne}>👶 Kinderzuschlag berechnen</button>
+
+      {result && (
+        <div style={u.resultBox}>
+          {!result.mindestGrenze && (
+            <InfoBox typ="warnung" titel={"Mindesteinkommensgrenze nicht erreicht"}
+              kinder={<span>Brutto-Einkommen {result.brutto.toFixed(0)} € &lt; {result.minBrutto} € Mindestgrenze. Kein Kinderzuschlag möglich. Bürgergeld (SGB II) prüfen.</span>} />
+          )}
+          {result.mindestGrenze && result.kzgGesamt < 10 && (
+            <InfoBox typ="warnung" titel="Kein Kinderzuschlag"
+              kinder={<span>Einkommen zu hoch – KZG wird auf 0 € reduziert. Kein Anspruch.</span>} />
+          )}
+          {result.mindestGrenze && result.kzgGesamt >= 10 && (
+            <div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"10px" }}>
+                <div style={{ backgroundColor:"#e8f0fb", borderRadius:"8px", padding:"10px", textAlign:"center" }}>
+                  <div style={{ fontSize:"10px", color:"#003366" }}>KZG je Kind</div>
+                  <div style={{ fontSize:"18px", fontWeight:"bold", color:"#003366" }}>{result.kzgJeKind.toFixed(0)} €</div>
+                  <div style={{ fontSize:"9px", color:"#666" }}>max. {KZG_MAX} €</div>
+                </div>
+                <div style={{ backgroundColor:"#e8f5e9", borderRadius:"8px", padding:"10px", textAlign:"center" }}>
+                  <div style={{ fontSize:"10px", color:"#1b5e20" }}>KZG gesamt + KG</div>
+                  <div style={{ fontSize:"18px", fontWeight:"bold", color:"#1b5e20" }}>{(result.kzgGesamt+result.kgGesamt).toFixed(0)} €/Monat</div>
+                  <div style={{ fontSize:"9px", color:"#666" }}>{result.anzK} Kind(er) × {(result.kzgJeKind+KINDERGELD).toFixed(0)} €</div>
+                </div>
+              </div>
+              <InfoBox typ="positiv" titel={null}
+                kinder={<span>KZG <strong>{result.kzgGesamt.toFixed(0)} €</strong> + Kindergeld <strong>{result.kgGesamt.toFixed(0)} €</strong> = <strong>{result.gesamtFamLeistung.toFixed(0)} €</strong> Familienleistung gesamt (inkl. {parseFloat(wohngeld)||0} € Wohngeld).</span>} />
+              <InfoBox typ="empf" titel="Tipp: Wohngeld-Plus prüfen"
+                kinder={<span>Kinderzuschlag + Wohngeld kombinierbar! § 6b BKGG erlaubt Bezug von KZG und Wohngeld gleichzeitig – prüfen ob Wohngeldrechner einen Anspruch zeigt.</span>} />
+            </div>
+          )}
+          {result.buergergeldBesser && result.mindestGrenze && (
+            <InfoBox typ="warnung" titel="Bürgergeld möglicherweise günstiger"
+              kinder={<span>Bei sehr niedrigem KZG kann SGB II (Bürgergeld) vorteilhafter sein – Vergleichsrechnung empfohlen.</span>} />
+          )}
+
+          <details open={showDetail} onToggle={function(e){ setShowDetail(e.target.open); }}>
+            <summary style={{ fontSize:"10px", cursor:"pointer", color:"#003366", fontWeight:"bold", marginTop:"8px" }}>▶ Detailrechnung anzeigen</summary>
+            <div style={{ backgroundColor:"#fff", border:"1px solid #ddd", borderRadius:"6px", padding:"8px", marginTop:"6px" }}>
+              {result.detailSchritte.map(function(s,i){
+                return (
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:"11px", borderBottom:"1px solid #f5f5f5", padding:"3px 0" }}>
+                    <span style={{ color:"#666" }}>{s.label}</span>
+                    <span style={{ fontWeight:"bold" }}>{s.wert}</span>
+                  </div>
+                );
+              })}
+              <div style={{ fontSize:"9px", color:"#999", marginTop:"6px" }}>
+                Rechtsgrundlagen: § 6a BKGG · § 6b BKGG · § 20 SGB II · Stand 01.01.2025
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================
+// BERECHNUNG MIT DATEN – Rechner vorausgefüllt
 // =============================================
 function MehrDatenView({ ext }) {
   const sh = { fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"6px", letterSpacing:"0.5px" };
@@ -3602,6 +4132,17 @@ function App() {
                         }}
                         style={{ width:"100%", marginTop:"6px", padding:"8px", backgroundColor:"#f0f4f7", color:"#003366", border:"1px solid #003366", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
                         📋 Alle {[...memberErgebnisse[activeMember.id]].length} Berechnungen kopieren
+                      </button>
+                      <button
+                        onClick={function(){
+                          exportPDF(
+                            activeMember,
+                            memberErgebnisse[activeMember.id],
+                            (loginDaten && loginDaten.name) || ""
+                          );
+                        }}
+                        style={{ width:"100%", marginTop:"6px", padding:"8px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"11px" }}>
+                        📄 PDF exportieren
                       </button>
                     </div>
                   );
