@@ -1822,11 +1822,8 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
     kind_geburt: ext && ext.kinder && ext.kinder[0] ? ext.kinder[0].geburt || "" : "",
     kind_wohnort: "",
     antragsteller_rolle: "vater",
-    beziehungsstatus: "getrennt",
-    gemeinsam_bisher: "nein",
     begruendung: "",
     wohl_begruendung: "",
-    kontakt_bestand: "",
     gericht: "", gericht_abteilung: "", gericht_strasse: "", gericht_plz: "", gericht_ort: "", ort: "",
     datum: new Date().toLocaleDateString("de-DE")
   });
@@ -1846,7 +1843,7 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
       + (daten.gericht_plz||daten.gericht_ort ? "<span style='font-size:11px'>" + (daten.gericht_plz||"") + " " + (daten.gericht_ort||"") + "</span>" : "")
       + "</div>"
       + "<h1>Antrag auf Begründung der gemeinsamen elterlichen Sorge</h1>"
-      + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1626a Abs. 1 Nr. 3 BGB</p>"
+      + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1626a Abs. 2 BGB</p>"
       + "<h2>Antragsteller/in</h2>"
       + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragsteller + "</span></div>"
       + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?(daten.vater_anschrift||"___"):(daten.mutter_anschrift||"___")) + "</span></div>"
@@ -1860,11 +1857,10 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
       + "<div class='row'><span class='label'>Lebt hauptsächlich bei:</span><span class='val'>" + (daten.kind_wohnort||"_______________") + "</span></div>"
       + "<h2>Antrag</h2>"
       + "<p>Der Antragsteller / die Antragstellerin beantragt,</p>"
-      + "<p style='margin-left:20px'>die <strong>gemeinsame elterliche Sorge</strong> für das oben genannte Kind gemäß § 1626a Abs. 1 Nr. 3 BGB zu begründen.</p>"
+      + "<p style='margin-left:20px'>die <strong>gemeinsame elterliche Sorge</strong> für das oben genannte Kind gemäß § 1626a Abs. 2 BGB zu begründen.</p>"
       + "<h2>Rechtliche Grundlage</h2>"
-      + "<p>Gemäß § 1626a Abs. 1 Nr. 3 BGB steht dem Antragsteller / der Antragstellerin ein <strong>Anspruch auf gemeinsame Sorge</strong> zu. Eine inhaltliche Begründung ist gesetzlich nicht erforderlich. Das Gericht überträgt die gemeinsame Sorge, sofern dies <strong>nicht dem Kindeswohl widerspricht</strong> (§ 1626a Abs. 2 BGB).</p>"
+      + "<p>Gemäß § 1626a Abs. 2 BGB (i.d.F. des NEheSorgeRG vom 19.05.2013) überträgt das Familiengericht auf Antrag die gemeinsame elterliche Sorge, wenn dies dem Kindeswohl nicht widerspricht. Eine inhaltliche Begründung ist gesetzlich nicht erforderlich. Trägt der andere Elternteil keine entgegenstehenden Gründe vor und sind solche auch sonst nicht ersichtlich, wird <strong>vermutet, dass die gemeinsame Sorge dem Kindeswohl nicht widerspricht</strong> (§ 1626a Abs. 2 Satz 2 BGB).</p>"
       + "<p>Das Bundesverfassungsgericht hat mit Beschluss vom 21.07.2010 (1 BvR 420/09) entschieden, dass dem nicht mit der Mutter verheirateten Vater der Zugang zur gemeinsamen Sorge ohne Begründungspflicht und ohne Zustimmung der Mutter zu ermöglichen ist.</p>"
-      + (daten.kontakt_bestand ? "<h2>Angaben zum Kontakt mit dem Kind</h2><p>" + daten.kontakt_bestand + "</p>" : "")
       + "<p style='font-size:11px;color:#555;margin-top:16px'><em>Rechtsgrundlagen: § 1626a BGB, § 1697a BGB (Kindeswohlprinzip), BVerfG 1 BvR 420/09 vom 21.07.2010</em></p>"
       + "<br><br><div style='display:flex;justify-content:space-between;margin-top:40px'>"
       + "<div>" + (daten.ort||"___________") + ", den " + (daten.datum||"___________") + "<br><br><div style='border-top:1px solid #000;width:200px;margin-top:40px;font-size:10px;text-align:center'>Unterschrift Antragsteller/in</div></div>"
@@ -1882,7 +1878,7 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
     <div>
       <div style={u.modHeader}><span style={u.modIcon}>👨‍👩‍👧</span><div><div style={u.modTitle}>Antrag Gemeinsames Sorgerecht (§ 1626a BGB)</div><div style={u.modSub}>Interaktiv ausfüllen → als PDF exportieren</div></div></div>
       <div style={{ backgroundColor:"#e8f0fb", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#003366" }}>
-        ℹ️ Dieser Antrag richtet sich an das Familiengericht. Voraussetzung: Ein Elternteil ist allein sorgeberechtigt. Der andere Elternteil beantragt die gemeinsame Sorge gem. § 1626a Abs. 1 Nr. 3 BGB.
+        ℹ️ Dieser Antrag richtet sich an das Familiengericht. Voraussetzung: Ein Elternteil ist allein sorgeberechtigt. Der andere Elternteil beantragt die gemeinsame Sorge gem. § 1626a Abs. 2 BGB (Reform 2013).
       </div>
 
       <div style={u.modSection}>Gericht</div>
@@ -1932,32 +1928,9 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
         <option value="beiden Elternteilen (Wechselmodell)">beiden Elternteilen (Wechselmodell)</option>
       </select>
 
-      <div style={u.modSection}>Beziehungsstatus der Eltern</div>
-      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
-        {[{v:"getrennt",l:"Getrennt lebend"},{v:"nie_zusammen",l:"Nie zusammen gelebt"}].map(function(o){
-          return <div key={o.v} onClick={function(){set("beziehungsstatus",o.v);}}
-            style={{ padding:"6px 12px", borderRadius:"8px", cursor:"pointer", fontSize:"12px",
-              backgroundColor:daten.beziehungsstatus===o.v?"#003366":"#eee",
-              color:daten.beziehungsstatus===o.v?"#fff":"#333" }}>{o.l}</div>;
-        })}
-      </div>
-      <label style={u.label}>Bestand bisher gemeinsames Sorgerecht / Sorgeerklärung?</label>
-      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
-        {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
-          return <div key={o.v} onClick={function(){set("gemeinsam_bisher",o.v);}}
-            style={{ padding:"6px 16px", borderRadius:"8px", cursor:"pointer", fontSize:"12px",
-              backgroundColor:daten.gemeinsam_bisher===o.v?"#003366":"#eee",
-              color:daten.gemeinsam_bisher===o.v?"#fff":"#333" }}>{o.l}</div>;
-        })}
-      </div>
-
       <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#2e7d32" }}>
-        ✅ <strong>Keine Begründungspflicht:</strong> Nach § 1626a Abs. 1 Nr. 3 BGB und BVerfG (1 BvR 420/09) besteht ein Anspruch auf gemeinsame Sorge ohne inhaltliche Begründung. Das Gericht überträgt die gemeinsame Sorge, sofern dies nicht dem Kindeswohl widerspricht – die Beweislast liegt beim ablehnenden Elternteil.
+        ✅ <strong>Keine Begründungspflicht:</strong> Nach § 1626a Abs. 2 BGB (i.d.F. seit 19.05.2013) und BVerfG (1 BvR 420/09) besteht ein Anspruch auf gemeinsame Sorge ohne inhaltliche Begründung. Das Gericht überträgt die gemeinsame Sorge, sofern dies nicht dem Kindeswohl widerspricht – die Beweislast liegt beim ablehnenden Elternteil.
       </div>
-
-      <div style={u.modSection}>Angaben zum Kontakt (optional)</div>
-      <label style={u.label}>Bestehender Kontakt / Umgang mit dem Kind</label>
-      <input style={u.input} placeholder="z.B. Regelmäßiger Umgang jedes 2. Wochenende, gemeinsame Aktivitäten" value={daten.kontakt_bestand} onChange={function(e){set("kontakt_bestand",e.target.value);}} />
 
       <div style={u.modSection}>Ort & Datum</div>
       <div style={{ display:"flex", gap:"8px" }}>
