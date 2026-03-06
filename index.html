@@ -5983,8 +5983,7 @@ function App() {
                 fetch("https://sg.geodatenzentrum.de/web_public/gdz/geoserver/vg/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&typeNames=vg:vg5000_gem&outputFormat=application%2Fjson&CQL_FILTER=nuts_id%20IS%20NOT%20NULL&count=1&SORTBY=nuts_id")
                   .catch(function(){})
                   .finally(function(){
-                    setGerichtFehler("⚠️ Automatische Ermittlung nicht möglich. Bitte manuell eintragen:
-amtsgericht-" + plz.substring(0,3).toLowerCase() + ".de oder justiz.de");
+                    setGerichtFehler("⚠️ Automatische Ermittlung nicht möglich. Bitte manuell eintragen: amtsgericht-" + plz.substring(0,3).toLowerCase() + ".de oder justiz.de");
                     setGerichtSuche(false);
                   });
               });
@@ -7574,19 +7573,7 @@ amtsgericht-" + plz.substring(0,3).toLowerCase() + ".de oder justiz.de");
                                     var sbResult = await sbSaveFormular("fr_sorgerecht", "Antrag Gemeinsames Sorgerecht", m, vorausgefuellt);
                                     if (!sbResult) { alert("Supabase Fehler."); return; }
                                     var betreff = "ISUV Anspruchslotse – Angaben für Sorgerechtsantrag";
-                                    var body = "Guten Tag " + (m.vorname||"") + ",
-
-bitte ergänzen Sie die fehlenden Angaben für den Antrag auf gemeinsames Sorgerecht (§ 1626a Abs. 2 BGB):
-
-🔗 " + sbResult.url + "
-
-Benötigt werden:
-" + fehlendeFelder.map(function(f){ return "  • " + f; }).join("
-") + "
-
-Bei Fragen: " + (loginDaten.email||"") + "
-
-" + (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
+                                    var body = "Guten Tag " + (m.vorname||"") + ",\n\nbitte ergänzen Sie die fehlenden Angaben für den Antrag auf gemeinsames Sorgerecht (§ 1626a Abs. 2 BGB):\n\n🔗 " + sbResult.url + "\n\nBenötigt werden:\n" + fehlendeFelder.map(function(f){ return "  • " + f; }).join("\n") + "\n\nBei Fragen: " + (loginDaten.email||"") + "\n\n" + (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
                                     window.open("mailto:" + encodeURIComponent(m.mail) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(body));
                                     var jetzt = new Date();
                                     var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
@@ -7601,16 +7588,7 @@ Bei Fragen: " + (loginDaten.email||"") + "
                                     var sbResult = await sbSaveFormular("fr_sorgerecht", "Antrag Gemeinsames Sorgerecht", m, vorausgefuellt);
                                     if (!sbResult) { alert("Supabase Fehler."); return; }
                                     var empfTel = m.tel.replace(/[^0-9]/g,"").replace(/^0/,"49");
-                                    var msg = "Hallo " + (m.vorname||"") + ",
-
-bitte ergänzen Sie die fehlenden Angaben für den Sorgerechtsantrag:
-
-" + fehlendeFelder.map(function(f){ return "• " + f; }).join("
-") + "
-
-🔗 " + sbResult.url + "
-
-" + (loginDaten.leiter||"ISUV");
+                                    var msg = "Hallo " + (m.vorname||"") + ",\n\nbitte ergänzen Sie die fehlenden Angaben für den Sorgerechtsantrag:\n\n" + fehlendeFelder.map(function(f){ return "• " + f; }).join("\n") + "\n\n🔗 " + sbResult.url + "\n\n" + (loginDaten.leiter||"ISUV");
                                     window.open("https://wa.me/" + empfTel + "?text=" + encodeURIComponent(msg));
                                     var jetzt = new Date();
                                     var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
