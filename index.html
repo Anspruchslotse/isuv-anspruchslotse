@@ -7270,6 +7270,9 @@ function App() {
                 var ext = m ? (memberExtras[m.id] || {}) : {};
                 var fTyp = formularVersandDialogNeu.formTyp;
 
+                // Sorgerecht braucht keine Feldauswahl
+                if (fTyp === "fr_sorgerecht") return null;
+
                 // Warnung: bereits offenes Formular?
                 var memberName = m ? m.vorname + " " + m.name : null;
                 var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : "Anlage TBG";
