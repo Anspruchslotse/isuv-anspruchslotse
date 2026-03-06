@@ -3716,6 +3716,8 @@ function App() {
   }, [eingangFormulare]);
   const [aktivesEingangFormular, setAktivesEingangFormular] = useState(null);
   const [formFelderDaten, setFormFelderDaten] = useState({});
+  const [gerichtSuche, setGerichtSuche] = useState(false);
+  const [gerichtFehler, setGerichtFehler] = useState("");
   const [ausgangFormulare, setAusgangFormulare] = useState(() => { try { return JSON.parse(localStorage.getItem("isuv_ausgang") || "[]"); } catch(e) { return []; } });
   useEffect(function() { try { localStorage.setItem("isuv_ausgang", JSON.stringify(ausgangFormulare)); } catch(e) {} }, [ausgangFormulare]);
   const [showAusgang, setShowAusgang] = useState(false);
@@ -5952,8 +5954,6 @@ function App() {
           var upd = function(f, v) { setFormFelderDaten(function(p) { return Object.assign({}, p, {[f]: v}); }); };
 
           // Gericht per PLZ automatisch ermitteln
-          var [gerichtSuche, setGerichtSuche] = React.useState(false);
-          var [gerichtFehler, setGerichtFehler] = React.useState("");
 
           var ermittleGericht = function() {
             var plz = (sd.kind_plz || "").trim();
