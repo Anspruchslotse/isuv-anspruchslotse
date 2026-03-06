@@ -1,309 +1,274 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ISUV – Formular ausfüllen</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISUV Anspruchslotse – Formular</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:sans-serif; background:#f4f7f9; min-height:100vh; }
-    .header { background:#003366; color:#fff; padding:16px 20px; text-align:center; }
-    .header .logo { width:40px; height:40px; background:#00afad; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:bold; font-size:16px; margin-bottom:8px; }
-    .header h1 { font-size:16px; }
-    .header p { font-size:11px; opacity:0.8; margin-top:4px; }
-    .container { max-width:500px; margin:0 auto; padding:16px; }
-    .card { background:#fff; border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
-    .section-label { font-size:10px; font-weight:bold; color:#003366; text-transform:uppercase; background:#e8f0fb; border-radius:4px; padding:4px 8px; margin-bottom:12px; letter-spacing:0.5px; display:block; }
-    label { font-size:12px; font-weight:bold; display:block; margin-bottom:4px; color:#333; }
-    input, select, textarea { width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #ddd; font-size:13px; box-sizing:border-box; font-family:sans-serif; }
-    textarea { height:80px; resize:vertical; }
-    .row { display:flex; gap:10px; }
-    .row > div { flex:1; }
-    .btn-primary { width:100%; padding:14px; background:#003366; color:#fff; border:none; border-radius:10px; font-weight:bold; font-size:14px; cursor:pointer; margin-top:8px; }
-    .btn-primary:hover { background:#00254d; }
-    .btn-add { background:#00afad; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; margin-bottom:10px; }
-    .btn-del { background:#ff4d4d; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px; }
-    .kind-box { background:#f9f9f9; border-radius:8px; padding:12px; margin-bottom:10px; border-left:3px solid #00afad; }
-    .kind-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .info-box { background:#e8f4fd; border:1px solid #bee5f8; border-radius:6px; padding:10px; font-size:11px; color:#0c5460; margin-bottom:12px; }
-    .success { background:#e8f5e9; border:1px solid #a5d6a7; border-radius:10px; padding:30px 20px; text-align:center; }
-    .success .icon { font-size:48px; margin-bottom:12px; }
-    .success h2 { color:#2e7d32; margin-bottom:8px; }
-    .success p { font-size:13px; color:#555; }
-    .error-box { background:#ffebee; border:1px solid #ef9a9a; border-radius:6px; padding:10px; font-size:12px; color:#c62828; margin-bottom:12px; }
-    .loading { text-align:center; padding:40px; color:#003366; }
-    .spinner { width:40px; height:40px; border:3px solid #e0e0e0; border-top-color:#00afad; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 16px; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .required { color:#e53935; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f5f7fa; color: #111; min-height: 100vh; }
+    #root { max-width: 540px; margin: 0 auto; padding: 0 0 40px 0; }
   </style>
 </head>
 <body>
-<div class="header">
-  <div class="logo">I</div>
-  <h1>ISUV Anspruchslotse</h1>
-  <p id="form-subtitle">Formular wird geladen...</p>
-</div>
-<div class="container">
-  <div id="loading" class="card loading">
-    <div class="spinner"></div>
-    <p>Formular wird geladen...</p>
-  </div>
-  <div id="error-container" style="display:none"></div>
-  <div id="form-container" style="display:none"></div>
-  <div id="success-container" style="display:none">
-    <div class="success">
-      <div class="icon">✅</div>
-      <h2>Vielen Dank!</h2>
-      <p>Ihr Formular wurde erfolgreich übermittelt.<br/>Der ISUV wird sich bei Ihnen melden.</p>
-    </div>
-  </div>
-</div>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
 
-<script>
-var params = new URLSearchParams(window.location.search);
-var formularId = params.get('id');
-var sbParam = params.get('sb') || '';
-var supabaseKey = params.get('key') || '';
+const ISUV_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80'%3E%3Crect width='200' height='80' fill='%23003366'/%3E%3Ctext x='100' y='52' font-family='Arial' font-weight='bold' font-size='36' fill='white' text-anchor='middle'%3EISUV%3C/text%3E%3C/svg%3E";
 
-// Normalize: always use base URL + /rest/v1
-var supabaseBase = sbParam.replace(/\/rest\/v1.*$/, '').replace(/\/$/, '');
-var apiBase = supabaseBase + '/rest/v1';
+const styles = {
+  input: { width:"100%", padding:"10px 12px", border:"1px solid #ccc", borderRadius:"8px", fontSize:"13px", marginBottom:"10px", display:"block" },
+  label: { fontSize:"11px", fontWeight:"bold", color:"#555", marginBottom:"3px", display:"block" },
+  formPage: { background:"#fff", minHeight:"100vh" },
+};
 
-function showError(msg) {
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('error-container').style.display = 'block';
-  document.getElementById('error-container').innerHTML = '<div class="card error-box">⚠️ ' + msg + '</div>';
-}
+function App() {
+  const [status, setStatus] = useState("laden"); // laden | fehler | formular | gesendet
+  const [fehler, setFehler] = useState("");
+  const [formTyp, setFormTyp] = useState(null);
+  const [daten, setDaten] = useState({});
+  const [formularId, setFormularId] = useState(null);
+  const [sbUrl, setSbUrl] = useState(null);
+  const [sbKey, setSbKey] = useState(null);
+  const [gerichtSuche, setGerichtSuche] = useState(false);
+  const [gerichtFehler, setGerichtFehler] = useState("");
 
-if (!formularId || !supabaseBase || !supabaseKey) {
-  showError('Ungültiger Formular-Link. Bitte wenden Sie sich an Ihren ISUV-Berater.');
-} else {
-  loadFormular();
-}
+  useEffect(function() {
+    var params = new URLSearchParams(window.location.search);
+    var id = params.get("id");
+    var sb = params.get("sb");
+    var key = params.get("key");
 
-async function loadFormular() {
-  try {
-    var url = apiBase + '/formulare?formular_id=eq.' + encodeURIComponent(formularId);
-    var res = await fetch(url, {
-      headers: { 'apikey': supabaseKey, 'Authorization': 'Bearer ' + supabaseKey }
-    });
-    if (!res.ok) {
-      var txt = await res.text();
-      throw new Error('HTTP ' + res.status + ' – ' + txt.slice(0, 150));
-    }
-    var rows = await res.json();
-    if (!rows || rows.length === 0) throw new Error('Formular nicht gefunden.');
-    var row = rows[0];
-    document.getElementById('form-subtitle').textContent = row.label || 'Formular ausfüllen';
-    document.getElementById('loading').style.display = 'none';
-    if (row.status === 'beantwortet') {
-      document.getElementById('success-container').style.display = 'block';
+    if (!id || !sb || !key) {
+      setFehler("Ungültiger Link – fehlende Parameter.");
+      setStatus("fehler");
       return;
     }
-    var vf = {};
-    try { vf = JSON.parse(row.vorausgefuellt || '{}'); } catch(e) {}
-    renderFormular(row, vf);
-  } catch(e) {
-    showError('Fehler beim Laden: ' + e.message);
-  }
-}
 
-function renderFormular(row, vf) {
-  var c = document.getElementById('form-container');
-  c.style.display = 'block';
+    setFormularId(id);
+    setSbUrl(sb);
+    setSbKey(key);
 
-  if (row.typ === 'stammdaten') {
-    c.innerHTML = buildStammdatenForm(vf);
-    document.getElementById('btn-add-kind').onclick = function() {
-      var list = document.getElementById('kinder-list');
-      var idx = list.children.length;
-      var div = document.createElement('div');
-      div.className = 'kind-box';
-      div.innerHTML = buildKindBlock(idx, {});
-      list.appendChild(div);
-    };
-  } else if (row.typ === 'tbg') {
-    c.innerHTML = buildTbgForm(vf);
-  } else {
-    c.innerHTML = buildStammdatenForm(vf);
-    document.getElementById('btn-add-kind').onclick = function() {
-      var list = document.getElementById('kinder-list');
-      var idx = list.children.length;
-      var div = document.createElement('div');
-      div.className = 'kind-box';
-      div.innerHTML = buildKindBlock(idx, {});
-      list.appendChild(div);
-    };
-  }
-
-  document.getElementById('btn-submit').onclick = function() { submitFormular(row); };
-}
-
-function v(id, fallback) {
-  return (fallback || '');
-}
-
-function sel(val, opt) {
-  return val === opt ? ' selected' : '';
-}
-
-function buildStammdatenForm(vf) {
-  var html = '';
-  html += '<div class="card">';
-  html += '<span class="section-label">Persönliche Daten</span>';
-  html += '<div class="info-box">ℹ️ Pflichtfelder sind mit <span class="required">*</span> markiert.</div>';
-  html += '<div class="row">';
-  html += '<div><label>Vorname <span class="required">*</span></label><input id="vorname" value="' + esc(vf.vorname) + '"/></div>';
-  html += '<div><label>Nachname <span class="required">*</span></label><input id="name" value="' + esc(vf.name) + '"/></div>';
-  html += '</div>';
-  html += '<label>Telefon</label><input id="tel" type="tel" value="' + esc(vf.tel) + '" placeholder="+49170 1234567"/>';
-  html += '<label>E-Mail <span class="required">*</span></label><input id="mail" type="email" value="' + esc(vf.mail) + '" placeholder="name@beispiel.de"/>';
-  html += '<label>Straße & Hausnummer</label><input id="strasse" value="' + esc(vf.strasse) + '"/>';
-  html += '<div class="row">';
-  html += '<div style="width:90px"><label>PLZ</label><input id="plz" value="' + esc(vf.plz) + '"/></div>';
-  html += '<div><label>Ort</label><input id="ort" value="' + esc(vf.ort) + '"/></div>';
-  html += '</div>';
-  html += '<label>Familienstand</label>';
-  html += '<select id="familienstand">';
-  html += '<option value="">– bitte wählen –</option>';
-  html += '<option value="ledig"' + sel(vf.familienstand,'ledig') + '>ledig</option>';
-  html += '<option value="verheiratet"' + sel(vf.familienstand,'verheiratet') + '>verheiratet</option>';
-  html += '<option value="getrennt lebend"' + sel(vf.familienstand,'getrennt lebend') + '>getrennt lebend</option>';
-  html += '<option value="geschieden"' + sel(vf.familienstand,'geschieden') + '>geschieden</option>';
-  html += '<option value="verwitwet"' + sel(vf.familienstand,'verwitwet') + '>verwitwet</option>';
-  html += '</select>';
-  html += '</div>';
-  html += '<div class="card">';
-  html += '<span class="section-label">Einkommen & Wohnen</span>';
-  html += '<label>Nettoeinkommen (€/Monat)</label><input id="einkommenNetto" type="number" value="' + esc(vf.einkommenNetto) + '" placeholder="z.B. 1500"/>';
-  html += '<label>Bruttomiete warm (€/Monat)</label><input id="mieteWarm" type="number" value="' + esc(vf.mieteWarm) + '" placeholder="z.B. 800"/>';
-  html += '</div>';
-  html += '<div class="card">';
-  html += '<span class="section-label">Kinder</span>';
-  html += '<div id="kinder-list"></div>';
-  html += '<button class="btn-add" id="btn-add-kind" type="button">+ Kind hinzufügen</button>';
-  html += '</div>';
-  html += '<div class="card">';
-  html += '<span class="section-label">Notizen / Anliegen</span>';
-  html += '<textarea id="notizen" placeholder="Was ist Ihr Anliegen?"></textarea>';
-  html += '</div>';
-  html += '<button class="btn-primary" id="btn-submit" type="button">✓ Formular absenden</button>';
-  html += '<p style="font-size:10px;color:#999;text-align:center;margin-top:10px">Ihre Daten werden sicher übermittelt.</p>';
-  return html;
-}
-
-function buildKindBlock(idx, k) {
-  var html = '';
-  html += '<div class="kind-header">';
-  html += '<strong style="font-size:13px">Kind ' + (idx+1) + '</strong>';
-  html += '<button class="btn-del" type="button" onclick="this.closest(\'.kind-box\').remove()">✕</button>';
-  html += '</div>';
-  html += '<label>Vorname</label><input id="k_vorname_' + idx + '" value="' + esc(k.vorname) + '"/>';
-  html += '<label>Nachname</label><input id="k_nachname_' + idx + '" value="' + esc(k.nachname) + '"/>';
-  html += '<label>Geburtsdatum</label><input id="k_geburt_' + idx + '" type="date" value="' + esc(k.geburt) + '"/>';
-  return html;
-}
-
-function buildTbgForm(vf) {
-  var html = '';
-  html += '<div class="card">';
-  html += '<span class="section-label">Anlage TBG – Temporäre Bedarfsgemeinschaft</span>';
-  html += '<div class="info-box">ℹ️ Bitte füllen Sie alle relevanten Felder aus.</div>';
-  html += '<div class="row">';
-  html += '<div><label>Nachname <span class="required">*</span></label><input id="name" value="' + esc(vf.name) + '"/></div>';
-  html += '<div><label>Vorname <span class="required">*</span></label><input id="vorname" value="' + esc(vf.vorname) + '"/></div>';
-  html += '</div>';
-  html += '<label>Straße, Hausnummer</label><input id="strasse" value="' + esc(vf.strasse) + '"/>';
-  html += '<div class="row">';
-  html += '<div style="width:90px"><label>PLZ</label><input id="plz" value="' + esc(vf.plz) + '"/></div>';
-  html += '<div><label>Ort</label><input id="ort" value="' + esc(vf.ort) + '"/></div>';
-  html += '</div>';
-  html += '<label>BG-Nummer (falls vorhanden)</label><input id="bg_nummer" placeholder="optional"/>';
-  html += '<label>E-Mail</label><input id="mail" type="email" value="' + esc(vf.mail) + '"/>';
-  html += '<label>Telefon</label><input id="tel" type="tel" value="' + esc(vf.tel) + '"/>';
-  html += '</div>';
-  html += '<div class="card">';
-  html += '<span class="section-label">Betreuungsmodell</span>';
-  html += '<label><input type="radio" name="modell" value="paritaetisch"/> Paritätisch (ca. 50:50)</label><br/><br/>';
-  html += '<label><input type="radio" name="modell" value="asymmetrisch"/> Asymmetrisch / Residenz</label>';
-  html += '</div>';
-  html += '<div class="card">';
-  html += '<span class="section-label">Notizen</span>';
-  html += '<textarea id="notizen" placeholder="Weitere Angaben..."></textarea>';
-  html += '</div>';
-  html += '<button class="btn-primary" id="btn-submit" type="button">✓ Formular absenden</button>';
-  return html;
-}
-
-function esc(val) {
-  if (!val) return '';
-  return String(val).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-async function submitFormular(row) {
-  var btn = document.getElementById('btn-submit');
-  btn.disabled = true;
-  btn.textContent = 'Wird gesendet...';
-
-  var daten = {};
-  ['vorname','name','tel','mail','strasse','plz','ort','familienstand','einkommenNetto','mieteWarm','notizen','bg_nummer'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) daten[id] = el.value;
-  });
-
-  var modell = document.querySelector('input[name="modell"]:checked');
-  if (modell) daten.modell = modell.value;
-
-  var kinderList = document.getElementById('kinder-list');
-  if (kinderList) {
-    var kinder = [];
-    var boxes = kinderList.querySelectorAll('.kind-box');
-    boxes.forEach(function(box, idx) {
-      var k = {};
-      var vn = document.getElementById('k_vorname_' + idx);
-      var nn = document.getElementById('k_nachname_' + idx);
-      var gb = document.getElementById('k_geburt_' + idx);
-      if (vn) k.vorname = vn.value;
-      if (nn) k.nachname = nn.value;
-      if (gb) k.geburt = gb.value;
-      if (k.vorname || k.nachname) kinder.push(k);
-    });
-    if (kinder.length > 0) daten.kinder = kinder;
-  }
-
-  if (!daten.vorname || !daten.name) {
-    btn.disabled = false;
-    btn.textContent = '✓ Formular absenden';
-    alert('Bitte Vor- und Nachname ausfüllen.');
-    return;
-  }
-
-  try {
-    var url = apiBase + '/formulare?formular_id=eq.' + encodeURIComponent(formularId);
-    var res = await fetch(url, {
-      method: 'PATCH',
+    var url = sb.replace(/\/+$/, "") + "/rest/v1/formulare?formular_id=eq." + encodeURIComponent(id) + "&select=*";
+    fetch(url, {
       headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseKey,
-        'Authorization': 'Bearer ' + supabaseKey,
-        'Prefer': 'return=minimal'
+        "apikey": key,
+        "Authorization": "Bearer " + key,
+        "Content-Type": "application/json"
+      }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(rows) {
+      if (!rows || rows.length === 0) {
+        setFehler("Formular nicht gefunden. Möglicherweise abgelaufen oder ungültiger Link.");
+        setStatus("fehler");
+        return;
+      }
+      var row = rows[0];
+      if (row.status === "beantwortet") {
+        setStatus("gesendet");
+        return;
+      }
+      var vorausgefuellt = {};
+      try { vorausgefuellt = JSON.parse(row.vorausgefuellt || "{}"); } catch(e) {}
+      setFormTyp(row.typ || "stammdaten");
+      setDaten(vorausgefuellt);
+      setStatus("formular");
+    })
+    .catch(function(e) {
+      setFehler("Netzwerkfehler beim Laden: " + e.message);
+      setStatus("fehler");
+    });
+  }, []);
+
+  var upd = function(f, v) { setDaten(function(p) { return Object.assign({}, p, {[f]: v}); }); };
+
+  var absenden = function() {
+    // Validation per formtyp
+    if (formTyp === "fr_sorgerecht") {
+      var pflicht = [daten.antragsteller_name, daten.gegenseite_name, daten.kind_name];
+      if (pflicht.some(function(v) { return !v || !v.trim(); })) {
+        alert("Bitte alle Pflichtfelder (*) ausfüllen."); return;
+      }
+    }
+
+    var url = sbUrl.replace(/\/+$/, "") + "/rest/v1/formulare?formular_id=eq." + encodeURIComponent(formularId);
+    fetch(url, {
+      method: "PATCH",
+      headers: {
+        "apikey": sbKey,
+        "Authorization": "Bearer " + sbKey,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
       },
       body: JSON.stringify({
+        status: "beantwortet",
         antwort_daten: JSON.stringify(daten),
-        status: 'beantwortet',
         beantwortet_am: new Date().toISOString()
       })
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    document.getElementById('form-container').style.display = 'none';
-    document.getElementById('success-container').style.display = 'block';
-    document.getElementById('form-subtitle').textContent = 'Erfolgreich gesendet';
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = '✓ Formular absenden';
-    alert('Fehler beim Senden: ' + e.message);
+    })
+    .then(function(r) {
+      if (r.ok) { setStatus("gesendet"); }
+      else { r.text().then(function(t) { alert("Fehler beim Senden: " + t.slice(0, 200)); }); }
+    })
+    .catch(function(e) { alert("Netzwerkfehler: " + e.message); });
+  };
+
+  var ermittleGericht = function() {
+    var plz = (daten.kind_plz || "").trim();
+    if (!plz || plz.length < 5) { setGerichtFehler("Bitte zuerst PLZ des Kindes eingeben."); return; }
+    setGerichtSuche(true); setGerichtFehler("");
+    fetch("https://www.justiz.de/onlinedienste/gerichtsverzeichnis/index.php?plz=" + encodeURIComponent(plz) + "&gtyp=AG&land=")
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var match = html.match(/Amtsgericht\s+([^<"\n,]+)/i);
+        var name = match ? ("Amtsgericht " + match[1].trim()) : null;
+        if (!name) {
+          var m2 = html.match(/<td[^>]*>\s*(Amtsgericht[^<]+)<\/td>/i);
+          name = m2 ? m2[1].trim() : null;
+        }
+        if (name) { upd("gericht", name); setGerichtFehler("✅ Gericht ermittelt."); }
+        else { setGerichtFehler("⚠️ Kein Ergebnis – bitte manuell eintragen."); }
+        setGerichtSuche(false);
+      })
+      .catch(function() {
+        setGerichtFehler("⚠️ Automatische Ermittlung nicht möglich – bitte manuell eintragen.");
+        setGerichtSuche(false);
+      });
+  };
+
+  // ── Render ──────────────────────────────────────────────
+  if (status === "laden") {
+    return (
+      <div style={{ textAlign:"center", padding:"60px 20px", color:"#003366" }}>
+        <img src={ISUV_LOGO} alt="ISUV" style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
+        <div style={{ fontSize:"14px" }}>⏳ Formular wird geladen...</div>
+      </div>
+    );
   }
+
+  if (status === "fehler") {
+    return (
+      <div style={{ textAlign:"center", padding:"60px 20px" }}>
+        <img src={ISUV_LOGO} alt="ISUV" style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
+        <div style={{ backgroundColor:"#fff3f3", border:"1px solid #f5c6cb", borderRadius:"10px", padding:"20px", maxWidth:"400px", margin:"0 auto" }}>
+          <div style={{ fontSize:"20px", marginBottom:"8px" }}>⚠️</div>
+          <div style={{ fontWeight:"bold", marginBottom:"8px", color:"#721c24" }}>Formular nicht verfügbar</div>
+          <div style={{ fontSize:"12px", color:"#555" }}>{fehler}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "gesendet") {
+    return (
+      <div style={{ textAlign:"center", padding:"60px 20px" }}>
+        <img src={ISUV_LOGO} alt="ISUV" style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
+        <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"10px", padding:"24px", maxWidth:"400px", margin:"0 auto" }}>
+          <div style={{ fontSize:"32px", marginBottom:"8px" }}>✅</div>
+          <div style={{ fontWeight:"bold", fontSize:"16px", marginBottom:"8px", color:"#2e7d32" }}>Angaben übermittelt</div>
+          <div style={{ fontSize:"12px", color:"#555" }}>Ihre Angaben wurden erfolgreich an Ihren ISUV-Berater übermittelt. Sie können dieses Fenster schließen.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Sorgerecht-Formular ──────────────────────────────────
+  if (formTyp === "fr_sorgerecht") {
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"24px 16px 16px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"140px", height:"auto", marginBottom:"10px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>ISUV Anspruchslotse</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Antrag Gemeinsames Sorgerecht (§ 1626a Abs. 2 BGB)</div>
+        </div>
+
+        <div style={{ padding:"0 16px" }}>
+          <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"16px", fontSize:"11px", color:"#2e7d32" }}>
+            ✅ <strong>Keine Begründung erforderlich.</strong> Nach § 1626a Abs. 2 BGB (Reform 2013) wird die gemeinsame Sorge übertragen, sofern sie dem Kindeswohl nicht widerspricht.
+          </div>
+
+          {/* Vater (Antragsteller) */}
+          <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>👨 Vater (Antragsteller)</div>
+          <label style={styles.label}>Vollständiger Name *</label>
+          <input style={styles.input} placeholder="Vorname Nachname" value={daten.antragsteller_name||""} onChange={function(e){ upd("antragsteller_name", e.target.value); }} />
+          <label style={styles.label}>Straße & Hausnummer</label>
+          <input style={styles.input} placeholder="Musterstraße 1" value={daten.antragsteller_strasse||""} onChange={function(e){ upd("antragsteller_strasse", e.target.value); }} />
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} placeholder="12345" value={daten.antragsteller_plz||""} onChange={function(e){ upd("antragsteller_plz", e.target.value); }} /></div>
+            <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={daten.antragsteller_ort||""} onChange={function(e){ upd("antragsteller_ort", e.target.value); }} /></div>
+          </div>
+
+          {/* Mutter (Antragsgegnerin) */}
+          <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>👩 Mutter (Antragsgegnerin)</div>
+          <label style={styles.label}>Vollständiger Name *</label>
+          <input style={styles.input} placeholder="Vorname Nachname" value={daten.gegenseite_name||""} onChange={function(e){ upd("gegenseite_name", e.target.value); }} />
+          <label style={styles.label}>Straße & Hausnummer</label>
+          <input style={styles.input} placeholder="Musterstraße 1" value={daten.gegenseite_strasse||""} onChange={function(e){ upd("gegenseite_strasse", e.target.value); }} />
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} placeholder="12345" value={daten.gegenseite_plz||""} onChange={function(e){ upd("gegenseite_plz", e.target.value); }} /></div>
+            <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={daten.gegenseite_ort||""} onChange={function(e){ upd("gegenseite_ort", e.target.value); }} /></div>
+          </div>
+
+          {/* Kind */}
+          <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>👶 Kind</div>
+          <label style={styles.label}>Vollständiger Name *</label>
+          <input style={styles.input} placeholder="Vorname Nachname" value={daten.kind_name||""} onChange={function(e){ upd("kind_name", e.target.value); }} />
+          <label style={styles.label}>Geburtsdatum</label>
+          <input style={styles.input} type="date" value={daten.kind_geburt||""} onChange={function(e){ upd("kind_geburt", e.target.value); }} />
+          <label style={styles.label}>Straße & Hausnummer (Hauptwohnsitz)</label>
+          <input style={styles.input} placeholder="Musterstraße 1" value={daten.kind_strasse||""} onChange={function(e){ upd("kind_strasse", e.target.value); }} />
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ width:"90px" }}>
+              <label style={styles.label}>PLZ</label>
+              <input style={styles.input} placeholder="12345" value={daten.kind_plz||""} onChange={function(e){ upd("kind_plz", e.target.value); setGerichtFehler(""); }} />
+            </div>
+            <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={daten.kind_ort||""} onChange={function(e){ upd("kind_ort", e.target.value); }} /></div>
+          </div>
+
+          {/* Gericht */}
+          <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>⚖️ Zuständiges Gericht</div>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"8px", alignItems:"flex-end" }}>
+            <div style={{ flex:1 }}>
+              <label style={styles.label}>Amtsgericht</label>
+              <input style={styles.input} placeholder="Wird automatisch ermittelt oder manuell eintragen" value={daten.gericht||""} onChange={function(e){ upd("gericht", e.target.value); }} />
+            </div>
+            <button onClick={ermittleGericht} disabled={gerichtSuche}
+              style={{ padding:"10px 12px", backgroundColor: gerichtSuche ? "#aaa" : "#1565c0", color:"#fff", border:"none", borderRadius:"6px", cursor: gerichtSuche ? "not-allowed" : "pointer", fontWeight:"bold", fontSize:"11px", whiteSpace:"nowrap", marginBottom:"10px" }}>
+              {gerichtSuche ? "⏳ Suche..." : "🔍 Per PLZ ermitteln"}
+            </button>
+          </div>
+          {gerichtFehler && (
+            <div style={{ fontSize:"11px", color: gerichtFehler.startsWith("✅") ? "#2e7d32" : "#856404", backgroundColor: gerichtFehler.startsWith("✅") ? "#e8f5e9" : "#fff9e6", borderRadius:"6px", padding:"6px 10px", marginBottom:"8px" }}>
+              {gerichtFehler}
+            </div>
+          )}
+          <div style={{ fontSize:"10px", color:"#888", marginBottom:"16px" }}>ℹ️ Zuständig ist das Amtsgericht am <strong>Hauptwohnsitz des Kindes</strong> (§ 152 FamFG).</div>
+
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Fallback: unbekannter Formulartyp ────────────────────
+  return (
+    <div style={{ textAlign:"center", padding:"60px 20px" }}>
+      <img src={ISUV_LOGO} alt="ISUV" style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
+      <div style={{ fontSize:"13px", color:"#555" }}>Unbekannter Formulartyp: <strong>{formTyp}</strong></div>
+    </div>
+  );
 }
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
 </script>
 </body>
 </html>
