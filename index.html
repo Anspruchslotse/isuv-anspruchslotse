@@ -1664,6 +1664,664 @@ function FristenRechner() {
 }
 
 // =============================================
+// NEUE FORMULARE: Umgang, Sorgerecht, Trennungsvereinbarung
+// =============================================
+
+function UmgangsantragFormular({ ext, onSaveErgebnis }) {
+  var u = useStyles();
+  var [daten, setDaten] = React.useState({
+    antragsteller_name: ext ? "" : "",
+    antragsteller_anschrift: "",
+    antragsgegner_name: "",
+    antragsgegner_anschrift: "",
+    kind_name: ext && ext.kinder && ext.kinder[0] ? ext.kinder[0].name || "" : "",
+    kind_geburt: ext && ext.kinder && ext.kinder[0] ? ext.kinder[0].geburt || "" : "",
+    aktuelles_modell: "",
+    gewuenschter_umgang: "",
+    umgang_wochenende: "",
+    umgang_ferien: "",
+    umgang_feiertage: "",
+    bisherige_vereinbarung: "",
+    konflikte: "",
+    kindeswohl_hinweis: "",
+    ort: "",
+    datum: new Date().toLocaleDateString("de-DE"),
+    gericht: ""
+  });
+  var set = function(f,v){ setDaten(function(p){ return Object.assign({},p,{[f]:v}); }); };
+  var [gedruckt, setGedruckt] = React.useState(false);
+
+  var drucken = function() {
+    var html = "<html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;font-size:12px;margin:40px;color:#111;line-height:1.6}"
+      + "h1{font-size:16px;text-align:center;margin-bottom:4px}h2{font-size:13px;color:#003366;border-bottom:1px solid #003366;margin-top:20px}"
+      + ".row{display:flex;gap:40px;margin-bottom:8px}.label{font-weight:bold;min-width:160px}.val{flex:1}"
+      + ".gericht{text-align:right;margin-bottom:30px}.az{font-size:11px;color:#555}"
+      + "p{margin:8px 0}.noprint{display:none}@media print{.noprint{display:none}}</style></head><body>"
+      + "<div class='gericht'><strong>" + (daten.gericht || "Amtsgericht _______________") + "</strong><br>"
+      + "<span class='az'>Abteilung für Familiensachen</span></div>"
+      + "<h1>Antrag auf Regelung des Umgangsrechts</h1>"
+      + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1684 BGB</p>"
+      + "<h2>Antragsteller / Antragstellerin</h2>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + (daten.antragsteller_name||"_______________") + "</span></div>"
+      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_anschrift||"_______________") + "</span></div>"
+      + "<h2>Antragsgegner / Antragsgegnerin</h2>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + (daten.antragsgegner_name||"_______________") + "</span></div>"
+      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsgegner_anschrift||"_______________") + "</span></div>"
+      + "<h2>Betroffenes Kind / Betroffene Kinder</h2>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + (daten.kind_name||"_______________") + "</span></div>"
+      + "<div class='row'><span class='label'>Geburtsdatum:</span><span class='val'>" + (daten.kind_geburt||"_______________") + "</span></div>"
+      + "<h2>Antrag</h2>"
+      + "<p>Der Antragsteller / die Antragstellerin beantragt, den Umgang wie folgt zu regeln:</p>"
+      + "<p><strong>Gewünschte Umgangsregelung:</strong><br>" + (daten.gewuenschter_umgang||"_______________") + "</p>"
+      + (daten.umgang_wochenende ? "<p><strong>Wochenenden:</strong><br>" + daten.umgang_wochenende + "</p>" : "")
+      + (daten.umgang_ferien ? "<p><strong>Ferienzeiten:</strong><br>" + daten.umgang_ferien + "</p>" : "")
+      + (daten.umgang_feiertage ? "<p><strong>Feiertage / Besondere Anlässe:</strong><br>" + daten.umgang_feiertage + "</p>" : "")
+      + "<h2>Sachverhalt / Begründung</h2>"
+      + (daten.aktuelles_modell ? "<p><strong>Aktuelle Betreuungssituation:</strong><br>" + daten.aktuelles_modell + "</p>" : "")
+      + (daten.bisherige_vereinbarung ? "<p><strong>Bisherige Vereinbarungen:</strong><br>" + daten.bisherige_vereinbarung + "</p>" : "")
+      + (daten.konflikte ? "<p><strong>Bestehende Konflikte / Hinderungsgrund:</strong><br>" + daten.konflikte + "</p>" : "")
+      + "<h2>Kindeswohlbezug</h2>"
+      + "<p>Der beantragte Umgang dient dem Wohl des Kindes. " + (daten.kindeswohl_hinweis || "Das Kind hat ein Recht auf Umgang mit beiden Elternteilen (§ 1684 Abs. 1 BGB). Eine Einschränkung des Umgangs ist nur zulässig, soweit dies zum Wohl des Kindes erforderlich ist.") + "</p>"
+      + "<p style='font-size:11px;color:#555;margin-top:16px'><em>Rechtsgrundlagen: § 1684 BGB (Umgang des Kindes mit den Eltern), § 1685 BGB (Umgang mit anderen Bezugspersonen), § 1697a BGB (Kindeswohlprinzip)</em></p>"
+      + "<br><br><div style='display:flex;justify-content:space-between;margin-top:40px'>"
+      + "<div>" + (daten.ort||"___________") + ", den " + (daten.datum||"___________") + "<br><br><div style='border-top:1px solid #000;width:200px;margin-top:40px;text-align:center;font-size:10px'>Unterschrift Antragsteller/in</div></div>"
+      + "</div>"
+      + "<div class='noprint' style='margin-top:24px;text-align:center'><button onclick='window.print()' style='padding:10px 24px;background:#003366;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px'>Drucken / Als PDF speichern</button></div>"
+      + "</body></html>";
+    var w = window.open("","_blank","width=800,height=900");
+    w.document.write(html);
+    w.document.close();
+    setGedruckt(true);
+    if (onSaveErgebnis) onSaveErgebnis({ typ: "Musterantrag Umgang", ergebnis: "Erstellt am " + daten.datum, rechtsbereich:"Familienrecht", details:"Antrag für " + (daten.kind_name||"Kind") });
+  };
+
+  return (
+    <div>
+      <div style={u.modHeader}><span style={u.modIcon}>🤝</span><div><div style={u.modTitle}>Musterantrag Umgang (§ 1684 BGB)</div><div style={u.modSub}>Interaktiv ausfüllen → als PDF exportieren oder per Link senden</div></div></div>
+      <div style={{ backgroundColor:"#e8f0fb", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#003366" }}>
+        ℹ️ Füllen Sie die Felder aus. Das Dokument kann anschließend ausgedruckt oder als PDF gespeichert werden. Für ein rechtsgültiges Dokument empfehlen wir anwaltliche Prüfung.
+      </div>
+
+      <div style={u.modSection}>Gericht</div>
+      <label style={u.label}>Zuständiges Amtsgericht / Familiengericht</label>
+      <input style={u.input} placeholder="z.B. Amtsgericht München – Familiensachen" value={daten.gericht} onChange={function(e){set("gericht",e.target.value);}} />
+
+      <div style={u.modSection}>Antragsteller/in</div>
+      <label style={u.label}>Vollständiger Name</label>
+      <input style={u.input} placeholder="Vorname Nachname" value={daten.antragsteller_name} onChange={function(e){set("antragsteller_name",e.target.value);}} />
+      <label style={u.label}>Anschrift</label>
+      <input style={u.input} placeholder="Straße, PLZ Ort" value={daten.antragsteller_anschrift} onChange={function(e){set("antragsteller_anschrift",e.target.value);}} />
+
+      <div style={u.modSection}>Antragsgegner/in</div>
+      <label style={u.label}>Vollständiger Name</label>
+      <input style={u.input} placeholder="Vorname Nachname" value={daten.antragsgegner_name} onChange={function(e){set("antragsgegner_name",e.target.value);}} />
+      <label style={u.label}>Anschrift</label>
+      <input style={u.input} placeholder="Straße, PLZ Ort" value={daten.antragsgegner_anschrift} onChange={function(e){set("antragsgegner_anschrift",e.target.value);}} />
+
+      <div style={u.modSection}>Betroffenes Kind</div>
+      <label style={u.label}>Name des Kindes</label>
+      <input style={u.input} placeholder="Vorname Nachname" value={daten.kind_name} onChange={function(e){set("kind_name",e.target.value);}} />
+      <label style={u.label}>Geburtsdatum</label>
+      <input style={u.input} type="date" value={daten.kind_geburt} onChange={function(e){set("kind_geburt",e.target.value);}} />
+
+      <div style={u.modSection}>Gewünschter Umgang</div>
+      <label style={u.label}>Gewünschte Umgangsregelung (konkrete Beschreibung)</label>
+      <textarea style={Object.assign({},u.input,{height:"80px",resize:"vertical"})} placeholder="z.B. Jeden 2. Wochenende von Freitag 18 Uhr bis Sonntag 18 Uhr sowie die Hälfte der Schulferien" value={daten.gewuenschter_umgang} onChange={function(e){set("gewuenschter_umgang",e.target.value);}} />
+      <label style={u.label}>Wochenendregelung</label>
+      <input style={u.input} placeholder="z.B. Jedes 2. Wochenende, Freitag 18 Uhr bis Sonntag 18 Uhr" value={daten.umgang_wochenende} onChange={function(e){set("umgang_wochenende",e.target.value);}} />
+      <label style={u.label}>Ferienregelung</label>
+      <input style={u.input} placeholder="z.B. Jeweils die Hälfte der Schulferien abwechselnd" value={daten.umgang_ferien} onChange={function(e){set("umgang_ferien",e.target.value);}} />
+      <label style={u.label}>Feiertage / Besondere Anlässe</label>
+      <input style={u.input} placeholder="z.B. Geburtstag des Kindes beim jeweiligen Elternteil, Weihnachten abwechselnd" value={daten.umgang_feiertage} onChange={function(e){set("umgang_feiertage",e.target.value);}} />
+
+      <div style={u.modSection}>Sachverhalt & Begründung</div>
+      <label style={u.label}>Aktuelle Betreuungssituation</label>
+      <textarea style={Object.assign({},u.input,{height:"60px",resize:"vertical"})} placeholder="Wie ist die Situation bisher? Wer betreut das Kind hauptsächlich?" value={daten.aktuelles_modell} onChange={function(e){set("aktuelles_modell",e.target.value);}} />
+      <label style={u.label}>Bisherige Vereinbarungen / Versuche</label>
+      <textarea style={Object.assign({},u.input,{height:"60px",resize:"vertical"})} placeholder="Gab es frühere Absprachen? Wurden sie eingehalten?" value={daten.bisherige_vereinbarung} onChange={function(e){set("bisherige_vereinbarung",e.target.value);}} />
+      <label style={u.label}>Konflikte / Hinderungsgrund für Umgang</label>
+      <textarea style={Object.assign({},u.input,{height:"60px",resize:"vertical"})} placeholder="Warum wurde der Antrag nötig? Verweigert der andere Elternteil den Umgang?" value={daten.konflikte} onChange={function(e){set("konflikte",e.target.value);}} />
+      <label style={u.label}>Kindeswohlbezug (eigene Formulierung, optional)</label>
+      <textarea style={Object.assign({},u.input,{height:"60px",resize:"vertical"})} placeholder="Warum dient der beantragte Umgang dem Wohl des Kindes?" value={daten.kindeswohl_hinweis} onChange={function(e){set("kindeswohl_hinweis",e.target.value);}} />
+
+      <div style={u.modSection}>Ort & Datum</div>
+      <div style={{ display:"flex", gap:"8px" }}>
+        <div style={{ flex:1 }}><label style={u.label}>Ort</label><input style={u.input} placeholder="München" value={daten.ort} onChange={function(e){set("ort",e.target.value);}} /></div>
+        <div style={{ flex:1 }}><label style={u.label}>Datum</label><input style={u.input} value={daten.datum} onChange={function(e){set("datum",e.target.value);}} /></div>
+      </div>
+
+      <button onClick={drucken} style={{ width:"100%", padding:"12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginTop:"16px" }}>
+        🖨️ Musterantrag als PDF / Druckansicht
+      </button>
+      {gedruckt && <div style={{ backgroundColor:"#e8f5e9", borderRadius:"6px", padding:"8px 12px", marginTop:"8px", fontSize:"12px", color:"#2e7d32" }}>✅ Druckansicht geöffnet – bitte als PDF speichern oder drucken.</div>}
+      <div style={{ backgroundColor:"#fff9e6", borderRadius:"8px", padding:"10px 12px", marginTop:"12px", fontSize:"11px", color:"#856404" }}>
+        ⚖️ <strong>Rechtshinweis:</strong> Dieses Dokument ist ein Muster zur Orientierung und ersetzt keine anwaltliche Beratung. § 1684 BGB, § 1685 BGB, § 1697a BGB. Für gerichtliche Verfahren empfehlen wir die Hinzuziehung eines Fachanwalts für Familienrecht.
+      </div>
+    </div>
+  );
+}
+
+function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
+  var u = useStyles();
+  var [daten, setDaten] = React.useState({
+    mutter_name: "", mutter_anschrift: "",
+    vater_name: "", vater_anschrift: "",
+    kind_name: ext && ext.kinder && ext.kinder[0] ? ext.kinder[0].name || "" : "",
+    kind_geburt: ext && ext.kinder && ext.kinder[0] ? ext.kinder[0].geburt || "" : "",
+    kind_wohnort: "",
+    antragsteller_rolle: "vater",
+    beziehungsstatus: "getrennt",
+    gemeinsam_bisher: "nein",
+    begruendung: "",
+    wohl_begruendung: "",
+    kontakt_bestand: "",
+    gericht: "", ort: "",
+    datum: new Date().toLocaleDateString("de-DE")
+  });
+  var set = function(f,v){ setDaten(function(p){ return Object.assign({},p,{[f]:v}); }); };
+  var [gedruckt, setGedruckt] = React.useState(false);
+
+  var drucken = function() {
+    var antragsteller = daten.antragsteller_rolle === "vater" ? (daten.vater_name||"_______________") : (daten.mutter_name||"_______________");
+    var antragsgegner = daten.antragsteller_rolle === "vater" ? (daten.mutter_name||"_______________") : (daten.vater_name||"_______________");
+    var html = "<html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;font-size:12px;margin:40px;color:#111;line-height:1.6}"
+      + "h1{font-size:16px;text-align:center}h2{font-size:13px;color:#003366;border-bottom:1px solid #003366;margin-top:20px}"
+      + ".row{display:flex;gap:40px;margin-bottom:8px}.label{font-weight:bold;min-width:180px}.val{flex:1}"
+      + "p{margin:8px 0}</style></head><body>"
+      + "<div style='text-align:right;margin-bottom:30px'><strong>" + (daten.gericht||"Amtsgericht _______________") + "</strong><br><span style='font-size:11px'>Abteilung für Familiensachen</span></div>"
+      + "<h1>Antrag auf Übertragung / Begründung des gemeinsamen Sorgerechts</h1>"
+      + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1626a BGB</p>"
+      + "<h2>Antragsteller/in</h2>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragsteller + "</span></div>"
+      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?(daten.vater_anschrift||"___"):(daten.mutter_anschrift||"___")) + "</span></div>"
+      + "<div class='row'><span class='label'>Stellung:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?"Vater des Kindes":"Mutter des Kindes") + "</span></div>"
+      + "<h2>Antragsgegner/in</h2>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragsgegner + "</span></div>"
+      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?(daten.mutter_anschrift||"___"):(daten.vater_anschrift||"___")) + "</span></div>"
+      + "<h2>Betroffenes Kind</h2>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + (daten.kind_name||"_______________") + "</span></div>"
+      + "<div class='row'><span class='label'>Geburtsdatum:</span><span class='val'>" + (daten.kind_geburt||"_______________") + "</span></div>"
+      + "<div class='row'><span class='label'>Lebt hauptsächlich bei:</span><span class='val'>" + (daten.kind_wohnort||"_______________") + "</span></div>"
+      + "<h2>Antrag</h2>"
+      + "<p>Der Antragsteller / die Antragstellerin beantragt, die <strong>gemeinsame elterliche Sorge</strong> für das oben genannte Kind zu begründen (§ 1626a Abs. 1 Nr. 3 BGB).</p>"
+      + "<p>Der andere Elternteil ist derzeit <strong>allein sorgeberechtigt</strong>. Die Eltern sind " + (daten.beziehungsstatus==="getrennt"?"getrennt lebend":"nicht verheiratet") + ".</p>"
+      + (daten.gemeinsam_bisher==="ja" ? "<p>Die Eltern haben bisher gemeinsam gesorgt. Eine Sorgerechtsurkunde liegt " + (daten.gemeinsam_bisher==="ja"?"vor":"nicht vor") + ".</p>" : "")
+      + "<h2>Begründung</h2>"
+      + (daten.begruendung ? "<p>" + daten.begruendung + "</p>" : "")
+      + "<h2>Kindeswohl</h2>"
+      + "<p>" + (daten.wohl_begruendung || "Die Begründung des gemeinsamen Sorgerechts entspricht dem Kindeswohl. Der Antragsteller / die Antragstellerin ist aktiv in die Betreuung des Kindes eingebunden und hat regelmäßigen Kontakt. Eine gemeinsame Sorge fördert die Stabilität und das Wohlbefinden des Kindes.") + "</p>"
+      + (daten.kontakt_bestand ? "<p><strong>Bestehender Kontakt zum Kind:</strong> " + daten.kontakt_bestand + "</p>" : "")
+      + "<p style='font-size:11px;color:#555;margin-top:16px'><em>Rechtsgrundlagen: § 1626a BGB (Elterliche Sorge nicht miteinander verheirateter Eltern), § 1671 BGB (Übertragung der Alleinsorge), § 1697a BGB (Kindeswohlprinzip), BVerfG 1 BvR 1620/04</em></p>"
+      + "<br><br><div style='display:flex;justify-content:space-between;margin-top:40px'>"
+      + "<div>" + (daten.ort||"___________") + ", den " + (daten.datum||"___________") + "<br><br><div style='border-top:1px solid #000;width:200px;margin-top:40px;font-size:10px;text-align:center'>Unterschrift Antragsteller/in</div></div>"
+      + "</div>"
+      + "<div class='noprint' style='margin-top:24px;text-align:center'><button onclick='window.print()' style='padding:10px 24px;background:#003366;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px'>Drucken / Als PDF speichern</button></div>"
+      + "</body></html>";
+    var w = window.open("","_blank","width=800,height=900");
+    w.document.write(html);
+    w.document.close();
+    setGedruckt(true);
+    if (onSaveErgebnis) onSaveErgebnis({ typ:"Antrag Gemeinsames Sorgerecht", ergebnis:"Erstellt am "+daten.datum, rechtsbereich:"Familienrecht", details:"Antrag für "+(daten.kind_name||"Kind") });
+  };
+
+  return (
+    <div>
+      <div style={u.modHeader}><span style={u.modIcon}>👨‍👩‍👧</span><div><div style={u.modTitle}>Antrag Gemeinsames Sorgerecht (§ 1626a BGB)</div><div style={u.modSub}>Interaktiv ausfüllen → als PDF exportieren</div></div></div>
+      <div style={{ backgroundColor:"#e8f0fb", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#003366" }}>
+        ℹ️ Dieser Antrag richtet sich an das Familiengericht. Voraussetzung: Ein Elternteil ist allein sorgeberechtigt. Der andere Elternteil beantragt die gemeinsame Sorge gem. § 1626a Abs. 1 Nr. 3 BGB.
+      </div>
+
+      <div style={u.modSection}>Gericht</div>
+      <input style={u.input} placeholder="z.B. Amtsgericht Berlin-Mitte – Familiensachen" value={daten.gericht} onChange={function(e){set("gericht",e.target.value);}} />
+
+      <div style={u.modSection}>Antragsteller/in ist...</div>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+        {[{v:"vater",l:"Vater"},{v:"mutter",l:"Mutter"}].map(function(o){
+          return <div key={o.v} onClick={function(){set("antragsteller_rolle",o.v);}}
+            style={{ padding:"7px 20px", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px",
+              backgroundColor:daten.antragsteller_rolle===o.v?"#003366":"#eee",
+              color:daten.antragsteller_rolle===o.v?"#fff":"#333" }}>{o.l}</div>;
+        })}
+      </div>
+
+      <div style={u.modSection}>Mutter</div>
+      <label style={u.label}>Vollständiger Name</label>
+      <input style={u.input} placeholder="Vorname Nachname" value={daten.mutter_name} onChange={function(e){set("mutter_name",e.target.value);}} />
+      <label style={u.label}>Anschrift</label>
+      <input style={u.input} placeholder="Straße, PLZ Ort" value={daten.mutter_anschrift} onChange={function(e){set("mutter_anschrift",e.target.value);}} />
+
+      <div style={u.modSection}>Vater</div>
+      <label style={u.label}>Vollständiger Name</label>
+      <input style={u.input} placeholder="Vorname Nachname" value={daten.vater_name} onChange={function(e){set("vater_name",e.target.value);}} />
+      <label style={u.label}>Anschrift</label>
+      <input style={u.input} placeholder="Straße, PLZ Ort" value={daten.vater_anschrift} onChange={function(e){set("vater_anschrift",e.target.value);}} />
+
+      <div style={u.modSection}>Kind</div>
+      <label style={u.label}>Name</label>
+      <input style={u.input} placeholder="Vorname Nachname" value={daten.kind_name} onChange={function(e){set("kind_name",e.target.value);}} />
+      <label style={u.label}>Geburtsdatum</label>
+      <input style={u.input} type="date" value={daten.kind_geburt} onChange={function(e){set("kind_geburt",e.target.value);}} />
+      <label style={u.label}>Lebt hauptsächlich bei</label>
+      <select style={u.input} value={daten.kind_wohnort} onChange={function(e){set("kind_wohnort",e.target.value);}}>
+        <option value="">– wählen –</option>
+        <option value="der Mutter">der Mutter</option>
+        <option value="dem Vater">dem Vater</option>
+        <option value="beiden Elternteilen (Wechselmodell)">beiden Elternteilen (Wechselmodell)</option>
+      </select>
+
+      <div style={u.modSection}>Beziehungsstatus der Eltern</div>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+        {[{v:"getrennt",l:"Getrennt lebend"},{v:"nie_zusammen",l:"Nie zusammen gelebt"}].map(function(o){
+          return <div key={o.v} onClick={function(){set("beziehungsstatus",o.v);}}
+            style={{ padding:"6px 12px", borderRadius:"8px", cursor:"pointer", fontSize:"12px",
+              backgroundColor:daten.beziehungsstatus===o.v?"#003366":"#eee",
+              color:daten.beziehungsstatus===o.v?"#fff":"#333" }}>{o.l}</div>;
+        })}
+      </div>
+      <label style={u.label}>Bestand bisher gemeinsames Sorgerecht / Sorgeerklärung?</label>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+        {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+          return <div key={o.v} onClick={function(){set("gemeinsam_bisher",o.v);}}
+            style={{ padding:"6px 16px", borderRadius:"8px", cursor:"pointer", fontSize:"12px",
+              backgroundColor:daten.gemeinsam_bisher===o.v?"#003366":"#eee",
+              color:daten.gemeinsam_bisher===o.v?"#fff":"#333" }}>{o.l}</div>;
+        })}
+      </div>
+
+      <div style={u.modSection}>Begründung & Kindeswohl</div>
+      <label style={u.label}>Begründung des Antrags</label>
+      <textarea style={Object.assign({},u.input,{height:"80px",resize:"vertical"})} placeholder="Warum beantragen Sie das gemeinsame Sorgerecht? Beschreiben Sie Ihre Beteiligung an der Erziehung." value={daten.begruendung} onChange={function(e){set("begruendung",e.target.value);}} />
+      <label style={u.label}>Kindeswohlbezug (eigene Formulierung)</label>
+      <textarea style={Object.assign({},u.input,{height:"60px",resize:"vertical"})} placeholder="Inwiefern dient das gemeinsame Sorgerecht dem Wohl des Kindes?" value={daten.wohl_begruendung} onChange={function(e){set("wohl_begruendung",e.target.value);}} />
+      <label style={u.label}>Bestehender Kontakt / Umgang mit dem Kind</label>
+      <input style={u.input} placeholder="z.B. Regelmäßiger Umgang jedes 2. Wochenende, gemeinsame Aktivitäten" value={daten.kontakt_bestand} onChange={function(e){set("kontakt_bestand",e.target.value);}} />
+
+      <div style={u.modSection}>Ort & Datum</div>
+      <div style={{ display:"flex", gap:"8px" }}>
+        <div style={{ flex:1 }}><label style={u.label}>Ort</label><input style={u.input} placeholder="München" value={daten.ort} onChange={function(e){set("ort",e.target.value);}} /></div>
+        <div style={{ flex:1 }}><label style={u.label}>Datum</label><input style={u.input} value={daten.datum} onChange={function(e){set("datum",e.target.value);}} /></div>
+      </div>
+
+      <button onClick={drucken} style={{ width:"100%", padding:"12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginTop:"16px" }}>
+        🖨️ Antrag als PDF / Druckansicht
+      </button>
+      {gedruckt && <div style={{ backgroundColor:"#e8f5e9", borderRadius:"6px", padding:"8px 12px", marginTop:"8px", fontSize:"12px", color:"#2e7d32" }}>✅ Druckansicht geöffnet.</div>}
+      <div style={{ backgroundColor:"#fff9e6", borderRadius:"8px", padding:"10px 12px", marginTop:"12px", fontSize:"11px", color:"#856404" }}>
+        ⚖️ <strong>Rechtshinweis:</strong> § 1626a BGB, BVerfG 1 BvR 1620/04 (Sorgerecht des Vaters). Bitte mit Fachanwalt für Familienrecht absprechen.
+      </div>
+    </div>
+  );
+}
+
+function TrennungsFragebogen({ ext, onSaveErgebnis }) {
+  var u = useStyles();
+  var [abschnitt, setAbschnitt] = React.useState(0);
+  var [daten, setDaten] = React.useState({
+    // Personen
+    p1_name:"", p1_geburt:"", p1_anschrift:"", p1_einkommen:"", p1_beruf:"",
+    p2_name:"", p2_geburt:"", p2_anschrift:"", p2_einkommen:"", p2_beruf:"",
+    // Ehe
+    heirat_datum:"", heirat_ort:"", trennung_datum:"", scheidung_beantragt:"nein",
+    trennungsjahr_abgelaufen:"nein", versorgungsausgleich_gewuenscht:"ja",
+    // Kinder
+    hat_kinder:"nein", kinder:[],
+    kinder_betreuung:"", kinder_unterhalt_geregelt:"nein", kinder_unterhalt_betrag:"",
+    // Vermögen
+    gemeinsame_wohnung:"nein", wohnung_eigentuemer:"", wohnung_wert:"", wohnung_kredit:"",
+    gemeinsame_konten:"nein", konten_guthaben:"",
+    sonstige_vermoegenswerte:"",
+    schulden:"nein", schulden_betrag:"", schulden_art:"",
+    // Unterhalt
+    ehegattenunterhalt_gewuenscht:"nein", unterhalt_art:"", unterhalt_dauer:"",
+    trennungsunterhalt_betrag:"", nachehelicher_betrag:"",
+    // Sonstiges
+    anwalt_beauftragt:"nein", mediation_interesse:"nein", besondere_umstaende:"",
+    notizen:""
+  });
+  var set = function(f,v){ setDaten(function(p){ return Object.assign({},p,{[f]:v}); }); };
+
+  var abschnitte = [
+    "👥 Personen", "💍 Ehe & Trennung", "👶 Kinder", "🏠 Vermögen & Schulden", "💰 Unterhalt", "📝 Abschluss"
+  ];
+
+  var [gedruckt, setGedruckt] = React.useState(false);
+
+  var drucken = function() {
+    var html = "<html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;font-size:12px;margin:40px;color:#111;line-height:1.6}"
+      + "h1{font-size:16px;text-align:center;margin-bottom:4px}h2{font-size:13px;color:#003366;border-bottom:1px solid #003366;margin-top:20px}"
+      + ".row{display:flex;gap:20px;margin-bottom:6px}.label{font-weight:bold;min-width:200px;font-size:11px}.val{flex:1;font-size:12px}"
+      + "table{width:100%;border-collapse:collapse;margin-top:8px}th{background:#003366;color:#fff;padding:6px;font-size:11px;text-align:left}"
+      + "td{padding:6px;border-bottom:1px solid #eee;font-size:11px}.sect{background:#e8f0fb;padding:3px 8px;font-size:10px;font-weight:bold;color:#003366;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 6px}"
+      + "</style></head><body>"
+      + "<h1>Trennungs-/Scheidungsfragebogen</h1>"
+      + "<p style='text-align:center;font-size:11px;color:#666'>Vertraulich – nur für Beratungszwecke</p>"
+      + "<div class='sect'>Angaben zu den Personen</div>"
+      + "<table><tr><th>Feld</th><th>Person 1 (Antragsteller/in)</th><th>Person 2 (Ehepartner/in)</th></tr>"
+      + "<tr><td>Name</td><td>"+(daten.p1_name||"–")+"</td><td>"+(daten.p2_name||"–")+"</td></tr>"
+      + "<tr><td>Geburtsdatum</td><td>"+(daten.p1_geburt||"–")+"</td><td>"+(daten.p2_geburt||"–")+"</td></tr>"
+      + "<tr><td>Anschrift</td><td>"+(daten.p1_anschrift||"–")+"</td><td>"+(daten.p2_anschrift||"–")+"</td></tr>"
+      + "<tr><td>Beruf</td><td>"+(daten.p1_beruf||"–")+"</td><td>"+(daten.p2_beruf||"–")+"</td></tr>"
+      + "<tr><td>Nettoeinkommen</td><td>"+(daten.p1_einkommen ? daten.p1_einkommen+" €" :"–")+"</td><td>"+(daten.p2_einkommen ? daten.p2_einkommen+" €":"–")+"</td></tr>"
+      + "</table>"
+      + "<div class='sect'>Ehe & Trennung</div>"
+      + "<div class='row'><span class='label'>Heiratsdatum:</span><span class='val'>"+(daten.heirat_datum||"–")+"</span></div>"
+      + "<div class='row'><span class='label'>Heiratsort:</span><span class='val'>"+(daten.heirat_ort||"–")+"</span></div>"
+      + "<div class='row'><span class='label'>Trennungsdatum:</span><span class='val'>"+(daten.trennung_datum||"–")+"</span></div>"
+      + "<div class='row'><span class='label'>Trennungsjahr abgelaufen:</span><span class='val'>"+(daten.trennungsjahr_abgelaufen==="ja"?"Ja":"Nein")+"</span></div>"
+      + "<div class='row'><span class='label'>Scheidung beantragt:</span><span class='val'>"+(daten.scheidung_beantragt==="ja"?"Ja":"Nein")+"</span></div>"
+      + "<div class='row'><span class='label'>Versorgungsausgleich gewünscht:</span><span class='val'>"+(daten.versorgungsausgleich_gewuenscht==="ja"?"Ja":"Nein")+"</span></div>"
+      + (daten.hat_kinder==="ja" ? "<div class='sect'>Kinder</div>"
+        + "<div class='row'><span class='label'>Betreuungsmodell:</span><span class='val'>"+(daten.kinder_betreuung||"–")+"</span></div>"
+        + "<div class='row'><span class='label'>Kindesunterhalt geregelt:</span><span class='val'>"+(daten.kinder_unterhalt_geregelt==="ja"?"Ja, "+daten.kinder_unterhalt_betrag+" €/Monat":"Nein")+"</span></div>"
+        : "<div class='sect'>Kinder</div><p>Keine gemeinsamen Kinder.</p>")
+      + "<div class='sect'>Vermögen & Schulden</div>"
+      + "<div class='row'><span class='label'>Gemeinsame Wohnung / Immobilie:</span><span class='val'>"+(daten.gemeinsame_wohnung==="ja"?"Ja, Wert: "+(daten.wohnung_wert||"?")+", Eigentümer: "+(daten.wohnung_eigentuemer||"?")+(daten.wohnung_kredit?" (Kredit: "+daten.wohnung_kredit+"€)":""):"Nein")+"</span></div>"
+      + "<div class='row'><span class='label'>Gemeinsame Konten:</span><span class='val'>"+(daten.gemeinsame_konten==="ja"?"Ja, Guthaben: "+(daten.konten_guthaben||"?"):"Nein")+"</span></div>"
+      + (daten.sonstige_vermoegenswerte ? "<div class='row'><span class='label'>Sonstige Vermögenswerte:</span><span class='val'>"+daten.sonstige_vermoegenswerte+"</span></div>" : "")
+      + "<div class='row'><span class='label'>Gemeinsame Schulden:</span><span class='val'>"+(daten.schulden==="ja"?"Ja, "+daten.schulden_betrag+" € ("+daten.schulden_art+")":"Nein")+"</span></div>"
+      + "<div class='sect'>Unterhalt</div>"
+      + "<div class='row'><span class='label'>Ehegattenunterhalt:</span><span class='val'>"+(daten.ehegattenunterhalt_gewuenscht==="ja"?"Ja, "+(daten.unterhalt_art||"Art offen"):(daten.ehegattenunterhalt_gewuenscht==="nein"?"Nicht gewünscht":"Noch unklar"))+"</span></div>"
+      + (daten.trennungsunterhalt_betrag ? "<div class='row'><span class='label'>Trennungsunterhalt (§ 1361 BGB):</span><span class='val'>"+daten.trennungsunterhalt_betrag+" €/Monat</span></div>" : "")
+      + (daten.nachehelicher_betrag ? "<div class='row'><span class='label'>Nachehelicher Unterhalt (§ 1569 ff.):</span><span class='val'>"+daten.nachehelicher_betrag+" €/Monat</span></div>" : "")
+      + "<div class='sect'>Sonstiges</div>"
+      + "<div class='row'><span class='label'>Anwalt beauftragt:</span><span class='val'>"+(daten.anwalt_beauftragt==="ja"?"Ja":"Nein")+"</span></div>"
+      + "<div class='row'><span class='label'>Interesse an Mediation:</span><span class='val'>"+(daten.mediation_interesse==="ja"?"Ja":"Nein")+"</span></div>"
+      + (daten.besondere_umstaende ? "<div class='row'><span class='label'>Besondere Umstände:</span><span class='val'>"+daten.besondere_umstaende+"</span></div>" : "")
+      + (daten.notizen ? "<div class='row'><span class='label'>Notizen:</span><span class='val'>"+daten.notizen+"</span></div>" : "")
+      + "<p style='font-size:10px;color:#888;margin-top:24px;border-top:1px solid #eee;padding-top:8px'>Erstellt am " + new Date().toLocaleDateString("de-DE") + " · ISUV Anspruchslotse · Rechtsgrundlagen: §§ 1361, 1569 ff., 1626a, 1684 BGB, §§ 1 ff. VersAusglG</p>"
+      + "<div class='noprint' style='margin-top:20px;text-align:center'><button onclick='window.print()' style='padding:10px 24px;background:#003366;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px'>Drucken / Als PDF speichern</button></div>"
+      + "</body></html>";
+    var w = window.open("","_blank","width=800,height=1000");
+    w.document.write(html);
+    w.document.close();
+    setGedruckt(true);
+    if (onSaveErgebnis) onSaveErgebnis({ typ:"Trennungs-/Scheidungsfragebogen", ergebnis:"Erstellt am "+new Date().toLocaleDateString("de-DE"), rechtsbereich:"Familienrecht", details:"Trennung: "+(daten.trennung_datum||"?") });
+  };
+
+  return (
+    <div>
+      <div style={u.modHeader}><span style={u.modIcon}>📄</span><div><div style={u.modTitle}>Trennungs-/Scheidungsfragebogen</div><div style={u.modSub}>Strukturierte Erfassung aller relevanten Daten für die Beratung</div></div></div>
+
+      {/* Abschnitts-Navigation */}
+      <div style={{ display:"flex", gap:"4px", marginBottom:"16px", flexWrap:"wrap" }}>
+        {abschnitte.map(function(a,i){
+          return <div key={i} onClick={function(){setAbschnitt(i);}}
+            style={{ padding:"5px 10px", borderRadius:"6px", fontSize:"11px", fontWeight:"bold", cursor:"pointer",
+              backgroundColor:abschnitt===i?"#003366":"#e8f0fb",
+              color:abschnitt===i?"#fff":"#003366" }}>{a}</div>;
+        })}
+      </div>
+
+      {abschnitt===0 && (
+        <div>
+          <div style={u.modSection}>👤 Person 1 (Ratsuchende/r)</div>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <div style={{ flex:1 }}><label style={u.label}>Name</label><input style={u.input} value={daten.p1_name} onChange={function(e){set("p1_name",e.target.value);}} /></div>
+            <div style={{ flex:1 }}><label style={u.label}>Geburtsdatum</label><input type="date" style={u.input} value={daten.p1_geburt} onChange={function(e){set("p1_geburt",e.target.value);}} /></div>
+          </div>
+          <label style={u.label}>Anschrift</label>
+          <input style={u.input} placeholder="Straße, PLZ Ort" value={daten.p1_anschrift} onChange={function(e){set("p1_anschrift",e.target.value);}} />
+          <div style={{ display:"flex", gap:"8px" }}>
+            <div style={{ flex:1 }}><label style={u.label}>Beruf</label><input style={u.input} value={daten.p1_beruf} onChange={function(e){set("p1_beruf",e.target.value);}} /></div>
+            <div style={{ flex:1 }}><label style={u.label}>Nettoeinkommen (€/Mo)</label><input type="number" style={u.input} value={daten.p1_einkommen} onChange={function(e){set("p1_einkommen",e.target.value);}} /></div>
+          </div>
+          <div style={u.modSection}>👤 Person 2 (Ehepartner/in)</div>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <div style={{ flex:1 }}><label style={u.label}>Name</label><input style={u.input} value={daten.p2_name} onChange={function(e){set("p2_name",e.target.value);}} /></div>
+            <div style={{ flex:1 }}><label style={u.label}>Geburtsdatum</label><input type="date" style={u.input} value={daten.p2_geburt} onChange={function(e){set("p2_geburt",e.target.value);}} /></div>
+          </div>
+          <label style={u.label}>Anschrift</label>
+          <input style={u.input} placeholder="Straße, PLZ Ort" value={daten.p2_anschrift} onChange={function(e){set("p2_anschrift",e.target.value);}} />
+          <div style={{ display:"flex", gap:"8px" }}>
+            <div style={{ flex:1 }}><label style={u.label}>Beruf</label><input style={u.input} value={daten.p2_beruf} onChange={function(e){set("p2_beruf",e.target.value);}} /></div>
+            <div style={{ flex:1 }}><label style={u.label}>Nettoeinkommen (€/Mo)</label><input type="number" style={u.input} value={daten.p2_einkommen} onChange={function(e){set("p2_einkommen",e.target.value);}} /></div>
+          </div>
+        </div>
+      )}
+
+      {abschnitt===1 && (
+        <div>
+          <div style={u.modSection}>💍 Ehe</div>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <div style={{ flex:1 }}><label style={u.label}>Heiratsdatum</label><input type="date" style={u.input} value={daten.heirat_datum} onChange={function(e){set("heirat_datum",e.target.value);}} /></div>
+            <div style={{ flex:1 }}><label style={u.label}>Heiratsort</label><input style={u.input} value={daten.heirat_ort} onChange={function(e){set("heirat_ort",e.target.value);}} /></div>
+          </div>
+          <div style={u.modSection}>💔 Trennung</div>
+          <label style={u.label}>Trennungsdatum (§ 1567 BGB)</label>
+          <input type="date" style={u.input} value={daten.trennung_datum} onChange={function(e){set("trennung_datum",e.target.value);}} />
+          <label style={u.label}>Trennungsjahr (1 Jahr) bereits abgelaufen?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("trennungsjahr_abgelaufen",o.v);}}
+                style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.trennungsjahr_abgelaufen===o.v?"#003366":"#eee",
+                  color:daten.trennungsjahr_abgelaufen===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          <label style={u.label}>Scheidung bereits beantragt?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("scheidung_beantragt",o.v);}}
+                style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.scheidung_beantragt===o.v?"#003366":"#eee",
+                  color:daten.scheidung_beantragt===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          <label style={u.label}>Versorgungsausgleich gewünscht? (§ 1 ff. VersAusglG)</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"},{v:"unklar",l:"Noch unklar"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("versorgungsausgleich_gewuenscht",o.v);}}
+                style={{ padding:"6px 12px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.versorgungsausgleich_gewuenscht===o.v?"#003366":"#eee",
+                  color:daten.versorgungsausgleich_gewuenscht===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          <div style={{ backgroundColor:"#e8f0fb", borderRadius:"6px", padding:"8px 10px", fontSize:"11px", color:"#003366" }}>
+            ℹ️ Der Versorgungsausgleich (Rentenausgleich) wird im Scheidungsverfahren automatisch durchgeführt, sofern nicht beide Parteien auf ihn verzichten (§ 6 VersAusglG).
+          </div>
+        </div>
+      )}
+
+      {abschnitt===2 && (
+        <div>
+          <label style={u.label}>Gibt es gemeinsame Kinder?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("hat_kinder",o.v);}}
+                style={{ padding:"7px 20px", borderRadius:"8px", cursor:"pointer", fontWeight:"bold",
+                  backgroundColor:daten.hat_kinder===o.v?"#003366":"#eee",
+                  color:daten.hat_kinder===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          {daten.hat_kinder==="ja" && (
+            <div>
+              {daten.kinder.map(function(k,idx){
+                var upd=function(f,v){setDaten(function(p){var nk=p.kinder.map(function(x,i){return i===idx?Object.assign({},x,{[f]:v}):x;});return Object.assign({},p,{kinder:nk});});};
+                return (
+                  <div key={idx} style={{ backgroundColor:"#f0f7ff", borderRadius:"8px", padding:"10px", marginBottom:"8px", borderLeft:"3px solid #003366" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"6px" }}>
+                      <strong style={{ fontSize:"12px" }}>Kind {idx+1}</strong>
+                      <button onClick={function(){setDaten(function(p){return Object.assign({},p,{kinder:p.kinder.filter(function(_,i){return i!==idx;})});});}}
+                        style={{ background:"none", border:"none", color:"#e53935", cursor:"pointer", fontSize:"16px" }}>×</button>
+                    </div>
+                    <div style={{ display:"flex", gap:"6px" }}>
+                      <div style={{ flex:1 }}><label style={u.label}>Name</label><input style={u.input} value={k.name||""} onChange={function(e){upd("name",e.target.value);}} /></div>
+                      <div style={{ flex:1 }}><label style={u.label}>Geburtsdatum</label><input type="date" style={u.input} value={k.geburt||""} onChange={function(e){upd("geburt",e.target.value);}} /></div>
+                    </div>
+                  </div>
+                );
+              })}
+              <button onClick={function(){setDaten(function(p){return Object.assign({},p,{kinder:p.kinder.concat([{name:"",geburt:""}])});});}}
+                style={{ width:"100%", padding:"6px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px dashed #003366", borderRadius:"6px", cursor:"pointer", fontSize:"11px", marginBottom:"12px" }}>
+                + Kind hinzufügen
+              </button>
+              <label style={u.label}>Betreuungsmodell</label>
+              <select style={u.input} value={daten.kinder_betreuung} onChange={function(e){set("kinder_betreuung",e.target.value);}}>
+                <option value="">– wählen –</option>
+                <option value="Residenzmodell bei Mutter">Residenzmodell bei Mutter</option>
+                <option value="Residenzmodell bei Vater">Residenzmodell bei Vater</option>
+                <option value="Wechselmodell paritätisch">Wechselmodell (paritätisch)</option>
+                <option value="Wechselmodell asymmetrisch">Wechselmodell (asymmetrisch)</option>
+              </select>
+              <label style={u.label}>Kindesunterhalt bereits geregelt?</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+                {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+                  return <div key={o.v} onClick={function(){set("kinder_unterhalt_geregelt",o.v);}}
+                    style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                      backgroundColor:daten.kinder_unterhalt_geregelt===o.v?"#003366":"#eee",
+                      color:daten.kinder_unterhalt_geregelt===o.v?"#fff":"#333" }}>{o.l}</div>;
+                })}
+              </div>
+              {daten.kinder_unterhalt_geregelt==="ja" && (
+                <div><label style={u.label}>Unterhaltsbetrag (€/Monat)</label>
+                <input type="number" style={u.input} value={daten.kinder_unterhalt_betrag} onChange={function(e){set("kinder_unterhalt_betrag",e.target.value);}} /></div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {abschnitt===3 && (
+        <div>
+          <div style={u.modSection}>🏠 Immobilien / Gemeinsame Wohnung</div>
+          <label style={u.label}>Gemeinsame Wohnung oder Immobilie vorhanden?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("gemeinsame_wohnung",o.v);}}
+                style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.gemeinsame_wohnung===o.v?"#003366":"#eee",
+                  color:daten.gemeinsame_wohnung===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          {daten.gemeinsame_wohnung==="ja" && (
+            <div>
+              <div style={{ display:"flex", gap:"8px" }}>
+                <div style={{ flex:1 }}><label style={u.label}>Verkehrswert (€)</label><input type="number" style={u.input} value={daten.wohnung_wert} onChange={function(e){set("wohnung_wert",e.target.value);}} /></div>
+                <div style={{ flex:1 }}><label style={u.label}>Noch offener Kredit (€)</label><input type="number" style={u.input} value={daten.wohnung_kredit} onChange={function(e){set("wohnung_kredit",e.target.value);}} /></div>
+              </div>
+              <label style={u.label}>Eigentümer</label>
+              <select style={u.input} value={daten.wohnung_eigentuemer} onChange={function(e){set("wohnung_eigentuemer",e.target.value);}}>
+                <option value="">– wählen –</option>
+                <option value="beide gemeinsam">Beide gemeinsam</option>
+                <option value="Person 1">Person 1 allein</option>
+                <option value="Person 2">Person 2 allein</option>
+              </select>
+            </div>
+          )}
+          <div style={u.modSection}>🏦 Konten & Vermögen</div>
+          <label style={u.label}>Gemeinsame Bankkonten?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("gemeinsame_konten",o.v);}}
+                style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.gemeinsame_konten===o.v?"#003366":"#eee",
+                  color:daten.gemeinsame_konten===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          {daten.gemeinsame_konten==="ja" && (
+            <div><label style={u.label}>Gesamtguthaben (€)</label><input type="number" style={u.input} value={daten.konten_guthaben} onChange={function(e){set("konten_guthaben",e.target.value);}} /></div>
+          )}
+          <label style={u.label}>Sonstige Vermögenswerte (Autos, Aktien, etc.)</label>
+          <textarea style={Object.assign({},u.input,{height:"60px"})} value={daten.sonstige_vermoegenswerte} onChange={function(e){set("sonstige_vermoegenswerte",e.target.value);}} />
+          <div style={u.modSection}>💳 Schulden</div>
+          <label style={u.label}>Gemeinsame Schulden (außer Immobilienkredit)?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("schulden",o.v);}}
+                style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.schulden===o.v?"#003366":"#eee",
+                  color:daten.schulden===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          {daten.schulden==="ja" && (
+            <div style={{ display:"flex", gap:"8px" }}>
+              <div style={{ flex:1 }}><label style={u.label}>Betrag (€)</label><input type="number" style={u.input} value={daten.schulden_betrag} onChange={function(e){set("schulden_betrag",e.target.value);}} /></div>
+              <div style={{ flex:1 }}><label style={u.label}>Art der Schulden</label><input style={u.input} placeholder="z.B. Ratenkredit, Dispo" value={daten.schulden_art} onChange={function(e){set("schulden_art",e.target.value);}} /></div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {abschnitt===4 && (
+        <div>
+          <label style={u.label}>Ehegattenunterhalt gewünscht?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"},{v:"unklar",l:"Noch unklar"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("ehegattenunterhalt_gewuenscht",o.v);}}
+                style={{ padding:"6px 12px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.ehegattenunterhalt_gewuenscht===o.v?"#003366":"#eee",
+                  color:daten.ehegattenunterhalt_gewuenscht===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          {daten.ehegattenunterhalt_gewuenscht==="ja" && (
+            <div>
+              <label style={u.label}>Art des Unterhalts</label>
+              <div style={{ display:"flex", gap:"6px", flexWrap:"wrap", marginBottom:"8px" }}>
+                {["Trennungsunterhalt (§ 1361 BGB)","Nachehelicher Unterhalt (§ 1569 ff. BGB)","Beides"].map(function(v){
+                  return <div key={v} onClick={function(){set("unterhalt_art",v);}}
+                    style={{ padding:"5px 10px", borderRadius:"6px", cursor:"pointer", fontSize:"11px",
+                      backgroundColor:daten.unterhalt_art===v?"#003366":"#eee",
+                      color:daten.unterhalt_art===v?"#fff":"#333" }}>{v}</div>;
+                })}
+              </div>
+              <div style={{ display:"flex", gap:"8px" }}>
+                <div style={{ flex:1 }}><label style={u.label}>Trennungsunterhalt (€/Mo)</label><input type="number" style={u.input} value={daten.trennungsunterhalt_betrag} onChange={function(e){set("trennungsunterhalt_betrag",e.target.value);}} /></div>
+                <div style={{ flex:1 }}><label style={u.label}>Nachehelicher Unterhalt (€/Mo)</label><input type="number" style={u.input} value={daten.nachehelicher_betrag} onChange={function(e){set("nachehelicher_betrag",e.target.value);}} /></div>
+              </div>
+            </div>
+          )}
+          <div style={{ backgroundColor:"#e8f0fb", borderRadius:"6px", padding:"8px 10px", marginTop:"8px", fontSize:"11px", color:"#003366" }}>
+            ℹ️ <strong>§ 1361 BGB</strong> (Trennungsunterhalt): Während der Trennungszeit. <strong>§§ 1569 ff. BGB</strong> (Nachehelicher Unterhalt): Nach rechtskräftiger Scheidung, z.B. wegen Kinderbetreuung (§ 1570), Alter (§ 1571), Krankheit (§ 1572), Erwerbslosigkeit (§ 1573).
+          </div>
+        </div>
+      )}
+
+      {abschnitt===5 && (
+        <div>
+          <label style={u.label}>Anwalt/Anwältin beauftragt?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("anwalt_beauftragt",o.v);}}
+                style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.anwalt_beauftragt===o.v?"#003366":"#eee",
+                  color:daten.anwalt_beauftragt===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          <label style={u.label}>Interesse an Mediation / außergerichtlicher Einigung?</label>
+          <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+            {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
+              return <div key={o.v} onClick={function(){set("mediation_interesse",o.v);}}
+                style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px",
+                  backgroundColor:daten.mediation_interesse===o.v?"#1b5e20":"#eee",
+                  color:daten.mediation_interesse===o.v?"#fff":"#333" }}>{o.l}</div>;
+            })}
+          </div>
+          <label style={u.label}>Besondere Umstände / Konflikte</label>
+          <textarea style={Object.assign({},u.input,{height:"70px",resize:"vertical"})} placeholder="Häusliche Gewalt, Sucht, psychische Erkrankungen, laufende Gerichtsverfahren etc." value={daten.besondere_umstaende} onChange={function(e){set("besondere_umstaende",e.target.value);}} />
+          <label style={u.label}>Weitere Notizen für die Beratung</label>
+          <textarea style={Object.assign({},u.input,{height:"70px",resize:"vertical"})} value={daten.notizen} onChange={function(e){set("notizen",e.target.value);}} />
+
+          <button onClick={drucken} style={{ width:"100%", padding:"12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginTop:"16px" }}>
+            🖨️ Fragebogen drucken / PDF
+          </button>
+          {gedruckt && <div style={{ backgroundColor:"#e8f5e9", borderRadius:"6px", padding:"8px 12px", marginTop:"8px", fontSize:"12px", color:"#2e7d32" }}>✅ Druckansicht geöffnet.</div>}
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div style={{ display:"flex", justifyContent:"space-between", marginTop:"20px" }}>
+        {abschnitt > 0 && <button onClick={function(){setAbschnitt(function(p){return p-1;});}} style={{ padding:"8px 16px", backgroundColor:"#e8f0fb", color:"#003366", border:"none", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>‹ Zurück</button>}
+        {abschnitt < abschnitte.length-1 && <button onClick={function(){setAbschnitt(function(p){return p+1;});}} style={{ padding:"8px 16px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"12px", marginLeft:"auto" }}>Weiter ›</button>}
+      </div>
+
+      <div style={{ backgroundColor:"#fff9e6", borderRadius:"8px", padding:"10px 12px", marginTop:"12px", fontSize:"11px", color:"#856404" }}>
+        ⚖️ <strong>Rechtsgrundlagen:</strong> §§ 1361, 1569–1581 BGB (Unterhalt), §§ 1564 ff. BGB (Scheidung), § 1567 BGB (Getrenntleben), §§ 1 ff. VersAusglG (Versorgungsausgleich), §§ 1626a, 1671, 1684 BGB (Elterliche Sorge & Umgang)
+      </div>
+    </div>
+  );
+}
+
+// =============================================
 // FAMILIENRECHT-VIEW (Komponente statt IIFE)
 // =============================================
 function FamilienrechtView({ view, activeMember, memberExtras, setView, setMemberErgebnisse }) {
@@ -1674,6 +2332,9 @@ function FamilienrechtView({ view, activeMember, memberExtras, setView, setMembe
     "fr_rechtsvergleich":{ titel:"⚖️ Rechtsvergleich", sub:"Familienrecht vs. Sozialrecht · BSG · OLG" },
     "fr_dtTabelle":      { titel:"📊 Düsseldorfer Tabelle 2024", sub:"Nachschlagewerk · Vollständige Tabelle" },
     "fr_fristen":        { titel:"⏰ Fristenrechner", sub:"Widerspruch · Klage · Verjährung" },
+    "fr_umgang":         { titel:"🤝 Musterantrag Umgang", sub:"§ 1684 BGB – Interaktives Formular" },
+    "fr_sorgerecht":     { titel:"👨‍👩‍👧 Antrag Gemeinsames Sorgerecht", sub:"§ 1626a BGB – Interaktives Formular" },
+    "fr_trennungsvereinbarung": { titel:"📄 Trennungs-/Scheidungsfragebogen", sub:"Strukturierte Datenerfassung für die Beratung" },
   };
   var info = INFO[view] || {titel:"Familienrecht", sub:""};
   var ext = activeMember ? (memberExtras[activeMember.id]||null) : null;
@@ -1704,6 +2365,9 @@ function FamilienrechtView({ view, activeMember, memberExtras, setView, setMembe
         {view==="fr_rechtsvergleich" && <RechtsvergleichModul ext={ext} />}
         {view==="fr_dtTabelle" && <DuesseldorferTabelleNachschlag />}
         {view==="fr_fristen" && <FristenRechner />}
+        {view==="fr_umgang" && <UmgangsantragFormular ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
+        {view==="fr_sorgerecht" && <SorgerechtAntragFormular ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
+        {view==="fr_trennungsvereinbarung" && <TrennungsFragebogen ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}}
       </div>
     </div>
   );
@@ -3061,6 +3725,9 @@ function App() {
   const [konflikteDialog, setKonflikteDialog] = useState(null); // {member, fd, konflikte:[]}
   const [editMemberMode, setEditMemberMode] = useState(false);
   const [editMemberDaten, setEditMemberDaten] = useState({});
+  const [transferrierteIds, setTransferrierteIds] = useState(function() { try { return new Set(JSON.parse(localStorage.getItem("isuv_transfer_ids")||"[]")); } catch(e){ return new Set(); } });
+  const [showFamilienrechtFormulare, setShowFamilienrechtFormulare] = useState(true);
+  const [showSozialrechtFormulare, setShowSozialrechtFormulare] = useState(true);
   const [terminTyp, setTerminTyp] = useState("beratung");
 
   const [termine, setTermine] = useState([
@@ -3157,6 +3824,8 @@ function App() {
   // ── AUTO-TRANSFER: beantwortete Formulare direkt in Akte ──
   const sbAutoTransfer = function(formulare, currentMembers) {
     formulare.forEach(function(f) {
+      // BUGFIX: Nicht erneut übertragen wenn bereits verarbeitet
+      if (transferrierteIds.has(f.id)) return;
       var fd = f.felder || {};
       var match = currentMembers.find(function(m) {
         return (fd.mail && m.mail && m.mail.toLowerCase()===fd.mail.toLowerCase()) ||
@@ -3196,8 +3865,10 @@ function App() {
       if(fd.bgNebenkosten) upd.nebenkosten=parseFloat(fd.bgNebenkosten);
       if(fd.bgWohnflaeche) upd.wohnungGroesse=parseFloat(fd.bgWohnflaeche);
       if(fd.bgNotizen) upd.notizen=fd.bgNotizen;
+      // Alleinerziehend nur setzen wenn explizit im Fragebogen angegeben, nicht automatisch bei Kindern
+      if(fd.alleinerziehend !== undefined) upd.alleinerziehend = fd.alleinerziehend === true || fd.alleinerziehend === "ja";
+      if(fd.hatKinder === "nein") { upd.alleinerziehend = false; upd.kinder = []; }
       if(Array.isArray(fd.kinder)&&fd.kinder.length>0){
-        upd.alleinerziehend=true;
         upd.kinder=fd.kinder.map(function(k){
           var geb=k.geburt?new Date(k.geburt):null;
           var age=geb?Math.floor((new Date()-geb)/(365.25*24*3600*1000)):0;
@@ -3216,6 +3887,12 @@ function App() {
         if(af.mitglied===(match.vorname+" "+match.name)&&af.status==="unbeantwortet")return Object.assign({},af,{status:"beantwortet"});
         return af;
       });});
+      // BUGFIX: ID als transferriert markieren damit Polling nicht erneut überträgt
+      setTransferrierteIds(function(prev){
+        var next=new Set(prev); next.add(f.id);
+        try{localStorage.setItem("isuv_transfer_ids",JSON.stringify([...next].slice(-200)));}catch(e){}
+        return next;
+      });
     });
   };
 
@@ -3411,9 +4088,13 @@ function App() {
               </div>
               {showFormulare && (
                 <div style={{ marginTop:"10px" }}>
-                  {/* ── SOZIALRECHT ── */}
-                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#1b5e20", textTransform:"uppercase", backgroundColor:"#e8f5e9", borderRadius:"5px", padding:"4px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>🏛️ Sozialrecht (SGB II / WoGG)</div>
-                  {[
+                  {/* ── SOZIALRECHT – ein-/ausklappbar ── */}
+                  <div onClick={function(){ setShowSozialrechtFormulare(function(p){ return !p; }); }}
+                    style={{ fontSize:"10px", fontWeight:"bold", color:"#1b5e20", textTransform:"uppercase", backgroundColor:"#e8f5e9", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", letterSpacing:"0.5px", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span>🏛️ Sozialrecht (SGB II / WoGG)</span>
+                    <span>{showSozialrechtFormulare ? "▲" : "▼"}</span>
+                  </div>
+                  {showSozialrechtFormulare && [
                     { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Wohnen", farbe:"#1b5e20" },
                     { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen", farbe:"#1b5e20" },
                     { id:"tbg", label:"📋 Anlage TBG (Bürgergeld)", desc:"Temporäre Bedarfsgemeinschaft", farbe:"#1b5e20" },
@@ -3459,7 +4140,7 @@ function App() {
                                   if (!mail.includes("@")) { return; }
                                   var jetzt = new Date();
                                   var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
-                                  var formLabel = f.label.replace("📋 ", "");
+                                  var formLabel = f.label.replace("📋 ", "").replace("🏛️ ", "");
                                   setAusgangFormulare(function(prev) {
                                     return prev.concat([{ id: Date.now(), typ: formLabel, empfaenger: mail, mitglied: null, datum: ds, status: "unbeantwortet", kanal: "✉️ E-Mail", vorausgefuellt: false }]);
                                   });
@@ -3475,9 +4156,6 @@ function App() {
                                 ✕
                               </button>
                             </div>
-                            {versandMail[f.id + "_sendMail"] && !versandMail[f.id + "_sendMail"].includes("@") && (
-                              <div style={{ fontSize:"10px", color:"#e53935", marginTop:"4px" }}>Bitte gültige E-Mail-Adresse eingeben.</div>
-                            )}
                           </div>
                         )}
                         {versandMail[f.id + "_gesendet"] && !versandMail[f.id + "_sendDialog"] && (
@@ -3489,12 +4167,19 @@ function App() {
                     );
                   })}
 
-                  {/* ── FAMILIENRECHT ── */}
-                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"4px 8px", marginBottom:"8px", marginTop:"12px", letterSpacing:"0.5px" }}>⚖️ Familienrecht (BGB / Unterhaltsrecht)</div>
-                  {[
-                    { id:"fr_kindesunterhalt", label:"👶 Kindesunterhalt-Fragebogen", desc:"Düsseldorfer Tabelle, Selbstbehalt, Mangelfall", farbe:"#003366" },
-                    { id:"fr_wechselmodell", label:"🔄 Wechselmodell-Fragebogen", desc:"Betreuungsaufteilung, Fahrtkosten, BGH XII ZB 234/15", farbe:"#003366" },
-                    { id:"fr_rechtsvergleich", label:"⚖️ Familienrecht vs. Sozialrecht", desc:"Vergleich Selbstbehalt / SGB II Bedarf / Wohnraum", farbe:"#6a1b9a" },
+                  {/* ── FAMILIENRECHT – ein-/ausklappbar ── */}
+                  <div onClick={function(){ setShowFamilienrechtFormulare(function(p){ return !p; }); }}
+                    style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", marginTop:"12px", letterSpacing:"0.5px", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span>⚖️ Familienrecht (BGB / Unterhaltsrecht)</span>
+                    <span>{showFamilienrechtFormulare ? "▲" : "▼"}</span>
+                  </div>
+                  {showFamilienrechtFormulare && [
+                    { id:"fr_kindesunterhalt", label:"👶 Kindesunterhalt-Fragebogen", desc:"Düsseldorfer Tabelle, Selbstbehalt, Mangelfall", farbe:"#003366", versendbar:false },
+                    { id:"fr_wechselmodell", label:"🔄 Wechselmodell-Fragebogen", desc:"Betreuungsaufteilung, Fahrtkosten, BGH XII ZB 234/15", farbe:"#003366", versendbar:false },
+                    { id:"fr_rechtsvergleich", label:"⚖️ Familienrecht vs. Sozialrecht", desc:"Vergleich Selbstbehalt / SGB II Bedarf / Wohnraum", farbe:"#6a1b9a", versendbar:false },
+                    { id:"fr_umgang", label:"🤝 Musterantrag Umgang", desc:"§ 1684 BGB – Antrag auf Umgangsregelung", farbe:"#1565c0", versendbar:true },
+                    { id:"fr_sorgerecht", label:"👨‍👩‍👧 Antrag Gemeinsames Sorgerecht", desc:"§ 1626a BGB – Gemeinsame elterliche Sorge", farbe:"#1565c0", versendbar:true },
+                    { id:"fr_trennungsvereinbarung", label:"📄 Trennungs-/Scheidungsfragebogen", desc:"Vermögensauseinandersetzung, Unterhalt, Kinder", farbe:"#4a148c", versendbar:true },
                   ].map(function(f) {
                     return (
                       <div key={f.id}
@@ -3502,8 +4187,22 @@ function App() {
                         onClick={function() { setView(f.id); }}
                         onMouseEnter={function(e){ e.currentTarget.style.backgroundColor="#edf2fb"; }}
                         onMouseLeave={function(e){ e.currentTarget.style.backgroundColor="#f9f9f9"; }}>
-                        <div style={{ fontWeight:"bold", fontSize:"13px" }}>{f.label}</div>
-                        <div style={{ fontSize:"10px", color:"#999", marginTop:"2px" }}>{f.desc}</div>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                          <div>
+                            <div style={{ fontWeight:"bold", fontSize:"13px" }}>{f.label}</div>
+                            <div style={{ fontSize:"10px", color:"#999", marginTop:"2px" }}>{f.desc}</div>
+                            <div style={{ fontSize:"10px", color:"#003366", marginTop:"3px", opacity:0.7 }}>👆 Antippen zum Öffnen</div>
+                          </div>
+                          {f.versendbar && (
+                            <div onClick={function(e){ e.stopPropagation(); }}>
+                              <button
+                                onClick={function() { setFormularVersandDialogNeu({ member: null, formTyp: f.id }); setVersandFelder(null); }}
+                                style={{ backgroundColor:"#1565c0", color:"#fff", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:"bold", padding:"5px 10px", borderRadius:"5px" }}>
+                                📤 Senden
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -3895,7 +4594,11 @@ function App() {
                       mieteKalt:ext2.mieteKalt||"", nebenkosten:ext2.nebenkosten||"", heizkosten:ext2.heizkosten||"",
                       fahrtkostenKm:ext2.fahrtkostenKm||"", fahrtkostenFahrtenProMonat:ext2.fahrtkostenFahrtenProMonat||"",
                       anzahlKinder:ext2.anzahlKinder||"", kinderAlter:ext2.kinderAlter||"",
-                      kindergeldBezug:ext2.kindergeldBezug||"", kindGemeldetBei:ext2.kindGemeldetBei||""
+                      kindergeldBezug:ext2.kindergeldBezug||"", kindGemeldetBei:ext2.kindGemeldetBei||"",
+                      alleinerziehend: ext2.alleinerziehend||false,
+                      unterhaltsTitel: ext2.unterhaltsTitel||false,
+                      unterhaltBetrag: ext2.unterhaltBetrag||"",
+                      kinder: (ext2.kinder||[]).map(function(k){ return Object.assign({},k); })
                     });
                     setEditMemberMode(true);
                   }}
@@ -3905,7 +4608,7 @@ function App() {
               ) : (
                 <div style={{ display:"flex", gap:"6px" }}>
                   <button onClick={function() {
-                    var extrasFelder = ["familienstand","betreuungsmodell","einkommenNetto","einkommenBrutto","arbeitsstatus","mieteKalt","nebenkosten","heizkosten","fahrtkostenKm","fahrtkostenFahrtenProMonat","geburt"];
+                    var extrasFelder = ["familienstand","betreuungsmodell","einkommenNetto","einkommenBrutto","arbeitsstatus","mieteKalt","nebenkosten","heizkosten","fahrtkostenKm","fahrtkostenFahrtenProMonat","geburt","alleinerziehend","unterhaltsTitel","unterhaltBetrag","kinder"];
                     var memberFelder = ["vorname","name","tel","mail","strasse","plz","ort"];
                     var memberUpd = {}; memberFelder.forEach(function(f){ if(editDaten[f]!==undefined) memberUpd[f]=editDaten[f]; });
                     var extrasUpd = {}; extrasFelder.forEach(function(f){ if(editDaten[f]!==undefined) extrasUpd[f]=editDaten[f]; });
@@ -3976,30 +4679,75 @@ function App() {
                 </select>
 
                 {/* KINDER */}
-                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"4px", padding:"4px 8px", marginTop:"12px", marginBottom:"8px" }}>👶 Kinder</div>
-                <div style={{ display:"flex", gap:"8px" }}>
-                  <div style={{ flex:1 }}>
-                    <label style={styles.label}>Anzahl Kinder</label>
-                    <input type="number" min="0" max="10" style={styles.input} value={editDaten.anzahlKinder||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{anzahlKinder:v}); }); }} />
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <label style={styles.label}>Alter (kommagetrennt)</label>
-                    <input style={styles.input} placeholder="z.B. 8, 12" value={editDaten.kinderAlter||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{kinderAlter:v}); }); }} />
-                  </div>
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"4px", padding:"4px 8px", marginTop:"12px", marginBottom:"8px" }}>👶 Kinder & Unterhalt</div>
+                <label style={styles.label}>Alleinerziehend</label>
+                <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                  {[{v:true,l:"Ja"},{v:false,l:"Nein"}].map(function(o){
+                    return <div key={String(o.v)} onClick={function(){ setEditMemberDaten(function(p){ return Object.assign({},p,{alleinerziehend:o.v}); }); }}
+                      style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
+                        backgroundColor: editDaten.alleinerziehend===o.v ? "#003366" : "#eee",
+                        color: editDaten.alleinerziehend===o.v ? "#fff" : "#333" }}>{o.l}</div>;
+                  })}
                 </div>
+                <label style={styles.label}>Unterhaltstitel vorhanden</label>
+                <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+                  {[{v:true,l:"Ja"},{v:false,l:"Nein"}].map(function(o){
+                    return <div key={String(o.v)} onClick={function(){ setEditMemberDaten(function(p){ return Object.assign({},p,{unterhaltsTitel:o.v}); }); }}
+                      style={{ padding:"6px 16px", borderRadius:"6px", cursor:"pointer", fontSize:"12px", fontWeight:"bold",
+                        backgroundColor: editDaten.unterhaltsTitel===o.v ? "#f57f17" : "#eee",
+                        color: editDaten.unterhaltsTitel===o.v ? "#fff" : "#333" }}>{o.l}</div>;
+                  })}
+                </div>
+                {editDaten.unterhaltsTitel && (
+                  <div>
+                    <label style={styles.label}>Unterhaltsbetrag laut Titel (€/Monat)</label>
+                    <input type="number" style={styles.input} placeholder="z.B. 426" value={editDaten.unterhaltBetrag||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{unterhaltBetrag:v}); }); }} />
+                  </div>
+                )}
+                {/* Kinder einzeln bearbeitbar */}
+                {(editDaten.kinder||[]).map(function(kind, idx){
+                  var updK = function(feld,wert){ setEditMemberDaten(function(p){ var nk=(p.kinder||[]).map(function(k,i){ return i===idx?Object.assign({},k,{[feld]:wert}):k; }); return Object.assign({},p,{kinder:nk}); }); };
+                  return (
+                    <div key={idx} style={{ backgroundColor:"#f0f7ff", borderRadius:"8px", padding:"10px", marginBottom:"8px", borderLeft:"3px solid #003366" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"6px" }}>
+                        <strong style={{ fontSize:"12px", color:"#003366" }}>Kind {idx+1}: {kind.name||kind.vorname||"–"}</strong>
+                        <button onClick={function(){ setEditMemberDaten(function(p){ var nk=(p.kinder||[]).filter(function(_,i){ return i!==idx; }); return Object.assign({},p,{kinder:nk}); }); }}
+                          style={{ background:"none", border:"none", color:"#e53935", cursor:"pointer", fontSize:"16px", padding:0 }}>×</button>
+                      </div>
+                      <div style={{ display:"flex", gap:"6px" }}>
+                        <div style={{ flex:1 }}><label style={styles.label}>Vorname</label><input style={styles.input} value={(kind.name||"").split(", ")[1]||kind.vorname||""} onChange={function(e){ var v=e.target.value; var nach=(kind.name||"").split(", ")[0]||""; updK("name",nach+", "+v); }} /></div>
+                        <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={(kind.name||"").split(", ")[0]||kind.nachname||""} onChange={function(e){ var v=e.target.value; var vor=(kind.name||"").split(", ")[1]||""; updK("name",v+", "+vor); }} /></div>
+                      </div>
+                      <label style={styles.label}>Geburtsdatum</label>
+                      <input type="date" style={styles.input} value={kind.geburt||""} onChange={function(e){ updK("geburt",e.target.value); }} />
+                      <label style={styles.label}>Unterhaltstitel für dieses Kind</label>
+                      <div style={{ display:"flex", gap:"6px", marginBottom:"8px" }}>
+                        {["ja","nein","Titel beantragt"].map(function(v){
+                          return <div key={v} onClick={function(){ updK("unterhaltsTitel",v); }}
+                            style={{ padding:"4px 10px", borderRadius:"6px", cursor:"pointer", fontSize:"11px",
+                              backgroundColor: kind.unterhaltsTitel===v ? "#f57f17" : "#eee",
+                              color: kind.unterhaltsTitel===v ? "#fff" : "#333" }}>{v}</div>;
+                        })}
+                      </div>
+                      {kind.unterhaltsTitel==="ja" && (
+                        <div>
+                          <label style={styles.label}>Titelbetrag (€/Monat)</label>
+                          <input type="number" style={styles.input} placeholder="z.B. 426" value={kind.unterhaltsTitelBetrag||""} onChange={function(e){ updK("unterhaltsTitelBetrag",e.target.value); }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <button onClick={function(){ setEditMemberDaten(function(p){ var nk=(p.kinder||[]).concat([{name:"", vorname:"", geburt:"", unterhaltsTitel:"nein", unterhaltsTitelBetrag:"", wohnort:"bei Antragsteller", uvg:false, kg:true}]); return Object.assign({},p,{kinder:nk}); }); }}
+                  style={{ fontSize:"11px", padding:"6px 12px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px dashed #003366", borderRadius:"6px", cursor:"pointer", marginBottom:"10px", width:"100%" }}>
+                  + Kind hinzufügen
+                </button>
                 <label style={styles.label}>Kindergeld-Bezug</label>
                 <select style={styles.input} value={editDaten.kindergeldBezug||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{kindergeldBezug:v}); }); }}>
                   <option value="">– wählen –</option>
                   <option value="ich">Ich beziehe Kindergeld</option>
                   <option value="anderer">Andere Person bezieht Kindergeld</option>
                   <option value="keines">Kein Kindergeld (kein Anspruch)</option>
-                </select>
-                <label style={styles.label}>Betreuungssituation (Kind gemeldet bei)</label>
-                <select style={styles.input} value={editDaten.kindGemeldetBei||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{kindGemeldetBei:v}); }); }}>
-                  <option value="">– wählen –</option>
-                  <option value="mir">Bei mir gemeldet</option>
-                  <option value="anderem">Bei anderem Elternteil gemeldet</option>
-                  <option value="wechsel">Wechselweise gemeldet</option>
                 </select>
 
                 {/* EINKOMMEN */}
@@ -5740,7 +6488,7 @@ function App() {
         {/* ============================================= */}
         {/* FAMILIENRECHT-FORMULARE                       */}
         {/* ============================================= */}
-        {(view === "fr_kindesunterhalt" || view === "fr_wechselmodell" || view === "fr_rechtsvergleich") && (
+        {(view === "fr_kindesunterhalt" || view === "fr_wechselmodell" || view === "fr_rechtsvergleich" || view === "fr_umgang" || view === "fr_sorgerecht" || view === "fr_trennungsvereinbarung") && (
           <div style={styles.formPage}>
             <div style={{ textAlign:"center", padding:"24px 16px 16px" }}>
               <img src={window.ISUV_LOGO} alt="ISUV" style={{ width:"160px", height:"auto", marginBottom:"12px" }} />
@@ -6358,6 +7106,9 @@ function App() {
                   { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Kinder" },
                   { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen" },
                   { id:"tbg", label:"📋 Anlage TBG", desc:"Temporäre Bedarfsgemeinschaft" },
+                  { id:"fr_umgang", label:"🤝 Musterantrag Umgang", desc:"§ 1684 BGB – Umgangsregelung" },
+                  { id:"fr_sorgerecht", label:"👨‍👩‍👧 Antrag Gemeinsames Sorgerecht", desc:"§ 1626a BGB – Elterliche Sorge" },
+                  { id:"fr_trennungsvereinbarung", label:"📄 Trennungs-/Scheidungsfragebogen", desc:"Vermögen, Unterhalt, Kinder" },
                 ].map(function(f) {
                   var sel = formularVersandDialogNeu.formTyp === f.id;
                   return (
