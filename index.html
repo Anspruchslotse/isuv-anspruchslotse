@@ -1831,8 +1831,13 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
   var [gedruckt, setGedruckt] = React.useState(false);
 
   var drucken = function() {
-    var antragsteller = daten.antragsteller_rolle === "vater" ? (daten.vater_name||"_______________") : (daten.mutter_name||"_______________");
-    var antragsgegner = daten.antragsteller_rolle === "vater" ? (daten.mutter_name||"_______________") : (daten.vater_name||"_______________");
+    // Unterstützt beide Feldnamen-Varianten (alt: vater_name/mutter_name, neu: antragsteller_name/gegenseite_name)
+    var rolle = daten.antragsteller_rolle || "vater";
+    var antragstellerName = daten.antragsteller_name || (rolle==="vater" ? daten.vater_name : daten.mutter_name) || "_______________";
+    var antragstellerAnschrift = daten.antragsteller_strasse ? (daten.antragsteller_strasse + ", " + (daten.antragsteller_plz||"") + " " + (daten.antragsteller_ort||"")).trim() : (rolle==="vater" ? daten.vater_anschrift : daten.mutter_anschrift) || "___";
+    var gegenseiteName = daten.gegenseite_name || (rolle==="vater" ? daten.mutter_name : daten.vater_name) || "_______________";
+    var gegenseiteAnschrift = daten.gegenseite_strasse ? (daten.gegenseite_strasse + ", " + (daten.gegenseite_plz||"") + " " + (daten.gegenseite_ort||"")).trim() : (rolle==="vater" ? daten.mutter_anschrift : daten.vater_anschrift) || "___";
+    var kindAnschrift = daten.kind_strasse ? (daten.kind_strasse + ", " + (daten.kind_plz||"") + " " + (daten.kind_ort||"")).trim() : (daten.kind_wohnort||"_______________");
     var html = "<html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;font-size:12px;margin:40px;color:#111;line-height:1.6}"
       + "h1{font-size:16px;text-align:center}h2{font-size:13px;color:#003366;border-bottom:1px solid #003366;margin-top:20px}"
       + ".row{display:flex;gap:40px;margin-bottom:8px}.label{font-weight:bold;min-width:180px}.val{flex:1}"
@@ -1845,16 +1850,16 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
       + "<h1>Antrag auf Begründung der gemeinsamen elterlichen Sorge</h1>"
       + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1626a Abs. 2 BGB</p>"
       + "<h2>Antragsteller/in</h2>"
-      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragsteller + "</span></div>"
-      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?(daten.vater_anschrift||"___"):(daten.mutter_anschrift||"___")) + "</span></div>"
-      + "<div class='row'><span class='label'>Stellung:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?"Vater des Kindes":"Mutter des Kindes") + "</span></div>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragstellerName + "</span></div>"
+      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + antragstellerAnschrift + "</span></div>"
+      + "<div class='row'><span class='label'>Stellung:</span><span class='val'>" + (rolle==="vater"?"Vater des Kindes":"Mutter des Kindes") + "</span></div>"
       + "<h2>Antragsgegner/in</h2>"
-      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragsgegner + "</span></div>"
-      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?(daten.mutter_anschrift||"___"):(daten.vater_anschrift||"___")) + "</span></div>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + gegenseiteName + "</span></div>"
+      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + gegenseiteAnschrift + "</span></div>"
       + "<h2>Betroffenes Kind</h2>"
       + "<div class='row'><span class='label'>Name:</span><span class='val'>" + (daten.kind_name||"_______________") + "</span></div>"
       + "<div class='row'><span class='label'>Geburtsdatum:</span><span class='val'>" + (daten.kind_geburt||"_______________") + "</span></div>"
-      + "<div class='row'><span class='label'>Lebt hauptsächlich bei:</span><span class='val'>" + (daten.kind_wohnort||"_______________") + "</span></div>"
+      + "<div class='row'><span class='label'>Wohnanschrift:</span><span class='val'>" + kindAnschrift + "</span></div>"
       + "<h2>Antrag</h2>"
       + "<p>Der Antragsteller / die Antragstellerin beantragt,</p>"
       + "<p style='margin-left:20px'>die <strong>gemeinsame elterliche Sorge</strong> für das oben genannte Kind gemäß § 1626a Abs. 2 BGB zu begründen.</p>"
@@ -5945,8 +5950,48 @@ function App() {
         {view === "sorgerecht_form" && (function() {
           var sd = formFelderDaten;
           var upd = function(f, v) { setFormFelderDaten(function(p) { return Object.assign({}, p, {[f]: v}); }); };
+
+          // Gericht per PLZ automatisch ermitteln
+          var [gerichtSuche, setGerichtSuche] = React.useState(false);
+          var [gerichtFehler, setGerichtFehler] = React.useState("");
+
+          var ermittleGericht = function() {
+            var plz = (sd.kind_plz || "").trim();
+            if (!plz || plz.length < 5) { setGerichtFehler("Bitte zuerst PLZ des Kindes eingeben."); return; }
+            setGerichtSuche(true); setGerichtFehler("");
+            fetch("https://www.justiz.de/onlinedienste/gerichtsverzeichnis/index.php?plz=" + encodeURIComponent(plz) + "&gtyp=AG&land=")
+              .then(function(r) { return r.text(); })
+              .then(function(html) {
+                // Parse Amtsgericht name from result
+                var match = html.match(/Amtsgericht\s+([^<"\n,]+)/i);
+                var nameMatch = match ? ("Amtsgericht " + match[1].trim()) : null;
+                // Try alternate pattern
+                if (!nameMatch) {
+                  var m2 = html.match(/<td[^>]*>\s*(Amtsgericht[^<]+)<\/td>/i);
+                  nameMatch = m2 ? m2[1].trim() : null;
+                }
+                if (nameMatch) {
+                  upd("gericht", nameMatch);
+                  setGerichtFehler("✅ Gericht ermittelt.");
+                } else {
+                  setGerichtFehler("⚠️ Kein Ergebnis – bitte manuell eintragen.");
+                }
+                setGerichtSuche(false);
+              })
+              .catch(function() {
+                // Fallback: try zefixat or bundestag API
+                fetch("https://sg.geodatenzentrum.de/web_public/gdz/geoserver/vg/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&typeNames=vg:vg5000_gem&outputFormat=application%2Fjson&CQL_FILTER=nuts_id%20IS%20NOT%20NULL&count=1&SORTBY=nuts_id")
+                  .catch(function(){})
+                  .finally(function(){
+                    setGerichtFehler("⚠️ Automatische Ermittlung nicht möglich. Bitte manuell eintragen:
+amtsgericht-" + plz.substring(0,3).toLowerCase() + ".de oder justiz.de");
+                    setGerichtSuche(false);
+                  });
+              });
+          };
+
           var absenden = function() {
-            var pflicht = [sd.vater_name, sd.mutter_name, sd.kind_name];
+            var pflicht = [sd.antragsteller_name, sd.gegenseite_name, sd.kind_name];
             if (pflicht.some(function(v) { return !v || !v.trim(); })) {
               alert("Bitte alle Pflichtfelder (*) ausfüllen."); return;
             }
@@ -5957,8 +6002,8 @@ function App() {
               status: "beantwortet",
               label: "Antrag Gemeinsames Sorgerecht",
               typ: "fr_sorgerecht",
-              mitglied_name: (sd.vater_name || sd.mutter_name || ""),
-              mitglied_mail: (sd.mail || ""),
+              mitglied_name: sd.antragsteller_name || "",
+              mitglied_mail: sd.mail || "",
               antwort_daten: JSON.stringify(sd),
               beantwortet_am: new Date().toISOString()
             };
@@ -5967,10 +6012,13 @@ function App() {
               headers: { "Content-Type": "application/json", "apikey": sbKey, "Authorization": "Bearer " + sbKey, "Prefer": "return=minimal" },
               body: JSON.stringify(payload)
             }).then(function(r) {
-              if (r.ok) { setView("dashboard"); setFormFelderDaten({}); alert("Antrag erfolgreich übermittelt."); }
+              if (r.ok) { setView("dashboard"); setFormFelderDaten({}); alert("Angaben erfolgreich übermittelt."); }
               else { alert("Fehler beim Senden. Bitte erneut versuchen."); }
             }).catch(function() { alert("Netzwerkfehler. Bitte erneut versuchen."); });
           };
+
+          
+
           return (
             <div style={styles.formPage}>
               <div style={{ textAlign:"center", padding:"24px 16px 16px" }}>
@@ -5980,30 +6028,70 @@ function App() {
               </div>
               <button onClick={function() { setView("dashboard"); setFormFelderDaten({}); }} style={{ background:"none", border:"none", color:"#003366", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"12px", padding:"0 16px", display:"block" }}>‹ Abbrechen</button>
               <div style={{ padding:"0 16px" }}>
+
                 <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#2e7d32" }}>
-                  ✅ <strong>Keine Begründung erforderlich.</strong> Gemäß § 1626a Abs. 2 BGB (Reform 19.05.2013) und BVerfG (1 BvR 420/09) wird die gemeinsame Sorge übertragen, sofern dies dem Kindeswohl nicht widerspricht. Die Beweislast liegt beim ablehnenden Elternteil.
+                  ✅ <strong>Keine Begründung erforderlich.</strong> Nach § 1626a Abs. 2 BGB (Reform 2013) wird die gemeinsame Sorge übertragen, sofern sie dem Kindeswohl nicht widerspricht. Die Beweislast liegt beim ablehnenden Elternteil.
                 </div>
 
-                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>Vater</div>
+                {/* Antragsteller */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>Vater (Antragsteller)</div>
                 <label style={styles.label}>Vollständiger Name *</label>
-                <input style={styles.input} placeholder="Vorname Nachname" value={sd.vater_name||""} onChange={function(e){ upd("vater_name", e.target.value); }} />
-                <label style={styles.label}>Anschrift</label>
-                <input style={styles.input} placeholder="Straße, PLZ Ort" value={sd.vater_anschrift||""} onChange={function(e){ upd("vater_anschrift", e.target.value); }} />
+                <input style={styles.input} placeholder="Vorname Nachname" value={sd.antragsteller_name||""} onChange={function(e){ upd("antragsteller_name", e.target.value); }} />
+                <label style={styles.label}>Straße & Hausnummer</label>
+                <input style={styles.input} placeholder="Musterstraße 1" value={sd.antragsteller_strasse||""} onChange={function(e){ upd("antragsteller_strasse", e.target.value); }} />
+                <div style={{ display:"flex", gap:"6px" }}>
+                  <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} placeholder="12345" value={sd.antragsteller_plz||""} onChange={function(e){ upd("antragsteller_plz", e.target.value); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={sd.antragsteller_ort||""} onChange={function(e){ upd("antragsteller_ort", e.target.value); }} /></div>
+                </div>
 
-                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>Mutter</div>
+                {/* Gegenseite */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>"Mutter (Antragsgegnerin)"</div>
                 <label style={styles.label}>Vollständiger Name *</label>
-                <input style={styles.input} placeholder="Vorname Nachname" value={sd.mutter_name||""} onChange={function(e){ upd("mutter_name", e.target.value); }} />
-                <label style={styles.label}>Anschrift</label>
-                <input style={styles.input} placeholder="Straße, PLZ Ort" value={sd.mutter_anschrift||""} onChange={function(e){ upd("mutter_anschrift", e.target.value); }} />
+                <input style={styles.input} placeholder="Vorname Nachname" value={sd.gegenseite_name||""} onChange={function(e){ upd("gegenseite_name", e.target.value); }} />
+                <label style={styles.label}>Straße & Hausnummer</label>
+                <input style={styles.input} placeholder="Musterstraße 1" value={sd.gegenseite_strasse||""} onChange={function(e){ upd("gegenseite_strasse", e.target.value); }} />
+                <div style={{ display:"flex", gap:"6px" }}>
+                  <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} placeholder="12345" value={sd.gegenseite_plz||""} onChange={function(e){ upd("gegenseite_plz", e.target.value); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={sd.gegenseite_ort||""} onChange={function(e){ upd("gegenseite_ort", e.target.value); }} /></div>
+                </div>
 
+                {/* Kind */}
                 <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>Kind</div>
                 <label style={styles.label}>Vollständiger Name *</label>
                 <input style={styles.input} placeholder="Vorname Nachname" value={sd.kind_name||""} onChange={function(e){ upd("kind_name", e.target.value); }} />
                 <label style={styles.label}>Geburtsdatum</label>
                 <input style={styles.input} type="date" value={sd.kind_geburt||""} onChange={function(e){ upd("kind_geburt", e.target.value); }} />
+                <label style={styles.label}>Straße & Hausnummer (Hauptwohnsitz)</label>
+                <input style={styles.input} placeholder="Musterstraße 1" value={sd.kind_strasse||""} onChange={function(e){ upd("kind_strasse", e.target.value); }} />
+                <div style={{ display:"flex", gap:"6px" }}>
+                  <div style={{ width:"90px" }}>
+                    <label style={styles.label}>PLZ</label>
+                    <input style={styles.input} placeholder="12345" value={sd.kind_plz||""} onChange={function(e){ upd("kind_plz", e.target.value); setGerichtFehler(""); }} />
+                  </div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={sd.kind_ort||""} onChange={function(e){ upd("kind_ort", e.target.value); }} /></div>
+                </div>
+
+                {/* Gericht automatisch ermitteln */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>Zuständiges Gericht</div>
+                <div style={{ display:"flex", gap:"8px", marginBottom:"8px", alignItems:"flex-end" }}>
+                  <div style={{ flex:1 }}>
+                    <label style={styles.label}>Amtsgericht</label>
+                    <input style={styles.input} placeholder="Wird automatisch ermittelt oder manuell eintragen" value={sd.gericht||""} onChange={function(e){ upd("gericht", e.target.value); }} />
+                  </div>
+                  <button onClick={ermittleGericht} disabled={gerichtSuche}
+                    style={{ padding:"10px 12px", backgroundColor: gerichtSuche ? "#aaa" : "#1565c0", color:"#fff", border:"none", borderRadius:"6px", cursor: gerichtSuche ? "not-allowed" : "pointer", fontWeight:"bold", fontSize:"11px", whiteSpace:"nowrap", marginBottom:"10px" }}>
+                    {gerichtSuche ? "⏳ Suche..." : "🔍 Per PLZ ermitteln"}
+                  </button>
+                </div>
+                {gerichtFehler && (
+                  <div style={{ fontSize:"11px", color: gerichtFehler.startsWith("✅") ? "#2e7d32" : "#856404", backgroundColor: gerichtFehler.startsWith("✅") ? "#e8f5e9" : "#fff9e6", borderRadius:"6px", padding:"6px 10px", marginBottom:"8px" }}>
+                    {gerichtFehler}
+                  </div>
+                )}
+                <div style={{ fontSize:"10px", color:"#888", marginBottom:"8px" }}>ℹ️ Zuständig ist das Amtsgericht am <strong>Hauptwohnsitz des Kindes</strong> (§ 152 FamFG).</div>
 
                 <button onClick={absenden} style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"20px", marginBottom:"16px" }}>
-                  ✅ Antrag übermitteln
+                  ✅ Angaben übermitteln
                 </button>
               </div>
             </div>
@@ -7437,28 +7525,110 @@ function App() {
 
                 return (
                   <div>
-                    {/* Sorgerecht: direkt lokales Formular öffnen, kein Versand nötig */}
+                    {/* Sorgerecht: Versand per Link wie andere Formulare, ODER direkt lokal ausfüllen */}
                     {fTyp === "fr_sorgerecht" && (
                       <div>
-                        <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#2e7d32" }}>
-                          ✅ Der Antrag nach § 1626a Abs. 2 BGB enthält nur die nötigsten Angaben (Namen & Kind). Er wird direkt hier ausgefüllt und ausgedruckt – kein Versand per Link nötig.
+                        <div style={{ backgroundColor:"#e8f0fb", border:"1px solid #90caf9", borderRadius:"8px", padding:"10px 12px", marginBottom:"12px", fontSize:"11px", color:"#003366" }}>
+                          <strong>Aus der Akte bekannte Felder werden vorausgefüllt.</strong> Fehlende Angaben (z.B. Wohnanschrift Kind, Adresse des anderen Elternteils) füllt das Mitglied online aus.
                         </div>
-                        <button onClick={function() {
+                        {(function() {
                           var ext_m = m ? (memberExtras[m.id] || {}) : {};
-                          var kindName = ext_m.kinder && ext_m.kinder[0] ? ext_m.kinder[0].name || "" : "";
-                          var kindGeburt = ext_m.kinder && ext_m.kinder[0] ? ext_m.kinder[0].geburt || "" : "";
-                          setFormFelderDaten({
+                          var kind0 = ext_m.kinder && ext_m.kinder[0] ? ext_m.kinder[0] : null;
+                          var kindName = kind0 ? (kind0.name || "") : "";
+                          var kindGeburt = kind0 ? (kind0.geburt || "") : "";
+                          var mitgliedName = m ? (m.vorname + " " + m.name) : "";
+                          var vorausgefuellt = {
                             _formTyp: "fr_sorgerecht",
-                            vater_name: "", vater_anschrift: m ? (m.strasse ? m.strasse + ", " + (m.plz||"") + " " + (m.ort||"") : "") : "",
-                            mutter_name: "", mutter_anschrift: "",
-                            kind_name: kindName, kind_geburt: kindGeburt,
+                            antragsteller_rolle: "vater",
+                            antragsteller_name: mitgliedName,
+                            antragsteller_strasse: m ? m.strasse || "" : "",
+                            antragsteller_plz: m ? m.plz || "" : "",
+                            antragsteller_ort: m ? m.ort || "" : "",
+                            kind_name: kindName,
+                            kind_geburt: kindGeburt,
                             mail: m ? m.mail || "" : ""
-                          });
-                          setFormularVersandDialogNeu(null);
-                          setView("sorgerecht_form");
-                        }} style={{ width:"100%", padding:"12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px" }}>
-                          👨‍👩‍👧 Antrag jetzt ausfüllen & drucken
-                        </button>
+                          };
+                          var fehlendeFelder = [];
+                          if (!vorausgefuellt.antragsteller_strasse) fehlendeFelder.push("Eigene Anschrift");
+                          if (!vorausgefuellt.kind_name) fehlendeFelder.push("Name des Kindes");
+                          if (!vorausgefuellt.kind_geburt) fehlendeFelder.push("Geburtsdatum Kind");
+                          fehlendeFelder.push("Anschrift des Kindes");
+                          fehlendeFelder.push("Name & Anschrift Mutter");
+                          return (
+                            <div>
+                              {fehlendeFelder.length > 0 && (
+                                <div style={{ backgroundColor:"#fff9e6", border:"1px solid #ffc107", borderRadius:"6px", padding:"8px 10px", marginBottom:"10px", fontSize:"11px" }}>
+                                  <strong>⚠️ Noch nicht bekannt:</strong> {fehlendeFelder.join(", ")}
+                                </div>
+                              )}
+                              <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                                <button onClick={function() {
+                                  setFormFelderDaten(vorausgefuellt);
+                                  setFormularVersandDialogNeu(null);
+                                  setView("sorgerecht_form");
+                                }} style={{ width:"100%", padding:"10px", backgroundColor:"#1565c0", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                                  ✏️ Jetzt direkt ausfüllen & drucken
+                                </button>
+                                {sbReady() && m && m.mail && (
+                                  <button onClick={async function() {
+                                    var sbResult = await sbSaveFormular("fr_sorgerecht", "Antrag Gemeinsames Sorgerecht", m, vorausgefuellt);
+                                    if (!sbResult) { alert("Supabase Fehler."); return; }
+                                    var betreff = "ISUV Anspruchslotse – Angaben für Sorgerechtsantrag";
+                                    var body = "Guten Tag " + (m.vorname||"") + ",
+
+bitte ergänzen Sie die fehlenden Angaben für den Antrag auf gemeinsames Sorgerecht (§ 1626a Abs. 2 BGB):
+
+🔗 " + sbResult.url + "
+
+Benötigt werden:
+" + fehlendeFelder.map(function(f){ return "  • " + f; }).join("
+") + "
+
+Bei Fragen: " + (loginDaten.email||"") + "
+
+" + (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
+                                    window.open("mailto:" + encodeURIComponent(m.mail) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(body));
+                                    var jetzt = new Date();
+                                    var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
+                                    setAusgangFormulare(function(prev) { return prev.concat([{ id: sbResult.id, typ:"Antrag Gemeinsames Sorgerecht", empfaenger: m.mail, mitglied: m.vorname + " " + m.name, datum: ds, status:"unbeantwortet", kanal:"✉️ E-Mail", formLink: sbResult.url }]); });
+                                    setFormularVersandDialogNeu(null); setShowAusgang(true);
+                                  }} style={{ width:"100%", padding:"10px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                                    ✉️ Per E-Mail senden (fehlende Angaben anfordern)
+                                  </button>
+                                )}
+                                {sbReady() && m && m.tel && (
+                                  <button onClick={async function() {
+                                    var sbResult = await sbSaveFormular("fr_sorgerecht", "Antrag Gemeinsames Sorgerecht", m, vorausgefuellt);
+                                    if (!sbResult) { alert("Supabase Fehler."); return; }
+                                    var empfTel = m.tel.replace(/[^0-9]/g,"").replace(/^0/,"49");
+                                    var msg = "Hallo " + (m.vorname||"") + ",
+
+bitte ergänzen Sie die fehlenden Angaben für den Sorgerechtsantrag:
+
+" + fehlendeFelder.map(function(f){ return "• " + f; }).join("
+") + "
+
+🔗 " + sbResult.url + "
+
+" + (loginDaten.leiter||"ISUV");
+                                    window.open("https://wa.me/" + empfTel + "?text=" + encodeURIComponent(msg));
+                                    var jetzt = new Date();
+                                    var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
+                                    setAusgangFormulare(function(prev) { return prev.concat([{ id: sbResult.id, typ:"Antrag Gemeinsames Sorgerecht", empfaenger: m.tel, mitglied: m.vorname + " " + m.name, datum: ds, status:"unbeantwortet", kanal:"📱 WhatsApp", formLink: sbResult.url }]); });
+                                    setFormularVersandDialogNeu(null); setShowAusgang(true);
+                                  }} style={{ width:"100%", padding:"10px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                                    📱 Per WhatsApp senden (fehlende Angaben anfordern)
+                                  </button>
+                                )}
+                                {!sbReady() && (
+                                  <div style={{ fontSize:"10px", color:"#856404", backgroundColor:"#fff9e6", borderRadius:"6px", padding:"6px 10px" }}>
+                                    ⚠️ Für Versand per Link: Supabase im Profil einrichten.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                     {fTyp !== "fr_sorgerecht" && (
