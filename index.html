@@ -89,6 +89,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="text/babel" data-presets="react">
+
 const { useState, useEffect, useRef } = React;
 
 // =============================================
@@ -1668,7 +1669,7 @@ function FristenRechner() {
 // =============================================
 
 function UmgangsantragFormular({ ext, onSaveErgebnis }) {
-  var u = useStyles();
+  var u = rStyles;
   var [daten, setDaten] = React.useState({
     antragsteller_name: ext ? "" : "",
     antragsteller_anschrift: "",
@@ -1802,7 +1803,7 @@ function UmgangsantragFormular({ ext, onSaveErgebnis }) {
 }
 
 function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
-  var u = useStyles();
+  var u = rStyles;
   var [daten, setDaten] = React.useState({
     mutter_name: "", mutter_anschrift: "",
     vater_name: "", vater_anschrift: "",
@@ -1954,7 +1955,7 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
 }
 
 function TrennungsFragebogen({ ext, onSaveErgebnis }) {
-  var u = useStyles();
+  var u = rStyles;
   var [abschnitt, setAbschnitt] = React.useState(0);
   var [daten, setDaten] = React.useState({
     // Personen
@@ -2367,7 +2368,7 @@ function FamilienrechtView({ view, activeMember, memberExtras, setView, setMembe
         {view==="fr_fristen" && <FristenRechner />}
         {view==="fr_umgang" && <UmgangsantragFormular ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
         {view==="fr_sorgerecht" && <SorgerechtAntragFormular ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
-        {view==="fr_trennungsvereinbarung" && <TrennungsFragebogen ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}}
+        {view==="fr_trennungsvereinbarung" && <TrennungsFragebogen ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
       </div>
     </div>
   );
@@ -3567,6 +3568,9 @@ function MehrDatenView({ ext }) {
 // =============================================
 // HAUPT-APP
 // =============================================
+</script>
+  <script type="text/babel" data-presets="react">
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginDaten, setLoginDaten] = useState(() => {
@@ -4174,8 +4178,8 @@ function App() {
                     <span>{showFamilienrechtFormulare ? "▲" : "▼"}</span>
                   </div>
                   {showFamilienrechtFormulare && [
-                    { id:"fr_kindesunterhalt", label:"👶 Kindesunterhalt-Fragebogen", desc:"Düsseldorfer Tabelle, Selbstbehalt, Mangelfall", farbe:"#003366", versendbar:false },
-                    { id:"fr_wechselmodell", label:"🔄 Wechselmodell-Fragebogen", desc:"Betreuungsaufteilung, Fahrtkosten, BGH XII ZB 234/15", farbe:"#003366", versendbar:false },
+                    { id:"fr_kindesunterhalt", label:"👶 Kindesunterhalt-Fragebogen", desc:"Düsseldorfer Tabelle, Selbstbehalt, Mangelfall", farbe:"#003366", versendbar:true },
+                    { id:"fr_wechselmodell", label:"🔄 Wechselmodell-Fragebogen", desc:"Betreuungsaufteilung, Fahrtkosten, BGH XII ZB 234/15", farbe:"#003366", versendbar:true },
                     { id:"fr_rechtsvergleich", label:"⚖️ Familienrecht vs. Sozialrecht", desc:"Vergleich Selbstbehalt / SGB II Bedarf / Wohnraum", farbe:"#6a1b9a", versendbar:false },
                     { id:"fr_umgang", label:"🤝 Musterantrag Umgang", desc:"§ 1684 BGB – Antrag auf Umgangsregelung", farbe:"#1565c0", versendbar:true },
                     { id:"fr_sorgerecht", label:"👨‍👩‍👧 Antrag Gemeinsames Sorgerecht", desc:"§ 1626a BGB – Gemeinsame elterliche Sorge", farbe:"#1565c0", versendbar:true },
@@ -6496,7 +6500,10 @@ function App() {
               <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>
                 {view==="fr_kindesunterhalt" ? "Kindesunterhalt – Düsseldorfer Tabelle" :
                  view==="fr_rechtsvergleich" ? "Rechtsvergleich: Familienrecht vs. Sozialrecht" :
-                 "Wechselmodell-Fragebogen"}
+                 view==="fr_wechselmodell" ? "Wechselmodell-Fragebogen" :
+                 view==="fr_umgang" ? "Musterantrag Umgang (§ 1684 BGB)" :
+                 view==="fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht (§ 1626a BGB)" :
+                 view==="fr_trennungsvereinbarung" ? "Trennungs-/Scheidungsfragebogen" : ""}
               </div>
             </div>
             <button onClick={function(){ setView("dashboard"); }} style={{ background:"none", border:"none", color:"#003366", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"12px", padding:"0 16px", display:"block" }}>‹ Zurück</button>
@@ -6536,6 +6543,45 @@ function App() {
                     <RechtsvergleichModul ext={activeMember ? (memberExtras[activeMember.id] || null) : null} />
                   </div>
                 </div>
+              )}
+              {view === "fr_umgang" && (
+                <UmgangsantragFormular
+                  ext={activeMember ? (memberExtras[activeMember.id] || null) : null}
+                  onSaveErgebnis={activeMember ? function(ergebnis) {
+                    var mid = activeMember.id;
+                    var jetzt = new Date().toLocaleDateString("de-DE");
+                    setMemberErgebnisse(function(prev) {
+                      var liste = (prev[mid] || []).slice(-19);
+                      return Object.assign({}, prev, { [mid]: liste.concat([Object.assign({datum:jetzt}, ergebnis)]) });
+                    });
+                  } : null}
+                />
+              )}
+              {view === "fr_sorgerecht" && (
+                <SorgerechtAntragFormular
+                  ext={activeMember ? (memberExtras[activeMember.id] || null) : null}
+                  onSaveErgebnis={activeMember ? function(ergebnis) {
+                    var mid = activeMember.id;
+                    var jetzt = new Date().toLocaleDateString("de-DE");
+                    setMemberErgebnisse(function(prev) {
+                      var liste = (prev[mid] || []).slice(-19);
+                      return Object.assign({}, prev, { [mid]: liste.concat([Object.assign({datum:jetzt}, ergebnis)]) });
+                    });
+                  } : null}
+                />
+              )}
+              {view === "fr_trennungsvereinbarung" && (
+                <TrennungsFragebogen
+                  ext={activeMember ? (memberExtras[activeMember.id] || null) : null}
+                  onSaveErgebnis={activeMember ? function(ergebnis) {
+                    var mid = activeMember.id;
+                    var jetzt = new Date().toLocaleDateString("de-DE");
+                    setMemberErgebnisse(function(prev) {
+                      var liste = (prev[mid] || []).slice(-19);
+                      return Object.assign({}, prev, { [mid]: liste.concat([Object.assign({datum:jetzt}, ergebnis)]) });
+                    });
+                  } : null}
+                />
               )}
             </div>
           </div>
@@ -7106,6 +7152,8 @@ function App() {
                   { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Kinder" },
                   { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen" },
                   { id:"tbg", label:"📋 Anlage TBG", desc:"Temporäre Bedarfsgemeinschaft" },
+                  { id:"fr_kindesunterhalt", label:"👶 Kindesunterhalt-Fragebogen", desc:"Düsseldorfer Tabelle, Selbstbehalt" },
+                  { id:"fr_wechselmodell", label:"🔄 Wechselmodell-Fragebogen", desc:"Betreuungsaufteilung, Fahrtkosten" },
                   { id:"fr_umgang", label:"🤝 Musterantrag Umgang", desc:"§ 1684 BGB – Umgangsregelung" },
                   { id:"fr_sorgerecht", label:"👨‍👩‍👧 Antrag Gemeinsames Sorgerecht", desc:"§ 1626a BGB – Elterliche Sorge" },
                   { id:"fr_trennungsvereinbarung", label:"📄 Trennungs-/Scheidungsfragebogen", desc:"Vermögen, Unterhalt, Kinder" },
@@ -7513,6 +7561,7 @@ const styles = {
 // App starten
 const domContainer = document.getElementById("root");
 const root = ReactDOM.createRoot(domContainer);
+
 root.render(<App />);
   </script>
   <script>
