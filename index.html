@@ -1687,7 +1687,7 @@ function UmgangsantragFormular({ ext, onSaveErgebnis }) {
     kindeswohl_hinweis: "",
     ort: "",
     datum: new Date().toLocaleDateString("de-DE"),
-    gericht: ""
+    gericht: "", gericht_abteilung: "", gericht_strasse: "", gericht_plz: "", gericht_ort: ""
   });
   var set = function(f,v){ setDaten(function(p){ return Object.assign({},p,{[f]:v}); }); };
   var [gedruckt, setGedruckt] = React.useState(false);
@@ -1699,7 +1699,10 @@ function UmgangsantragFormular({ ext, onSaveErgebnis }) {
       + ".gericht{text-align:right;margin-bottom:30px}.az{font-size:11px;color:#555}"
       + "p{margin:8px 0}.noprint{display:none}@media print{.noprint{display:none}}</style></head><body>"
       + "<div class='gericht'><strong>" + (daten.gericht || "Amtsgericht _______________") + "</strong><br>"
-      + "<span class='az'>Abteilung für Familiensachen</span></div>"
+      + (daten.gericht_abteilung ? "<span>" + daten.gericht_abteilung + "</span><br>" : "<span class='az'>Abteilung für Familiensachen</span><br>")
+      + (daten.gericht_strasse ? "<span>" + daten.gericht_strasse + "</span><br>" : "")
+      + (daten.gericht_plz||daten.gericht_ort ? "<span>" + (daten.gericht_plz||"") + " " + (daten.gericht_ort||"") + "</span>" : "")
+      + "</div>"
       + "<h1>Antrag auf Regelung des Umgangsrechts</h1>"
       + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1684 BGB</p>"
       + "<h2>Antragsteller / Antragstellerin</h2>"
@@ -1744,8 +1747,16 @@ function UmgangsantragFormular({ ext, onSaveErgebnis }) {
       </div>
 
       <div style={u.modSection}>Gericht</div>
-      <label style={u.label}>Zuständiges Amtsgericht / Familiengericht</label>
-      <input style={u.input} placeholder="z.B. Amtsgericht München – Familiensachen" value={daten.gericht} onChange={function(e){set("gericht",e.target.value);}} />
+      <label style={u.label}>Gerichtsbezeichnung</label>
+      <input style={u.input} placeholder="z.B. Amtsgericht Hamburg-Wandsbek" value={daten.gericht} onChange={function(e){set("gericht",e.target.value);}} />
+      <label style={u.label}>Abteilung</label>
+      <input style={u.input} placeholder="z.B. Abteilung für Familiensachen" value={daten.gericht_abteilung} onChange={function(e){set("gericht_abteilung",e.target.value);}} />
+      <label style={u.label}>Straße und Hausnummer</label>
+      <input style={u.input} placeholder="z.B. Schloßstraße 8" value={daten.gericht_strasse} onChange={function(e){set("gericht_strasse",e.target.value);}} />
+      <div style={{ display:"flex", gap:"6px" }}>
+        <div style={{ width:"90px" }}><label style={u.label}>PLZ</label><input style={u.input} placeholder="22041" value={daten.gericht_plz} onChange={function(e){set("gericht_plz",e.target.value);}} /></div>
+        <div style={{ flex:1 }}><label style={u.label}>Ort</label><input style={u.input} placeholder="Hamburg" value={daten.gericht_ort} onChange={function(e){set("gericht_ort",e.target.value);}} /></div>
+      </div>
 
       <div style={u.modSection}>Antragsteller/in</div>
       <label style={u.label}>Vollständiger Name</label>
@@ -1816,7 +1827,7 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
     begruendung: "",
     wohl_begruendung: "",
     kontakt_bestand: "",
-    gericht: "", ort: "",
+    gericht: "", gericht_abteilung: "", gericht_strasse: "", gericht_plz: "", gericht_ort: "", ort: "",
     datum: new Date().toLocaleDateString("de-DE")
   });
   var set = function(f,v){ setDaten(function(p){ return Object.assign({},p,{[f]:v}); }); };
@@ -1829,9 +1840,13 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
       + "h1{font-size:16px;text-align:center}h2{font-size:13px;color:#003366;border-bottom:1px solid #003366;margin-top:20px}"
       + ".row{display:flex;gap:40px;margin-bottom:8px}.label{font-weight:bold;min-width:180px}.val{flex:1}"
       + "p{margin:8px 0}</style></head><body>"
-      + "<div style='text-align:right;margin-bottom:30px'><strong>" + (daten.gericht||"Amtsgericht _______________") + "</strong><br><span style='font-size:11px'>Abteilung für Familiensachen</span></div>"
-      + "<h1>Antrag auf Übertragung / Begründung des gemeinsamen Sorgerechts</h1>"
-      + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1626a BGB</p>"
+      + "<div style='text-align:right;margin-bottom:30px'><strong>" + (daten.gericht||"Amtsgericht _______________") + "</strong><br>"
+      + "<span style='font-size:11px'>" + (daten.gericht_abteilung||"Abteilung für Familiensachen") + "</span><br>"
+      + (daten.gericht_strasse ? "<span style='font-size:11px'>" + daten.gericht_strasse + "</span><br>" : "")
+      + (daten.gericht_plz||daten.gericht_ort ? "<span style='font-size:11px'>" + (daten.gericht_plz||"") + " " + (daten.gericht_ort||"") + "</span>" : "")
+      + "</div>"
+      + "<h1>Antrag auf Begründung der gemeinsamen elterlichen Sorge</h1>"
+      + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1626a Abs. 1 Nr. 3 BGB</p>"
       + "<h2>Antragsteller/in</h2>"
       + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragsteller + "</span></div>"
       + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?(daten.vater_anschrift||"___"):(daten.mutter_anschrift||"___")) + "</span></div>"
@@ -1844,15 +1859,13 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
       + "<div class='row'><span class='label'>Geburtsdatum:</span><span class='val'>" + (daten.kind_geburt||"_______________") + "</span></div>"
       + "<div class='row'><span class='label'>Lebt hauptsächlich bei:</span><span class='val'>" + (daten.kind_wohnort||"_______________") + "</span></div>"
       + "<h2>Antrag</h2>"
-      + "<p>Der Antragsteller / die Antragstellerin beantragt, die <strong>gemeinsame elterliche Sorge</strong> für das oben genannte Kind zu begründen (§ 1626a Abs. 1 Nr. 3 BGB).</p>"
-      + "<p>Der andere Elternteil ist derzeit <strong>allein sorgeberechtigt</strong>. Die Eltern sind " + (daten.beziehungsstatus==="getrennt"?"getrennt lebend":"nicht verheiratet") + ".</p>"
-      + (daten.gemeinsam_bisher==="ja" ? "<p>Die Eltern haben bisher gemeinsam gesorgt. Eine Sorgerechtsurkunde liegt " + (daten.gemeinsam_bisher==="ja"?"vor":"nicht vor") + ".</p>" : "")
-      + "<h2>Begründung</h2>"
-      + (daten.begruendung ? "<p>" + daten.begruendung + "</p>" : "")
-      + "<h2>Kindeswohl</h2>"
-      + "<p>" + (daten.wohl_begruendung || "Die Begründung des gemeinsamen Sorgerechts entspricht dem Kindeswohl. Der Antragsteller / die Antragstellerin ist aktiv in die Betreuung des Kindes eingebunden und hat regelmäßigen Kontakt. Eine gemeinsame Sorge fördert die Stabilität und das Wohlbefinden des Kindes.") + "</p>"
-      + (daten.kontakt_bestand ? "<p><strong>Bestehender Kontakt zum Kind:</strong> " + daten.kontakt_bestand + "</p>" : "")
-      + "<p style='font-size:11px;color:#555;margin-top:16px'><em>Rechtsgrundlagen: § 1626a BGB (Elterliche Sorge nicht miteinander verheirateter Eltern), § 1671 BGB (Übertragung der Alleinsorge), § 1697a BGB (Kindeswohlprinzip), BVerfG 1 BvR 1620/04</em></p>"
+      + "<p>Der Antragsteller / die Antragstellerin beantragt,</p>"
+      + "<p style='margin-left:20px'>die <strong>gemeinsame elterliche Sorge</strong> für das oben genannte Kind gemäß § 1626a Abs. 1 Nr. 3 BGB zu begründen.</p>"
+      + "<h2>Rechtliche Grundlage</h2>"
+      + "<p>Gemäß § 1626a Abs. 1 Nr. 3 BGB steht dem Antragsteller / der Antragstellerin ein <strong>Anspruch auf gemeinsame Sorge</strong> zu. Eine inhaltliche Begründung ist gesetzlich nicht erforderlich. Das Gericht überträgt die gemeinsame Sorge, sofern dies <strong>nicht dem Kindeswohl widerspricht</strong> (§ 1626a Abs. 2 BGB).</p>"
+      + "<p>Das Bundesverfassungsgericht hat mit Beschluss vom 21.07.2010 (1 BvR 420/09) entschieden, dass dem nicht mit der Mutter verheirateten Vater der Zugang zur gemeinsamen Sorge ohne Begründungspflicht und ohne Zustimmung der Mutter zu ermöglichen ist.</p>"
+      + (daten.kontakt_bestand ? "<h2>Angaben zum Kontakt mit dem Kind</h2><p>" + daten.kontakt_bestand + "</p>" : "")
+      + "<p style='font-size:11px;color:#555;margin-top:16px'><em>Rechtsgrundlagen: § 1626a BGB, § 1697a BGB (Kindeswohlprinzip), BVerfG 1 BvR 420/09 vom 21.07.2010</em></p>"
       + "<br><br><div style='display:flex;justify-content:space-between;margin-top:40px'>"
       + "<div>" + (daten.ort||"___________") + ", den " + (daten.datum||"___________") + "<br><br><div style='border-top:1px solid #000;width:200px;margin-top:40px;font-size:10px;text-align:center'>Unterschrift Antragsteller/in</div></div>"
       + "</div>"
@@ -1873,7 +1886,16 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
       </div>
 
       <div style={u.modSection}>Gericht</div>
-      <input style={u.input} placeholder="z.B. Amtsgericht Berlin-Mitte – Familiensachen" value={daten.gericht} onChange={function(e){set("gericht",e.target.value);}} />
+      <label style={u.label}>Gerichtsbezeichnung</label>
+      <input style={u.input} placeholder="z.B. Amtsgericht Hamburg-Altona" value={daten.gericht} onChange={function(e){set("gericht",e.target.value);}} />
+      <label style={u.label}>Abteilung</label>
+      <input style={u.input} placeholder="z.B. Abteilung für Familiensachen" value={daten.gericht_abteilung} onChange={function(e){set("gericht_abteilung",e.target.value);}} />
+      <label style={u.label}>Straße und Hausnummer</label>
+      <input style={u.input} placeholder="z.B. Palmaille 29" value={daten.gericht_strasse} onChange={function(e){set("gericht_strasse",e.target.value);}} />
+      <div style={{ display:"flex", gap:"6px" }}>
+        <div style={{ width:"90px" }}><label style={u.label}>PLZ</label><input style={u.input} placeholder="22767" value={daten.gericht_plz} onChange={function(e){set("gericht_plz",e.target.value);}} /></div>
+        <div style={{ flex:1 }}><label style={u.label}>Ort</label><input style={u.input} placeholder="Hamburg" value={daten.gericht_ort} onChange={function(e){set("gericht_ort",e.target.value);}} /></div>
+      </div>
 
       <div style={u.modSection}>Antragsteller/in ist...</div>
       <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
@@ -1929,11 +1951,11 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
         })}
       </div>
 
-      <div style={u.modSection}>Begründung & Kindeswohl</div>
-      <label style={u.label}>Begründung des Antrags</label>
-      <textarea style={Object.assign({},u.input,{height:"80px",resize:"vertical"})} placeholder="Warum beantragen Sie das gemeinsame Sorgerecht? Beschreiben Sie Ihre Beteiligung an der Erziehung." value={daten.begruendung} onChange={function(e){set("begruendung",e.target.value);}} />
-      <label style={u.label}>Kindeswohlbezug (eigene Formulierung)</label>
-      <textarea style={Object.assign({},u.input,{height:"60px",resize:"vertical"})} placeholder="Inwiefern dient das gemeinsame Sorgerecht dem Wohl des Kindes?" value={daten.wohl_begruendung} onChange={function(e){set("wohl_begruendung",e.target.value);}} />
+      <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#2e7d32" }}>
+        ✅ <strong>Keine Begründungspflicht:</strong> Nach § 1626a Abs. 1 Nr. 3 BGB und BVerfG (1 BvR 420/09) besteht ein Anspruch auf gemeinsame Sorge ohne inhaltliche Begründung. Das Gericht überträgt die gemeinsame Sorge, sofern dies nicht dem Kindeswohl widerspricht – die Beweislast liegt beim ablehnenden Elternteil.
+      </div>
+
+      <div style={u.modSection}>Angaben zum Kontakt (optional)</div>
       <label style={u.label}>Bestehender Kontakt / Umgang mit dem Kind</label>
       <input style={u.input} placeholder="z.B. Regelmäßiger Umgang jedes 2. Wochenende, gemeinsame Aktivitäten" value={daten.kontakt_bestand} onChange={function(e){set("kontakt_bestand",e.target.value);}} />
 
@@ -1948,7 +1970,7 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
       </button>
       {gedruckt && <div style={{ backgroundColor:"#e8f5e9", borderRadius:"6px", padding:"8px 12px", marginTop:"8px", fontSize:"12px", color:"#2e7d32" }}>✅ Druckansicht geöffnet.</div>}
       <div style={{ backgroundColor:"#fff9e6", borderRadius:"8px", padding:"10px 12px", marginTop:"12px", fontSize:"11px", color:"#856404" }}>
-        ⚖️ <strong>Rechtshinweis:</strong> § 1626a BGB, BVerfG 1 BvR 1620/04 (Sorgerecht des Vaters). Bitte mit Fachanwalt für Familienrecht absprechen.
+        ⚖️ <strong>Rechtsgrundlagen:</strong> § 1626a BGB (Sorge nicht verheirateter Eltern), § 1697a BGB (Kindeswohlprinzip), BVerfG 1 BvR 420/09 vom 21.07.2010. Der Antrag erfordert <strong>keine inhaltliche Begründung</strong> – das Gericht prüft von Amts wegen, ob die gemeinsame Sorge dem Kindeswohl widerspricht.
       </div>
     </div>
   );
