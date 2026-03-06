@@ -4012,7 +4012,7 @@ function App() {
         </div>
       </header>
 
-      <main style={["formular_ausfuellen","tbg_form","buergergeld_form","eingang_detail"].includes(view) ? {...styles.main, padding:"0", maxWidth:"800px"} : styles.main} className="app-main">
+      <main style={["formular_ausfuellen","tbg_form","buergergeld_form","eingang_detail","sorgerecht_form"].includes(view) ? {...styles.main, padding:"0", maxWidth:"800px"} : styles.main} className="app-main">
         {view === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
 
@@ -5940,6 +5940,77 @@ function App() {
         )}
 
         {/* ============================================= */}
+        {/* ANTRAG GEMEINSAMES SORGERECHT – Formular       */}
+        {/* ============================================= */}
+        {view === "sorgerecht_form" && (function() {
+          var sd = formFelderDaten;
+          var upd = function(f, v) { setFormFelderDaten(function(p) { return Object.assign({}, p, {[f]: v}); }); };
+          var absenden = function() {
+            var pflicht = [sd.vater_name, sd.mutter_name, sd.kind_name];
+            if (pflicht.some(function(v) { return !v || !v.trim(); })) {
+              alert("Bitte alle Pflichtfelder (*) ausfüllen."); return;
+            }
+            var loginD = loginDaten || {};
+            var sbUrl = loginD.supabaseUrl || ""; var sbKey = loginD.supabaseKey || "";
+            if (!sbUrl || !sbKey) { alert("Supabase nicht konfiguriert."); return; }
+            var payload = {
+              status: "beantwortet",
+              label: "Antrag Gemeinsames Sorgerecht",
+              typ: "fr_sorgerecht",
+              mitglied_name: (sd.vater_name || sd.mutter_name || ""),
+              mitglied_mail: (sd.mail || ""),
+              antwort_daten: JSON.stringify(sd),
+              beantwortet_am: new Date().toISOString()
+            };
+            fetch(sbUrl + "/rest/v1/formulare", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "apikey": sbKey, "Authorization": "Bearer " + sbKey, "Prefer": "return=minimal" },
+              body: JSON.stringify(payload)
+            }).then(function(r) {
+              if (r.ok) { setView("dashboard"); setFormFelderDaten({}); alert("Antrag erfolgreich übermittelt."); }
+              else { alert("Fehler beim Senden. Bitte erneut versuchen."); }
+            }).catch(function() { alert("Netzwerkfehler. Bitte erneut versuchen."); });
+          };
+          return (
+            <div style={styles.formPage}>
+              <div style={{ textAlign:"center", padding:"24px 16px 16px" }}>
+                <img src={window.ISUV_LOGO} alt="ISUV" style={{ width:"160px", height:"auto", marginBottom:"12px" }} />
+                <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>ISUV Anspruchslotse</div>
+                <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Antrag Gemeinsames Sorgerecht (§ 1626a Abs. 2 BGB)</div>
+              </div>
+              <button onClick={function() { setView("dashboard"); setFormFelderDaten({}); }} style={{ background:"none", border:"none", color:"#003366", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"12px", padding:"0 16px", display:"block" }}>‹ Abbrechen</button>
+              <div style={{ padding:"0 16px" }}>
+                <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#2e7d32" }}>
+                  ✅ <strong>Keine Begründung erforderlich.</strong> Gemäß § 1626a Abs. 2 BGB (Reform 19.05.2013) und BVerfG (1 BvR 420/09) wird die gemeinsame Sorge übertragen, sofern dies dem Kindeswohl nicht widerspricht. Die Beweislast liegt beim ablehnenden Elternteil.
+                </div>
+
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>Vater</div>
+                <label style={styles.label}>Vollständiger Name *</label>
+                <input style={styles.input} placeholder="Vorname Nachname" value={sd.vater_name||""} onChange={function(e){ upd("vater_name", e.target.value); }} />
+                <label style={styles.label}>Anschrift</label>
+                <input style={styles.input} placeholder="Straße, PLZ Ort" value={sd.vater_anschrift||""} onChange={function(e){ upd("vater_anschrift", e.target.value); }} />
+
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>Mutter</div>
+                <label style={styles.label}>Vollständiger Name *</label>
+                <input style={styles.input} placeholder="Vorname Nachname" value={sd.mutter_name||""} onChange={function(e){ upd("mutter_name", e.target.value); }} />
+                <label style={styles.label}>Anschrift</label>
+                <input style={styles.input} placeholder="Straße, PLZ Ort" value={sd.mutter_anschrift||""} onChange={function(e){ upd("mutter_anschrift", e.target.value); }} />
+
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>Kind</div>
+                <label style={styles.label}>Vollständiger Name *</label>
+                <input style={styles.input} placeholder="Vorname Nachname" value={sd.kind_name||""} onChange={function(e){ upd("kind_name", e.target.value); }} />
+                <label style={styles.label}>Geburtsdatum</label>
+                <input style={styles.input} type="date" value={sd.kind_geburt||""} onChange={function(e){ upd("kind_geburt", e.target.value); }} />
+
+                <button onClick={absenden} style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"20px", marginBottom:"16px" }}>
+                  ✅ Antrag übermitteln
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ============================================= */}
         {/* ANLAGE TBG – vollständig überarbeitet          */}
         {/* ============================================= */}
         {view === "tbg_form" && (function() {
@@ -7201,7 +7272,7 @@ function App() {
 
                 // Warnung: bereits offenes Formular?
                 var memberName = m ? m.vorname + " " + m.name : null;
-                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : "Anlage TBG";
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : "Anlage TBG";
                 var offenes = memberName ? ausgangFormulare.find(function(af) { return af.mitglied === memberName && af.typ === fLabel && af.status !== "beantwortet"; }) : null;
 
                 var alleFelder = fTyp === "stammdaten" ? [
@@ -7302,7 +7373,7 @@ function App() {
               {formularVersandDialogNeu.formTyp && (function() {
                 var m = formularVersandDialogNeu.member;
                 var fTyp = formularVersandDialogNeu.formTyp;
-                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : "Anlage TBG";
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : "Anlage TBG";
 
                 // Feldlabels für den Mail-Text
                 var alleFeldLabels = fTyp === "stammdaten" ? {
@@ -7363,6 +7434,32 @@ function App() {
 
                 return (
                   <div>
+                    {/* Sorgerecht: direkt lokales Formular öffnen, kein Versand nötig */}
+                    {fTyp === "fr_sorgerecht" && (
+                      <div>
+                        <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#2e7d32" }}>
+                          ✅ Der Antrag nach § 1626a Abs. 2 BGB enthält nur die nötigsten Angaben (Namen & Kind). Er wird direkt hier ausgefüllt und ausgedruckt – kein Versand per Link nötig.
+                        </div>
+                        <button onClick={function() {
+                          var ext_m = m ? (memberExtras[m.id] || {}) : {};
+                          var kindName = ext_m.kinder && ext_m.kinder[0] ? ext_m.kinder[0].name || "" : "";
+                          var kindGeburt = ext_m.kinder && ext_m.kinder[0] ? ext_m.kinder[0].geburt || "" : "";
+                          setFormFelderDaten({
+                            _formTyp: "fr_sorgerecht",
+                            vater_name: "", vater_anschrift: m ? (m.strasse ? m.strasse + ", " + (m.plz||"") + " " + (m.ort||"") : "") : "",
+                            mutter_name: "", mutter_anschrift: "",
+                            kind_name: kindName, kind_geburt: kindGeburt,
+                            mail: m ? m.mail || "" : ""
+                          });
+                          setFormularVersandDialogNeu(null);
+                          setView("sorgerecht_form");
+                        }} style={{ width:"100%", padding:"12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px" }}>
+                          👨‍👩‍👧 Antrag jetzt ausfüllen & drucken
+                        </button>
+                      </div>
+                    )}
+                    {fTyp !== "fr_sorgerecht" && (
+                    <div>
                     {/* Versand-Vorschau */}
                     {(function() {
                       var aktiveFelder2 = versandFelder !== null ? versandFelder : null;
@@ -7535,6 +7632,8 @@ function App() {
                         </div>
                       )}
                     </div>
+                    </div>
+                    )}
                   </div>
                 );
               })()}
