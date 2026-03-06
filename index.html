@@ -2163,6 +2163,7 @@ function TrennungsFragebogen({ ext, onSaveErgebnis }) {
                 <option value="Residenzmodell bei Vater">Residenzmodell bei Vater</option>
                 <option value="Wechselmodell paritätisch">Wechselmodell (paritätisch)</option>
                 <option value="Wechselmodell asymmetrisch">Wechselmodell (asymmetrisch)</option>
+                <option value="Kein Umgang">Kein Umgang</option>
               </select>
               <label style={u.label}>Kindesunterhalt bereits geregelt?</label>
               <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
@@ -3729,6 +3730,7 @@ function App() {
   const [konflikteDialog, setKonflikteDialog] = useState(null); // {member, fd, konflikte:[]}
   const [editMemberMode, setEditMemberMode] = useState(false);
   const [editMemberDaten, setEditMemberDaten] = useState({});
+  const [saveBestaetigung, setSaveBestaetigung] = useState(false);
   const [transferrierteIds, setTransferrierteIds] = useState(function() { try { return new Set(JSON.parse(localStorage.getItem("isuv_transfer_ids")||"[]")); } catch(e){ return new Set(); } });
   const [showFamilienrechtFormulare, setShowFamilienrechtFormulare] = useState(true);
   const [showSozialrechtFormulare, setShowSozialrechtFormulare] = useState(true);
@@ -4612,12 +4614,15 @@ function App() {
               ) : (
                 <div style={{ display:"flex", gap:"6px" }}>
                   <button onClick={function() {
-                    var extrasFelder = ["familienstand","betreuungsmodell","einkommenNetto","einkommenBrutto","arbeitsstatus","mieteKalt","nebenkosten","heizkosten","fahrtkostenKm","fahrtkostenFahrtenProMonat","geburt","alleinerziehend","unterhaltsTitel","unterhaltBetrag","kinder"];
+                    var extrasFelder = ["familienstand","betreuungsmodell","einkommenNetto","einkommenBrutto","arbeitsstatus","mieteKalt","nebenkosten","heizkosten","fahrtkostenKm","fahrtkostenFahrtenProMonat","geburt","alleinerziehend","unterhaltsTitel","unterhaltBetrag","kinder","kindergeldBezug"];
                     var memberFelder = ["vorname","name","tel","mail","strasse","plz","ort"];
                     var memberUpd = {}; memberFelder.forEach(function(f){ if(editDaten[f]!==undefined) memberUpd[f]=editDaten[f]; });
                     var extrasUpd = {}; extrasFelder.forEach(function(f){ if(editDaten[f]!==undefined) extrasUpd[f]=editDaten[f]; });
-                    // Änderungshistorie
-                    var geaendert = Object.keys(extrasUpd).filter(function(f){ return extrasUpd[f] !== ((memberExtras[mid]||{})[f]||""); });
+                    // Änderungshistorie – boolean-safe Vergleich
+                    var geaendert = Object.keys(extrasUpd).filter(function(f){
+                      var alt = (memberExtras[mid]||{})[f]; var neu = extrasUpd[f];
+                      return String(alt) !== String(neu);
+                    });
                     if(geaendert.length>0){
                       var hist=(memberExtras[mid]||{})._historie||[];
                       var neuerEintrag={datum:new Date().toLocaleDateString("de-DE"),quelle:"Akte bearbeitet",felder:geaendert};
@@ -4628,6 +4633,8 @@ function App() {
                     setActiveMember(function(prev) { return Object.assign({}, prev, memberUpd); });
                     setMemberExtras(function(prev){ return Object.assign({},prev,{[mid]:Object.assign({},prev[mid]||{},extrasUpd)}); });
                     setEditMemberMode(false);
+                    setSaveBestaetigung(true);
+                    setTimeout(function(){ setSaveBestaetigung(false); }, 2500);
                   }} style={{ fontSize:"11px", padding:"5px 12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"6px", cursor:"pointer", fontWeight:"bold" }}>
                     ✓ Speichern
                   </button>
@@ -4638,6 +4645,11 @@ function App() {
                 </div>
               )}
             </div>
+            {saveBestaetigung && (
+              <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"6px", padding:"8px 12px", fontSize:"12px", color:"#2e7d32", marginBottom:"8px", textAlign:"center" }}>
+                ✅ Änderungen gespeichert
+              </div>
+            )}
 
             {!isEditing ? (
               <>
@@ -4657,7 +4669,25 @@ function App() {
                   <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={editDaten.name||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{name:v}); }); }} /></div>
                 </div>
                 <label style={styles.label}>Geburtsdatum</label>
-                <input style={styles.input} type="date" value={editDaten.geburt||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{geburt:v}); }); }} />
+                <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                  <input style={{ ...styles.input, flex:1 }} placeholder="TT.MM.JJJJ"
+                    value={editDaten.geburtText !== undefined ? editDaten.geburtText : (editDaten.geburt ? (function(d){ var p=d.split("-"); return p.length===3?p[2]+"."+p[1]+"."+p[0]:d; })(editDaten.geburt) : "")}
+                    onChange={function(e) {
+                      var txt = e.target.value;
+                      setEditMemberDaten(function(p){ var upd = {geburtText: txt};
+                        var m = txt.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+                        if(m) upd.geburt = m[3]+"-"+m[2]+"-"+m[1];
+                        return Object.assign({},p,upd);
+                      });
+                    }} />
+                  <input style={{ width:"40px", opacity:0, position:"absolute", pointerEvents:"none" }} type="date" id="geburtDatePicker"
+                    value={editDaten.geburt||""}
+                    onChange={function(e){ var v=e.target.value; var p=v.split("-"); setEditMemberDaten(function(prev){ return Object.assign({},prev,{geburt:v, geburtText:p.length===3?p[2]+"."+p[1]+"."+p[0]:""}); }); }} />
+                  <button type="button" onClick={function(){ document.getElementById("geburtDatePicker").showPicker && document.getElementById("geburtDatePicker").showPicker(); }}
+                    style={{ padding:"6px 10px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px solid #003366", borderRadius:"6px", cursor:"pointer", fontSize:"13px", flexShrink:0 }}>
+                    📅
+                  </button>
+                </div>
                 <label style={styles.label}>Telefon</label>
                 <input style={styles.input} value={editDaten.tel||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{tel:v}); }); }} />
                 <label style={styles.label}>E-Mail</label>
@@ -4679,7 +4709,7 @@ function App() {
                 <label style={styles.label}>Betreuungsmodell</label>
                 <select style={styles.input} value={editDaten.betreuungsmodell||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{betreuungsmodell:v}); }); }}>
                   <option value="">– wählen –</option>
-                  {["Residenzmodell","Wechselmodell paritätisch","Wechselmodell asymmetrisch","Fernkontakt"].map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+                  {["Residenzmodell","Wechselmodell paritätisch","Wechselmodell asymmetrisch","Fernkontakt","Kein Umgang"].map(function(o){ return <option key={o} value={o}>{o}</option>; })}
                 </select>
 
                 {/* KINDER */}
