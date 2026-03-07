@@ -87,8 +87,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script type="text/babel" data-presets="react">
 
 const { useState, useEffect, useRef } = React;
@@ -3129,7 +3128,9 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis, 
 // PDF-EXPORT – Berechnungsergebnisse
 // =============================================
 function exportPDF(member, ergebnisse, beraterName) {
-  var doc = new window.jspdf.jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!jsPDF) { alert("PDF-Bibliothek nicht geladen. Bitte Seite neu laden."); return; }
+  var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
   var W = 210, H = 297;
   var margin = 16;
   var y = 0;
@@ -3572,6 +3573,13 @@ function MehrDatenView({ ext }) {
 // =============================================
 </script>
   <script type="text/babel" data-presets="react">
+
+// Safe jsPDF loader
+function getJsPDF() {
+  if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+  if (window.jsPDF) return window.jsPDF;
+  return null;
+}
 
 function SigPadModal({ onSave, onClose }) {
   var canvasRef = React.useRef(null);
@@ -5357,8 +5365,8 @@ function App() {
             {aktivesEingangFormular.typ === "Antrag Gemeinsames Sorgerecht" && (function() {
               var d = aktivesEingangFormular.felder || {};
               var erzeugeSorgerechtPDF = function(sig) {
-                var jsPDF = window.jspdf && window.jspdf.jsPDF;
-                if (!jsPDF) { alert("PDF-Bibliothek nicht geladen."); return; }
+                var jsPDF = getJsPDF();
+                if (!jsPDF) { alert("PDF-Bibliothek nicht geladen. Bitte Seite neu laden."); return; }
                 var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
                 var W=210, mL=25, mR=25, y=20, lineH=6;
                 var heute = new Date().toLocaleDateString("de-DE");
@@ -5420,14 +5428,8 @@ function App() {
                 doc.setFontSize(10); doc.text(aLines, mL, y); y+=aLines.length*lineH+4;
 
                 section("IV. Begründung");
-                var bText = "1. Gemäß § 1626a Abs. 2 Satz 1 BGB überträgt das Familiengericht auf Antrag des Vaters die elterliche Sorge oder einen Teil davon beiden Eltern gemeinsam, wenn die Übertragung dem Kindeswohl nicht widerspricht.
-
-2. Gemäß § 1626a Abs. 2 Satz 2 BGB wird widerleglich vermutet, dass die Übertragung dem Kindeswohl nicht widerspricht (Kindeswohlvermutung). Die Beweislast für einen dem Kindeswohl widersprechenden Umstand liegt beim ablehnenden Elternteil (BGH, Beschluss v. 15.06.2016 – XII ZB 419/15).
-
-3. Tatsächliche Anhaltspunkte, die der Übertragung der gemeinsamen Sorge entgegenstehen würden, sind nicht ersichtlich. Eine gemeinsame Ausübung der elterlichen Sorge liegt im wohlverstandenen Interesse des Kindes.";
-                var bParts = bText.split("
-
-");
+                var bText = "1. Gemäß § 1626a Abs. 2 Satz 1 BGB überträgt das Familiengericht auf Antrag des Vaters die elterliche Sorge oder einen Teil davon beiden Eltern gemeinsam, wenn die Übertragung dem Kindeswohl nicht widerspricht.\n\n2. Gemäß § 1626a Abs. 2 Satz 2 BGB wird widerleglich vermutet, dass die Übertragung dem Kindeswohl nicht widerspricht (Kindeswohlvermutung). Die Beweislast für einen dem Kindeswohl widersprechenden Umstand liegt beim ablehnenden Elternteil (BGH, Beschluss v. 15.06.2016 – XII ZB 419/15).\n\n3. Tatsächliche Anhaltspunkte, die der Übertragung der gemeinsamen Sorge entgegenstehen würden, sind nicht ersichtlich. Eine gemeinsame Ausübung der elterlichen Sorge liegt im wohlverstandenen Interesse des Kindes.";
+                var bParts = bText.split("\n\n");
                 doc.setFontSize(10);
                 bParts.forEach(function(part) {
                   var lines = doc.splitTextToSize(part, W-mL-mR);
@@ -6465,8 +6467,8 @@ function App() {
             if(!fd.sigAntragsteller) { alert("Bitte zuerst unterschreiben."); return; }
             // Dynamisch laden wenn noch nicht vorhanden
             var doExport = function() {
-              var jsPDF = window.jspdf ? window.jspdf.jsPDF : null;
-              if(!jsPDF) { alert("PDF-Bibliothek lädt noch... Bitte in 2 Sekunden erneut versuchen."); return; }
+              var jsPDF = getJsPDF();
+              if(!jsPDF) { alert("PDF-Bibliothek nicht geladen. Bitte Seite neu laden."); return; }
               var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
               var pw = 210, margin = 15, cw = pw - margin*2;
               var y = 15;
