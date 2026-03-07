@@ -3573,6 +3573,50 @@ function MehrDatenView({ ext }) {
 </script>
   <script type="text/babel" data-presets="react">
 
+function SigPadModal({ onSave, onClose }) {
+  var canvasRef = React.useRef(null);
+  var drawing = React.useRef(false);
+  var lastPos = React.useRef(null);
+  var getPos = function(canvas, evt) {
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    var src = evt.touches ? evt.touches[0] : evt;
+    return { x: (src.clientX - rect.left)*scaleX, y: (src.clientY - rect.top)*scaleY };
+  };
+  var startDraw = function(e) { e.preventDefault(); drawing.current = true; var cv = canvasRef.current; if (cv) lastPos.current = getPos(cv, e.nativeEvent||e); };
+  var draw = function(e) {
+    e.preventDefault(); if (!drawing.current) return;
+    var cv = canvasRef.current; if (!cv) return;
+    var ctx = cv.getContext("2d");
+    var pos = getPos(cv, e.nativeEvent||e);
+    ctx.beginPath(); ctx.strokeStyle = "#003366"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    ctx.moveTo(lastPos.current.x, lastPos.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke();
+    lastPos.current = pos;
+  };
+  var stopDraw = function(e) { if (e) e.preventDefault(); drawing.current = false; };
+  var clear = function() { var cv = canvasRef.current; if (cv) cv.getContext("2d").clearRect(0,0,cv.width,cv.height); };
+  var save = function() { var cv = canvasRef.current; if (cv) onSave(cv.toDataURL("image/png")); };
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, backgroundColor:"rgba(0,0,0,0.6)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ backgroundColor:"#fff", borderRadius:"14px", padding:"20px", width:"100%", maxWidth:"420px" }}>
+        <div style={{ fontWeight:"bold", fontSize:"14px", color:"#003366", marginBottom:"6px" }}>✍️ Unterschrift des Antragstellers</div>
+        <div style={{ fontSize:"11px", color:"#666", marginBottom:"12px" }}>Mit Finger oder Maus im Feld unterschreiben:</div>
+        <canvas ref={canvasRef} width={560} height={160}
+          style={{ border:"2px solid #003366", borderRadius:"8px", width:"100%", height:"120px", touchAction:"none", backgroundColor:"#fafcff", display:"block" }}
+          onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+          onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
+        />
+        <div style={{ display:"flex", gap:"8px", marginTop:"12px" }}>
+          <button onClick={clear} style={{ flex:1, padding:"10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>🗑️ Löschen</button>
+          <button onClick={onClose} style={{ flex:1, padding:"10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>Abbrechen</button>
+          <button onClick={save} style={{ flex:2, padding:"10px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>✅ Übernehmen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginDaten, setLoginDaten] = useState(() => {
@@ -8022,59 +8066,12 @@ function App() {
       </main>
 
       {/* ── Unterschrift-Modal Sorgerecht ── */}
-      {sorgerechtSigModal && (function() {
-        var canvasRef = useRef(null);
-        var drawing = useRef(false);
-        var lastPos = useRef(null);
-        var getPos = function(canvas, evt) {
-          var rect = canvas.getBoundingClientRect();
-          var scaleX = canvas.width / rect.width;
-          var scaleY = canvas.height / rect.height;
-          var src = evt.touches ? evt.touches[0] : evt;
-          return { x: (src.clientX - rect.left)*scaleX, y: (src.clientY - rect.top)*scaleY };
-        };
-        var startDraw = function(e) {
-          e.preventDefault(); drawing.current = true;
-          var cv = canvasRef.current;
-          if (cv) { lastPos.current = getPos(cv, e.nativeEvent || e); }
-        };
-        var draw = function(e) {
-          e.preventDefault();
-          if (!drawing.current) return;
-          var cv = canvasRef.current; if (!cv) return;
-          var ctx = cv.getContext("2d");
-          var pos = getPos(cv, e.nativeEvent || e);
-          ctx.beginPath(); ctx.strokeStyle = "#003366"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
-          ctx.moveTo(lastPos.current.x, lastPos.current.y);
-          ctx.lineTo(pos.x, pos.y); ctx.stroke();
-          lastPos.current = pos;
-        };
-        var stopDraw = function(e) { if (e) e.preventDefault(); drawing.current = false; };
-        var clear = function() { var cv = canvasRef.current; if (cv) cv.getContext("2d").clearRect(0,0,cv.width,cv.height); };
-        var save = function() {
-          var cv = canvasRef.current; if (!cv) return;
-          setSorgerechtSigData(cv.toDataURL("image/png"));
-          setSorgerechtSigModal(false);
-        };
-        return (
-          <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, backgroundColor:"rgba(0,0,0,0.6)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-            <div style={{ backgroundColor:"#fff", borderRadius:"14px", padding:"20px", width:"100%", maxWidth:"420px" }}>
-              <div style={{ fontWeight:"bold", fontSize:"14px", color:"#003366", marginBottom:"6px" }}>✍️ Unterschrift des Antragstellers</div>
-              <div style={{ fontSize:"11px", color:"#666", marginBottom:"12px" }}>Mit Finger oder Maus unterschreiben:</div>
-              <canvas ref={canvasRef} width={560} height={160}
-                style={{ border:"2px solid #003366", borderRadius:"8px", width:"100%", height:"120px", touchAction:"none", backgroundColor:"#fafcff", display:"block" }}
-                onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
-                onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
-              />
-              <div style={{ display:"flex", gap:"8px", marginTop:"12px" }}>
-                <button onClick={clear} style={{ flex:1, padding:"10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>🗑️ Löschen</button>
-                <button onClick={function(){ setSorgerechtSigModal(false); }} style={{ flex:1, padding:"10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>Abbrechen</button>
-                <button onClick={save} style={{ flex:2, padding:"10px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>✅ Übernehmen</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {sorgerechtSigModal && (
+        <SigPadModal
+          onSave={function(dataUrl){ setSorgerechtSigData(dataUrl); setSorgerechtSigModal(false); }}
+          onClose={function(){ setSorgerechtSigModal(false); }}
+        />
+      )}
     </div>
   );
 }
