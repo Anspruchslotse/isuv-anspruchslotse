@@ -3498,46 +3498,60 @@ function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
 // BERECHNUNG MIT DATEN – Rechner vorausgefüllt
 // =============================================
 function MehrDatenView({ ext }) {
+  if (!ext) return null;
   const sh = { fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"6px", letterSpacing:"0.5px" };
   const kb = { backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"10px", marginBottom:"8px", borderLeft:"3px solid #00afad" };
   const kr = { display:"flex", justifyContent:"space-between", fontSize:"12px", paddingBottom:"3px", borderBottom:"1px solid #eee", marginBottom:"3px" };
   const dr = { display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid #f5f5f5", fontSize:"13px" };
+  const kinder = Array.isArray(ext.kinder) ? ext.kinder : [];
   return (
     <div style={{ marginTop:"12px" }}>
       <div style={sh}>👨‍👩‍👧 Familiensituation</div>
-      <div style={dr}><span>Familienstand:</span><strong>{ext.familienstand}</strong></div>
+      {ext.familienstand && <div style={dr}><span>Familienstand:</span><strong>{ext.familienstand}</strong></div>}
       <div style={dr}><span>Alleinerziehend:</span><strong>{ext.alleinerziehend ? "Ja" : "Nein"}</strong></div>
-      <div style={dr}><span>Betreuungsmodell:</span><strong style={{ fontSize:"12px" }}>{ext.betreuungsmodell}</strong></div>
+      {ext.betreuungsmodell && <div style={dr}><span>Betreuungsmodell:</span><strong style={{ fontSize:"12px" }}>{ext.betreuungsmodell}</strong></div>}
 
-      <div style={sh}>👶 Kinder</div>
-      {ext.kinder.map((k, i) => (
-        <div key={i} style={kb}>
-          <div style={{ fontWeight:"bold", fontSize:"13px", marginBottom:"4px" }}>Kind {i+1}: {k.name}</div>
-          <div style={kr}><span>Geburtsdatum:</span><span>{k.geburt}</span></div>
-          <div style={kr}><span>Altersgruppe:</span><span>{k.alter}</span></div>
-          <div style={kr}><span>Wohnort:</span><span>{k.wohnort}</span></div>
-          <div style={kr}><span>UVG:</span><span>{k.uvg ? "✅ Ja" : "❌ Nein"}</span></div>
-          <div style={kr}><span>Kindergeld:</span><span>{k.kg ? "✅ Ja" : "❌ Nein"}</span></div>
+      {kinder.length > 0 && (
+        <div>
+          <div style={sh}>👶 Kinder</div>
+          {kinder.map((k, i) => (
+            <div key={i} style={kb}>
+              <div style={{ fontWeight:"bold", fontSize:"13px", marginBottom:"4px" }}>Kind {i+1}: {k.name}</div>
+              {k.geburt && <div style={kr}><span>Geburtsdatum:</span><span>{k.geburt}</span></div>}
+              {k.alter && <div style={kr}><span>Altersgruppe:</span><span>{k.alter}</span></div>}
+              {k.wohnort && <div style={kr}><span>Wohnort:</span><span>{k.wohnort}</span></div>}
+              <div style={kr}><span>UVG:</span><span>{k.uvg ? "✅ Ja" : "❌ Nein"}</span></div>
+              <div style={kr}><span>Kindergeld:</span><span>{k.kg ? "✅ Ja" : "❌ Nein"}</span></div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
 
       <div style={sh}>💶 Einkommen & Leistungen</div>
-      <div style={dr}><span>Nettoeinkommen:</span><strong>{ext.einkommenNetto} EUR</strong></div>
+      {ext.einkommenNetto != null && <div style={dr}><span>Nettoeinkommen:</span><strong>{ext.einkommenNetto} EUR</strong></div>}
       {ext.einkommenGegenseite > 0 && <div style={dr}><span>Einkommen Gegenseite:</span><strong>{ext.einkommenGegenseite} EUR</strong></div>}
-      <div style={dr}><span>Art:</span><strong style={{ fontSize:"12px" }}>{ext.einkommenArt}</strong></div>
+      {ext.einkommenArt && <div style={dr}><span>Art:</span><strong style={{ fontSize:"12px" }}>{ext.einkommenArt}</strong></div>}
       {ext.uvgBetrag > 0 && <div style={dr}><span>Unterhaltsvorschuss:</span><strong>{ext.uvgBetrag} EUR/Monat</strong></div>}
-      <div style={dr}><span>Kindergeld:</span><strong>{ext.kindergeldBetrag} EUR/Monat</strong></div>
-      <div style={dr}><span>KG-Empfänger:</span><strong style={{ fontSize:"12px" }}>{ext.kindergeldEmpf}</strong></div>
+      {ext.kindergeldBetrag != null && <div style={dr}><span>Kindergeld:</span><strong>{ext.kindergeldBetrag} EUR/Monat</strong></div>}
+      {ext.kindergeldEmpf && <div style={dr}><span>KG-Empfänger:</span><strong style={{ fontSize:"12px" }}>{ext.kindergeldEmpf}</strong></div>}
 
-      <div style={sh}>⚖️ Unterhalt</div>
-      <div style={dr}><span>Unterhaltstitel:</span><strong>{ext.unterhaltsTitel ? "✅ Vorhanden" : "❌ Kein Titel"}</strong></div>
-      {ext.unterhaltBetrag > 0 && <div style={dr}><span>Betrag:</span><strong>{ext.unterhaltBetrag} EUR/Monat</strong></div>}
+      {(ext.unterhaltsTitel != null || ext.unterhaltBetrag > 0) && (
+        <div>
+          <div style={sh}>⚖️ Unterhalt</div>
+          <div style={dr}><span>Unterhaltstitel:</span><strong>{ext.unterhaltsTitel ? "✅ Vorhanden" : "❌ Kein Titel"}</strong></div>
+          {ext.unterhaltBetrag > 0 && <div style={dr}><span>Betrag:</span><strong>{ext.unterhaltBetrag} EUR/Monat</strong></div>}
+        </div>
+      )}
 
-      <div style={sh}>🏠 Wohnen</div>
-      {ext.wohnungGroesse && <div style={dr}><span>Wohnungsgröße:</span><strong>{ext.wohnungGroesse} m²</strong></div>}
-      {(ext.mieteWarm||ext.mieteKalt) && <div style={dr}><span>Miete warm / kalt:</span><strong>{ext.mieteWarm||"-"} / {ext.mieteKalt||"-"} €/Monat</strong></div>}
-      {ext.heizkosten && <div style={dr}><span>Heizkosten:</span><strong>{ext.heizkosten} €/Monat</strong></div>}
-      {ext.mietStufe && <div style={dr}><span>Mietenstufe:</span><strong>Stufe {ext.mietStufe}</strong></div>}
+      {(ext.wohnungGroesse || ext.mieteWarm || ext.mieteKalt || ext.heizkosten || ext.mietStufe) && (
+        <div>
+          <div style={sh}>🏠 Wohnen</div>
+          {ext.wohnungGroesse && <div style={dr}><span>Wohnungsgröße:</span><strong>{ext.wohnungGroesse} m²</strong></div>}
+          {(ext.mieteWarm||ext.mieteKalt) && <div style={dr}><span>Miete warm / kalt:</span><strong>{ext.mieteWarm||"-"} / {ext.mieteKalt||"-"} €/Monat</strong></div>}
+          {ext.heizkosten && <div style={dr}><span>Heizkosten:</span><strong>{ext.heizkosten} €/Monat</strong></div>}
+          {ext.mietStufe && <div style={dr}><span>Mietenstufe:</span><strong>Stufe {ext.mietStufe}</strong></div>}
+        </div>
+      )}
 
       {(ext.fahrtkostenKm || ext.fahrtkostenFahrtenProMonat) && (
         <div>
@@ -3550,11 +3564,10 @@ function MehrDatenView({ ext }) {
         </div>
       )}
 
-      {(ext.einkommenNetto||ext.einkommenBrutto||ext.arbeitsstatus) && (
+      {(ext.arbeitsstatus || ext.einkommenBrutto) && (
         <div>
-          <div style={sh}>💰 Einkommen</div>
+          <div style={sh}>💼 Beschäftigung</div>
           {ext.arbeitsstatus && <div style={dr}><span>Status:</span><strong>{ext.arbeitsstatus}</strong></div>}
-          {ext.einkommenNetto && <div style={dr}><span>Nettoeinkommen:</span><strong>{ext.einkommenNetto} €/Monat</strong></div>}
           {ext.einkommenBrutto && <div style={dr}><span>Bruttoeinkommen:</span><strong>{ext.einkommenBrutto} €/Monat</strong></div>}
         </div>
       )}
@@ -4893,7 +4906,7 @@ function App() {
               style={{ width:"100%", marginTop:"14px", padding:"10px", backgroundColor: showMehrDaten ? "#003366" : "#f0f4f7", color: showMehrDaten ? "#fff" : "#003366", border:"1px solid #003366", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px" }}>
               {showMehrDaten ? "▲ Mehr Daten ausblenden" : "▼ Mehr Daten"}
             </button>
-            {showMehrDaten && memberExtras[activeMember.id] && (
+            {showMehrDaten && activeMember && memberExtras[activeMember.id] && (
               <MehrDatenView ext={memberExtras[activeMember.id]} />
             )}
 
