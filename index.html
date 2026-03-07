@@ -5309,9 +5309,137 @@ function App() {
               <div style={{ fontSize:"11px", opacity:0.85, marginTop:"2px" }}>Von: {aktivesEingangFormular.name} · {aktivesEingangFormular.datum}</div>
             </div>
 
-            {/* Ausgefüllte Felder */}
+            {/* Sorgerecht: direkt Antrag anzeigen */}
+            {aktivesEingangFormular.typ === "Antrag Gemeinsames Sorgerecht" && (function() {
+              var d = aktivesEingangFormular.felder || {};
+              var erzeugeSorgerechtPDF = function(sig) {
+                var jsPDF = window.jspdf && window.jspdf.jsPDF;
+                if (!jsPDF) { alert("PDF-Bibliothek nicht geladen."); return; }
+                var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+                var W=210, mL=25, mR=25, y=20, lineH=6;
+                var heute = new Date().toLocaleDateString("de-DE");
+                var absAnschrift = (d.antragsteller_strasse||"") + (d.antragsteller_plz ? ", "+d.antragsteller_plz : "") + (d.antragsteller_ort ? " "+d.antragsteller_ort : "");
+
+                // Absender oben links
+                doc.setFontSize(10); doc.setFont("helvetica","bold");
+                doc.text(d.antragsteller_name||"", mL, y);
+                doc.setFont("helvetica","normal");
+                if (d.antragsteller_strasse) { y+=5; doc.text(d.antragsteller_strasse, mL, y); }
+                if (d.antragsteller_plz||d.antragsteller_ort) { y+=5; doc.text((d.antragsteller_plz||"")+" "+(d.antragsteller_ort||""), mL, y); }
+
+                // Datum oben rechts
+                doc.text(d.antragsteller_ort ? d.antragsteller_ort+", "+heute : heute, W-mR, 20, {align:"right"});
+
+                // Empfänger (Gericht)
+                y+=12;
+                doc.text("An das", mL, y); y+=5;
+                doc.setFont("helvetica","bold");
+                doc.text(d.gericht||"Amtsgericht _______________", mL, y); y+=5;
+                doc.setFont("helvetica","normal");
+                doc.text("– Abteilung für Familiensachen –", mL, y); y+=14;
+
+                // Betreff
+                doc.setFontSize(12); doc.setFont("helvetica","bold");
+                doc.text("Antrag auf Übertragung der gemeinsamen elterlichen Sorge", mL, y); y+=6;
+                doc.setFontSize(9); doc.setFont("helvetica","normal");
+                doc.text("gemäß § 1626a Abs. 2 BGB i.d.F. des Gesetzes v. 19.05.2013 (BGBl. I S. 1084)", mL, y); y+=5;
+                doc.text("Betr.: Kind: "+(d.kind_name||"_______________")+(d.kind_geburt ? ", geb. "+d.kind_geburt : ""), mL, y); y+=10;
+
+                // Trennlinie
+                doc.setLineWidth(0.3); doc.line(mL, y, W-mR, y); y+=8;
+
+                var section = function(t){
+                  doc.setFontSize(11); doc.setFont("helvetica","bold");
+                  doc.text(t, mL, y); doc.setLineWidth(0.2);
+                  doc.line(mL, y+1.5, W-mR, y+1.5); y+=8;
+                  doc.setFont("helvetica","normal"); doc.setFontSize(10);
+                };
+                var row = function(label, val){
+                  doc.setFont("helvetica","bold"); doc.text(label+":", mL, y);
+                  doc.setFont("helvetica","normal");
+                  var lines = doc.splitTextToSize(val||"—", W-mL-mR-48);
+                  doc.text(lines, mL+48, y); y += Math.max(lineH, lines.length*lineH);
+                };
+
+                section("I. Beteiligte");
+                row("Antragsteller (Vater)", (d.antragsteller_name||"") + (absAnschrift ? ", "+absAnschrift : ""));
+                row("Antragsgegnerin (Mutter)", (d.gegenseite_name||"") + (d.gegenseite_strasse ? ", "+d.gegenseite_strasse+", "+(d.gegenseite_plz||"")+" "+(d.gegenseite_ort||"") : "")); y+=4;
+
+                section("II. Kind");
+                row("Name", d.kind_name||"");
+                row("Geburtsdatum", d.kind_geburt||"");
+                row("Hauptwohnsitz", d.kind_strasse ? d.kind_strasse+", "+(d.kind_plz||"")+" "+(d.kind_ort||"") : ""); y+=4;
+
+                section("III. Antrag");
+                var aText = "Der Antragsteller beantragt, ihm zusammen mit der Antragsgegnerin die gemeinsame elterliche Sorge für das oben genannte Kind gemäß § 1626a Abs. 2 BGB zu übertragen.";
+                var aLines = doc.splitTextToSize(aText, W-mL-mR);
+                doc.setFontSize(10); doc.text(aLines, mL, y); y+=aLines.length*lineH+4;
+
+                section("IV. Begründung");
+                var bText = "1. Gemäß § 1626a Abs. 2 Satz 1 BGB überträgt das Familiengericht auf Antrag des Vaters die elterliche Sorge oder einen Teil davon beiden Eltern gemeinsam, wenn die Übertragung dem Kindeswohl nicht widerspricht.
+
+2. Gemäß § 1626a Abs. 2 Satz 2 BGB wird widerleglich vermutet, dass die Übertragung dem Kindeswohl nicht widerspricht (Kindeswohlvermutung). Die Beweislast für einen dem Kindeswohl widersprechenden Umstand liegt beim ablehnenden Elternteil (BGH, Beschluss v. 15.06.2016 – XII ZB 419/15).
+
+3. Tatsächliche Anhaltspunkte, die der Übertragung der gemeinsamen Sorge entgegenstehen würden, sind nicht ersichtlich. Eine gemeinsame Ausübung der elterlichen Sorge liegt im wohlverstandenen Interesse des Kindes.";
+                var bParts = bText.split("
+
+");
+                doc.setFontSize(10);
+                bParts.forEach(function(part) {
+                  var lines = doc.splitTextToSize(part, W-mL-mR);
+                  doc.text(lines, mL, y); y+=lines.length*lineH+3;
+                });
+                y+=4;
+
+                // Unterschrift
+                doc.setLineWidth(0.3); doc.line(mL, y, W-mR, y); y+=8;
+                var ortDatum = (d.antragsteller_ort||"_____________")+", den "+heute;
+                doc.setFontSize(10); doc.text(ortDatum, mL, y); y+=14;
+                if (sig) {
+                  try { doc.addImage(sig,"PNG",mL,y,70,25); } catch(e){}
+                  y+=28;
+                } else {
+                  doc.line(mL, y+12, mL+70, y+12); y+=16;
+                }
+                doc.setFontSize(9); doc.text(d.antragsteller_name||"Antragsteller", mL, y);
+                doc.save("Sorgerechtsantrag_"+(d.antragsteller_name||"").replace(/ /g,"_")+".pdf");
+              };
+              return (
+                <div style={{ backgroundColor:"#f0faf0", border:"1px solid #a5d6a7", borderRadius:"10px", padding:"14px 16px", marginBottom:"14px" }}>
+                  <div style={{ fontWeight:"bold", fontSize:"13px", color:"#2e7d32", marginBottom:"10px" }}>📄 Sorgerechtsantrag</div>
+                  <div style={{ fontSize:"11px", color:"#444", marginBottom:"12px", lineHeight:"1.6" }}>
+                    <strong>Gericht:</strong> {d.gericht||"—"}<br/>
+                    <strong>Vater:</strong> {d.antragsteller_name||"—"}, {d.antragsteller_strasse||"—"}<br/>
+                    <strong>Mutter:</strong> {d.gegenseite_name||"—"}, {d.gegenseite_strasse||"—"}<br/>
+                    <strong>Kind:</strong> {d.kind_name||"—"}{d.kind_geburt ? ", geb. "+d.kind_geburt : ""}
+                  </div>
+                  {sorgerechtSigData ? (
+                    <div style={{ marginBottom:"10px" }}>
+                      <div style={{ fontSize:"11px", color:"#555", marginBottom:"4px" }}>Unterschrift hinterlegt:</div>
+                      <img src={sorgerechtSigData} style={{ border:"1px solid #ccc", borderRadius:"6px", width:"100%", maxHeight:"70px", objectFit:"contain", backgroundColor:"#fff" }} alt="Unterschrift" />
+                      <button onClick={function(){ setSorgerechtSigData(null); }} style={{ fontSize:"11px", color:"#e53935", background:"none", border:"none", cursor:"pointer", marginTop:"3px" }}>✕ Löschen</button>
+                    </div>
+                  ) : (
+                    <button onClick={function(){ setSorgerechtSigModal(true); }}
+                      style={{ width:"100%", padding:"10px", backgroundColor:"#fff", color:"#003366", border:"2px dashed #003366", borderRadius:"8px", fontWeight:"bold", fontSize:"12px", cursor:"pointer", marginBottom:"8px" }}>
+                      ✍️ Unterschrift hinzufügen (optional)
+                    </button>
+                  )}
+                  <button onClick={function(){ erzeugeSorgerechtPDF(sorgerechtSigData); }}
+                    style={{ width:"100%", padding:"12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>
+                    📄 Antrag als PDF herunterladen
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Ausgefüllte Felder – nur für andere Formulartypen */}
+            {aktivesEingangFormular.typ !== "Antrag Gemeinsames Sorgerecht" && (
+            <div>
             <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>Ausgefüllte Felder</div>
-            {Object.entries(aktivesEingangFormular.felder || {}).map(function(entry) {
+            </div>
+            )}
+            {aktivesEingangFormular.typ !== "Antrag Gemeinsames Sorgerecht" && Object.entries(aktivesEingangFormular.felder || {}).map(function(entry) {
               var k = entry[0]; var v = entry[1];
               if (!v || v === "" || Array.isArray(v) || typeof v === "object") return null;
               if (["kinder","hatKinder","bgKinder","bgAnliegen"].indexOf(k) >= 0) return null;
@@ -5324,8 +5452,8 @@ function App() {
               );
             })}
 
-            {/* Kinder */}
-            {Array.isArray((aktivesEingangFormular.felder||{}).kinder) && aktivesEingangFormular.felder.kinder.length > 0 && (
+            {/* Kinder – nur für andere Formulartypen */}
+            {aktivesEingangFormular.typ !== "Antrag Gemeinsames Sorgerecht" && Array.isArray((aktivesEingangFormular.felder||{}).kinder) && aktivesEingangFormular.felder.kinder.length > 0 && (
               <div style={{ marginTop:"10px" }}>
                 <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>Kinder ({aktivesEingangFormular.felder.kinder.length})</div>
                 {aktivesEingangFormular.felder.kinder.map(function(k, i) {
@@ -6127,62 +6255,60 @@ function App() {
                     if (pflicht.some(function(v){ return !v||!v.trim(); })) { alert("Bitte alle Pflichtfelder (*) ausfüllen."); return; }
                     var jsPDF = window.jspdf && window.jspdf.jsPDF;
                     if (!jsPDF) { alert("PDF-Bibliothek nicht geladen."); return; }
+                    var d = sd;
                     var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-                    var W = 210; var mL = 25; var mR = 25; var y = 20;
-                    var lineH = 6;
-                    // Gericht rechts
-                    doc.setFontSize(10); doc.setFont("helvetica","normal");
-                    doc.text(sd.gericht || "Amtsgericht _______________", W - mR, y, { align:"right" });
-                    y += 5; doc.text("Abteilung für Familiensachen", W - mR, y, { align:"right" });
-                    y += 14;
-                    // Titel
-                    doc.setFontSize(14); doc.setFont("helvetica","bold");
-                    doc.text("Antrag auf Übertragung der gemeinsamen elterlichen Sorge", W/2, y, { align:"center" });
-                    y += 7; doc.setFontSize(9); doc.setFont("helvetica","normal");
-                    doc.text("gemäß § 1626a Abs. 2 BGB (Gesetz v. 19.05.2013)", W/2, y, { align:"center" });
-                    y += 12;
-                    // Abschnitt
-                    var section = function(titel) {
-                      doc.setFontSize(11); doc.setFont("helvetica","bold");
-                      doc.text(titel, mL, y); doc.setLineWidth(0.3);
-                      doc.line(mL, y+1.5, W-mR, y+1.5); y += 8;
-                      doc.setFont("helvetica","normal"); doc.setFontSize(10);
-                    };
-                    var row = function(label, val) {
-                      doc.setFont("helvetica","bold"); doc.text(label+":", mL, y);
-                      doc.setFont("helvetica","normal"); doc.text(val||"—", mL+45, y); y += lineH;
-                    };
-                    section("Antragsteller (Vater)");
-                    row("Name", sd.antragsteller_name||"");
-                    row("Anschrift", sd.antragsteller_strasse ? sd.antragsteller_strasse+", "+(sd.antragsteller_plz||"")+" "+(sd.antragsteller_ort||"") : "");
-                    y += 4;
-                    section("Antragsgegnerin (Mutter)");
-                    row("Name", sd.gegenseite_name||"");
-                    row("Anschrift", sd.gegenseite_strasse ? sd.gegenseite_strasse+", "+(sd.gegenseite_plz||"")+" "+(sd.gegenseite_ort||"") : "");
-                    y += 4;
-                    section("Kind");
-                    row("Name", sd.kind_name||"");
-                    row("Geburtsdatum", sd.kind_geburt||"");
-                    row("Hauptwohnsitz", sd.kind_strasse ? sd.kind_strasse+", "+(sd.kind_plz||"")+" "+(sd.kind_ort||"") : "");
-                    y += 4;
-                    section("Antrag");
-                    var antragText = "Der Antragsteller beantragt, ihm zusammen mit der Antragsgegnerin die gemeinsame elterliche Sorge für das vorgenannte Kind zu übertragen.";
-                    var antragLines = doc.splitTextToSize(antragText, W-mL-mR);
-                    doc.text(antragLines, mL, y); y += antragLines.length * lineH + 4;
-                    section("Begründung");
-                    var begruendung = "Gemäß § 1626a Abs. 2 Satz 1 BGB überträgt das Familiengericht die elterliche Sorge oder einen Teil davon auf den Antragsteller, wenn die Übertragung dem Kindeswohl nicht widerspricht. Die Beweislast für einen dem Kindeswohl widersprechenden Umstand liegt gemäß § 1626a Abs. 2 Satz 2 BGB beim ablehnenden Elternteil (BGH, Beschluss v. 15.06.2016 – XII ZB 419/15). Tatsächliche Anhaltspunkte, die der Übertragung der gemeinsamen Sorge entgegenstehen würden, sind nicht ersichtlich.";
-                    var bLines = doc.splitTextToSize(begruendung, W-mL-mR);
-                    doc.text(bLines, mL, y); y += bLines.length * lineH + 10;
+                    var W=210, mL=25, mR=25, y=20, lineH=6;
+                    var heute = new Date().toLocaleDateString("de-DE");
+                    var absAnschrift = (d.antragsteller_strasse||"") + (d.antragsteller_plz ? ", "+d.antragsteller_plz : "") + (d.antragsteller_ort ? " "+d.antragsteller_ort : "");
+                    // Absender oben links
+                    doc.setFontSize(10); doc.setFont("helvetica","bold");
+                    doc.text(d.antragsteller_name||"", mL, y);
+                    doc.setFont("helvetica","normal");
+                    if (d.antragsteller_strasse) { y+=5; doc.text(d.antragsteller_strasse, mL, y); }
+                    if (d.antragsteller_plz||d.antragsteller_ort) { y+=5; doc.text((d.antragsteller_plz||"")+" "+(d.antragsteller_ort||""), mL, y); }
+                    // Datum oben rechts
+                    doc.text(d.antragsteller_ort ? d.antragsteller_ort+", "+heute : heute, W-mR, 20, {align:"right"});
+                    // Empfänger (Gericht)
+                    y+=12;
+                    doc.text("An das", mL, y); y+=5;
+                    doc.setFont("helvetica","bold");
+                    doc.text(d.gericht||"Amtsgericht _______________", mL, y); y+=5;
+                    doc.setFont("helvetica","normal");
+                    doc.text("– Abteilung für Familiensachen –", mL, y); y+=14;
+                    // Betreff
+                    doc.setFontSize(12); doc.setFont("helvetica","bold");
+                    doc.text("Antrag auf Übertragung der gemeinsamen elterlichen Sorge", mL, y); y+=6;
+                    doc.setFontSize(9); doc.setFont("helvetica","normal");
+                    doc.text("gemäß § 1626a Abs. 2 BGB i.d.F. des Gesetzes v. 19.05.2013 (BGBl. I S. 1084)", mL, y); y+=5;
+                    doc.text("Betr.: Kind: "+(d.kind_name||"_______________")+(d.kind_geburt ? ", geb. "+d.kind_geburt : ""), mL, y); y+=10;
+                    doc.setLineWidth(0.3); doc.line(mL, y, W-mR, y); y+=8;
+                    // Beteiligte
+                    var section = function(t){ doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text(t,mL,y); doc.setLineWidth(0.2); doc.line(mL,y+1.5,W-mR,y+1.5); y+=8; doc.setFont("helvetica","normal"); doc.setFontSize(10); };
+                    var row = function(label,val){ doc.setFont("helvetica","bold"); doc.text(label+":",mL,y); doc.setFont("helvetica","normal"); var lines=doc.splitTextToSize(val||"—",W-mL-mR-48); doc.text(lines,mL+48,y); y+=Math.max(lineH,lines.length*lineH); };
+                    section("I. Beteiligte");
+                    row("Antragsteller (Vater)", (d.antragsteller_name||"")+(absAnschrift ? ", "+absAnschrift : ""));
+                    row("Antragsgegnerin (Mutter)", (d.gegenseite_name||"")+(d.gegenseite_strasse ? ", "+d.gegenseite_strasse+", "+(d.gegenseite_plz||"")+" "+(d.gegenseite_ort||"") : "")); y+=4;
+                    section("II. Kind");
+                    row("Name", d.kind_name||"");
+                    row("Geburtsdatum", d.kind_geburt||"");
+                    row("Hauptwohnsitz", d.kind_strasse ? d.kind_strasse+", "+(d.kind_plz||"")+" "+(d.kind_ort||"") : ""); y+=4;
+                    section("III. Antrag");
+                    var aLines = doc.splitTextToSize("Der Antragsteller beantragt, ihm zusammen mit der Antragsgegnerin die gemeinsame elterliche Sorge für das oben genannte Kind gemäß § 1626a Abs. 2 BGB zu übertragen.", W-mL-mR);
+                    doc.setFontSize(10); doc.text(aLines, mL, y); y+=aLines.length*lineH+4;
+                    section("IV. Begründung");
+                    var bParts = [
+                      "1. Gemäß § 1626a Abs. 2 Satz 1 BGB überträgt das Familiengericht auf Antrag des Vaters die elterliche Sorge oder einen Teil davon beiden Eltern gemeinsam, wenn die Übertragung dem Kindeswohl nicht widerspricht.",
+                      "2. Gemäß § 1626a Abs. 2 Satz 2 BGB wird widerleglich vermutet, dass die Übertragung dem Kindeswohl nicht widerspricht (Kindeswohlvermutung). Die Beweislast für einen dem Kindeswohl widersprechenden Umstand liegt beim ablehnenden Elternteil (BGH, Beschluss v. 15.06.2016 – XII ZB 419/15).",
+                      "3. Tatsächliche Anhaltspunkte, die der Übertragung der gemeinsamen Sorge entgegenstehen würden, sind nicht ersichtlich. Eine gemeinsame Ausübung der elterlichen Sorge liegt im wohlverstandenen Interesse des Kindes."
+                    ];
+                    doc.setFontSize(10);
+                    bParts.forEach(function(part){ var lines=doc.splitTextToSize(part,W-mL-mR); doc.text(lines,mL,y); y+=lines.length*lineH+3; }); y+=4;
                     // Unterschrift
-                    doc.text("Ort, Datum: _______________________", mL, y); y += 10;
-                    if (sorgerechtSigData) {
-                      try { doc.addImage(sorgerechtSigData, "PNG", mL, y, 70, 25); } catch(e) {}
-                      y += 27;
-                    } else {
-                      doc.line(mL, y+10, mL+70, y+10); y += 14;
-                    }
-                    doc.setFontSize(9); doc.text("Unterschrift Antragsteller", mL, y);
-                    doc.save("Sorgerechtsantrag_"+(sd.antragsteller_name||"").replace(/\s/g,"_")+".pdf");
+                    doc.setLineWidth(0.3); doc.line(mL,y,W-mR,y); y+=8;
+                    doc.text((d.antragsteller_ort||"_____________")+", den "+heute, mL, y); y+=14;
+                    if (sorgerechtSigData) { try { doc.addImage(sorgerechtSigData,"PNG",mL,y,70,25); } catch(e){} y+=28; } else { doc.line(mL,y+12,mL+70,y+12); y+=16; }
+                    doc.setFontSize(9); doc.text(d.antragsteller_name||"Antragsteller", mL, y);
+                    doc.save("Sorgerechtsantrag_"+(d.antragsteller_name||"").replace(/ /g,"_")+".pdf");
                   }} style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer" }}>
                     📄 Als PDF speichern
                   </button>
