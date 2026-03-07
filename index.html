@@ -88,6 +88,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="text/babel" data-presets="react">
 
 const { useState, useEffect, useRef } = React;
@@ -3718,6 +3719,8 @@ function App() {
   const [formFelderDaten, setFormFelderDaten] = useState({});
   const [gerichtSuche, setGerichtSuche] = useState(false);
   const [gerichtFehler, setGerichtFehler] = useState("");
+  const [sorgerechtSigModal, setSorgerechtSigModal] = useState(false);
+  const [sorgerechtSigData, setSorgerechtSigData] = useState(null);
   const [ausgangFormulare, setAusgangFormulare] = useState(() => { try { return JSON.parse(localStorage.getItem("isuv_ausgang") || "[]"); } catch(e) { return []; } });
   useEffect(function() { try { localStorage.setItem("isuv_ausgang", JSON.stringify(ausgangFormulare)); } catch(e) {} }, [ausgangFormulare]);
   const [showAusgang, setShowAusgang] = useState(false);
@@ -4757,8 +4760,8 @@ function App() {
                         <div style={{ flex:1 }}><label style={styles.label}>Vorname</label><input style={styles.input} value={(kind.name||"").split(", ")[1]||kind.vorname||""} onChange={function(e){ var v=e.target.value; var nach=(kind.name||"").split(", ")[0]||""; updK("name",nach+", "+v); }} /></div>
                         <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={(kind.name||"").split(", ")[0]||kind.nachname||""} onChange={function(e){ var v=e.target.value; var vor=(kind.name||"").split(", ")[1]||""; updK("name",v+", "+vor); }} /></div>
                       </div>
-                      <label style={styles.label}>Geburtsdatum</label>
-                      <input type="date" style={styles.input} value={kind.geburt||""} onChange={function(e){ updK("geburt",e.target.value); }} />
+                      <label style={styles.label}>Geburtsdatum (TT.MM.JJJJ)</label>
+                      <input style={styles.input} placeholder="z.B. 15.03.2018" value={kind.geburt||""} onChange={function(e){ updK("geburt",e.target.value); }} />
                       <label style={styles.label}>Unterhaltstitel für dieses Kind</label>
                       <div style={{ display:"flex", gap:"6px", marginBottom:"8px" }}>
                         {["ja","nein","Titel beantragt"].map(function(v){
@@ -4774,6 +4777,17 @@ function App() {
                           <input type="number" style={styles.input} placeholder="z.B. 426" value={kind.unterhaltsTitelBetrag||""} onChange={function(e){ updK("unterhaltsTitelBetrag",e.target.value); }} />
                         </div>
                       )}
+                      <label style={styles.label}>Wohnort / Betreuung</label>
+                      <select style={styles.input} value={kind.wohnort||""} onChange={function(e){ updK("wohnort",e.target.value); }}>
+                        <option value="">– wählen –</option>
+                        {["bei Antragsteller","beim anderen Elternteil","Wechselmodell","Kein Umgang"].map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+                      </select>
+                      <label style={styles.label}>Straße & Hausnummer (Hauptwohnsitz)</label>
+                      <input style={styles.input} placeholder="Musterstraße 1" value={kind.strasse||""} onChange={function(e){ updK("strasse",e.target.value); }} />
+                      <div style={{ display:"flex", gap:"6px" }}>
+                        <div style={{ width:"80px" }}><label style={styles.label}>PLZ</label><input style={styles.input} placeholder="12345" value={kind.plz||""} onChange={function(e){ updK("plz",e.target.value); }} /></div>
+                        <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={kind.ort||""} onChange={function(e){ updK("ort",e.target.value); }} /></div>
+                      </div>
                     </div>
                   );
                 })}
@@ -6094,9 +6108,88 @@ function App() {
                 )}
                 <div style={{ fontSize:"10px", color:"#888", marginBottom:"8px" }}>ℹ️ Zuständig ist das Amtsgericht am <strong>Hauptwohnsitz des Kindes</strong> (§ 152 FamFG).</div>
 
-                <button onClick={absenden} style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"20px", marginBottom:"16px" }}>
-                  ✅ Angaben übermitteln
-                </button>
+                {/* Unterschrift + PDF */}
+                <div style={{ marginTop:"20px", marginBottom:"16px" }}>
+                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>✍️ Unterschrift</div>
+                  {sorgerechtSigData ? (
+                    <div style={{ marginBottom:"10px" }}>
+                      <img src={sorgerechtSigData} style={{ border:"1px solid #ccc", borderRadius:"6px", width:"100%", maxHeight:"80px", objectFit:"contain", backgroundColor:"#fff" }} alt="Unterschrift" />
+                      <button onClick={function(){ setSorgerechtSigData(null); }} style={{ fontSize:"11px", color:"#e53935", background:"none", border:"none", cursor:"pointer", marginTop:"4px" }}>✕ Unterschrift löschen</button>
+                    </div>
+                  ) : (
+                    <button onClick={function(){ setSorgerechtSigModal(true); }}
+                      style={{ width:"100%", padding:"12px", backgroundColor:"#fff", color:"#003366", border:"2px dashed #003366", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"10px" }}>
+                      ✍️ Hier unterschreiben (mit Finger oder Maus)
+                    </button>
+                  )}
+                  <button onClick={function(){
+                    var pflicht = [sd.antragsteller_name, sd.gegenseite_name, sd.kind_name];
+                    if (pflicht.some(function(v){ return !v||!v.trim(); })) { alert("Bitte alle Pflichtfelder (*) ausfüllen."); return; }
+                    var jsPDF = window.jspdf && window.jspdf.jsPDF;
+                    if (!jsPDF) { alert("PDF-Bibliothek nicht geladen."); return; }
+                    var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+                    var W = 210; var mL = 25; var mR = 25; var y = 20;
+                    var lineH = 6;
+                    // Gericht rechts
+                    doc.setFontSize(10); doc.setFont("helvetica","normal");
+                    doc.text(sd.gericht || "Amtsgericht _______________", W - mR, y, { align:"right" });
+                    y += 5; doc.text("Abteilung für Familiensachen", W - mR, y, { align:"right" });
+                    y += 14;
+                    // Titel
+                    doc.setFontSize(14); doc.setFont("helvetica","bold");
+                    doc.text("Antrag auf Übertragung der gemeinsamen elterlichen Sorge", W/2, y, { align:"center" });
+                    y += 7; doc.setFontSize(9); doc.setFont("helvetica","normal");
+                    doc.text("gemäß § 1626a Abs. 2 BGB (Gesetz v. 19.05.2013)", W/2, y, { align:"center" });
+                    y += 12;
+                    // Abschnitt
+                    var section = function(titel) {
+                      doc.setFontSize(11); doc.setFont("helvetica","bold");
+                      doc.text(titel, mL, y); doc.setLineWidth(0.3);
+                      doc.line(mL, y+1.5, W-mR, y+1.5); y += 8;
+                      doc.setFont("helvetica","normal"); doc.setFontSize(10);
+                    };
+                    var row = function(label, val) {
+                      doc.setFont("helvetica","bold"); doc.text(label+":", mL, y);
+                      doc.setFont("helvetica","normal"); doc.text(val||"—", mL+45, y); y += lineH;
+                    };
+                    section("Antragsteller (Vater)");
+                    row("Name", sd.antragsteller_name||"");
+                    row("Anschrift", sd.antragsteller_strasse ? sd.antragsteller_strasse+", "+(sd.antragsteller_plz||"")+" "+(sd.antragsteller_ort||"") : "");
+                    y += 4;
+                    section("Antragsgegnerin (Mutter)");
+                    row("Name", sd.gegenseite_name||"");
+                    row("Anschrift", sd.gegenseite_strasse ? sd.gegenseite_strasse+", "+(sd.gegenseite_plz||"")+" "+(sd.gegenseite_ort||"") : "");
+                    y += 4;
+                    section("Kind");
+                    row("Name", sd.kind_name||"");
+                    row("Geburtsdatum", sd.kind_geburt||"");
+                    row("Hauptwohnsitz", sd.kind_strasse ? sd.kind_strasse+", "+(sd.kind_plz||"")+" "+(sd.kind_ort||"") : "");
+                    y += 4;
+                    section("Antrag");
+                    var antragText = "Der Antragsteller beantragt, ihm zusammen mit der Antragsgegnerin die gemeinsame elterliche Sorge für das vorgenannte Kind zu übertragen.";
+                    var antragLines = doc.splitTextToSize(antragText, W-mL-mR);
+                    doc.text(antragLines, mL, y); y += antragLines.length * lineH + 4;
+                    section("Begründung");
+                    var begruendung = "Gemäß § 1626a Abs. 2 Satz 1 BGB überträgt das Familiengericht die elterliche Sorge oder einen Teil davon auf den Antragsteller, wenn die Übertragung dem Kindeswohl nicht widerspricht. Die Beweislast für einen dem Kindeswohl widersprechenden Umstand liegt gemäß § 1626a Abs. 2 Satz 2 BGB beim ablehnenden Elternteil (BGH, Beschluss v. 15.06.2016 – XII ZB 419/15). Tatsächliche Anhaltspunkte, die der Übertragung der gemeinsamen Sorge entgegenstehen würden, sind nicht ersichtlich.";
+                    var bLines = doc.splitTextToSize(begruendung, W-mL-mR);
+                    doc.text(bLines, mL, y); y += bLines.length * lineH + 10;
+                    // Unterschrift
+                    doc.text("Ort, Datum: _______________________", mL, y); y += 10;
+                    if (sorgerechtSigData) {
+                      try { doc.addImage(sorgerechtSigData, "PNG", mL, y, 70, 25); } catch(e) {}
+                      y += 27;
+                    } else {
+                      doc.line(mL, y+10, mL+70, y+10); y += 14;
+                    }
+                    doc.setFontSize(9); doc.text("Unterschrift Antragsteller", mL, y);
+                    doc.save("Sorgerechtsantrag_"+(sd.antragsteller_name||"").replace(/\s/g,"_")+".pdf");
+                  }} style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer" }}>
+                    📄 Als PDF speichern
+                  </button>
+                  <button onClick={absenden} style={{ width:"100%", padding:"10px", backgroundColor:"#555", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"12px", cursor:"pointer", marginTop:"8px" }}>
+                    ✅ Nur übermitteln (kein PDF)
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -7550,6 +7643,9 @@ function App() {
                             antragsteller_ort: m ? m.ort || "" : "",
                             kind_name: kindName,
                             kind_geburt: kindGeburt,
+                            kind_strasse: kind0 ? (kind0.strasse || "") : "",
+                            kind_plz: kind0 ? (kind0.plz || "") : "",
+                            kind_ort: kind0 ? (kind0.ort || "") : "",
                             mail: m ? m.mail || "" : ""
                           };
                           var fehlendeFelder = [];
@@ -7798,6 +7894,61 @@ function App() {
         )}
 
       </main>
+
+      {/* ── Unterschrift-Modal Sorgerecht ── */}
+      {sorgerechtSigModal && (function() {
+        var canvasRef = useRef(null);
+        var drawing = useRef(false);
+        var lastPos = useRef(null);
+        var getPos = function(canvas, evt) {
+          var rect = canvas.getBoundingClientRect();
+          var scaleX = canvas.width / rect.width;
+          var scaleY = canvas.height / rect.height;
+          var src = evt.touches ? evt.touches[0] : evt;
+          return { x: (src.clientX - rect.left)*scaleX, y: (src.clientY - rect.top)*scaleY };
+        };
+        var startDraw = function(e) {
+          e.preventDefault(); drawing.current = true;
+          var cv = canvasRef.current;
+          if (cv) { lastPos.current = getPos(cv, e.nativeEvent || e); }
+        };
+        var draw = function(e) {
+          e.preventDefault();
+          if (!drawing.current) return;
+          var cv = canvasRef.current; if (!cv) return;
+          var ctx = cv.getContext("2d");
+          var pos = getPos(cv, e.nativeEvent || e);
+          ctx.beginPath(); ctx.strokeStyle = "#003366"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+          ctx.moveTo(lastPos.current.x, lastPos.current.y);
+          ctx.lineTo(pos.x, pos.y); ctx.stroke();
+          lastPos.current = pos;
+        };
+        var stopDraw = function(e) { if (e) e.preventDefault(); drawing.current = false; };
+        var clear = function() { var cv = canvasRef.current; if (cv) cv.getContext("2d").clearRect(0,0,cv.width,cv.height); };
+        var save = function() {
+          var cv = canvasRef.current; if (!cv) return;
+          setSorgerechtSigData(cv.toDataURL("image/png"));
+          setSorgerechtSigModal(false);
+        };
+        return (
+          <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, backgroundColor:"rgba(0,0,0,0.6)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+            <div style={{ backgroundColor:"#fff", borderRadius:"14px", padding:"20px", width:"100%", maxWidth:"420px" }}>
+              <div style={{ fontWeight:"bold", fontSize:"14px", color:"#003366", marginBottom:"6px" }}>✍️ Unterschrift des Antragstellers</div>
+              <div style={{ fontSize:"11px", color:"#666", marginBottom:"12px" }}>Mit Finger oder Maus unterschreiben:</div>
+              <canvas ref={canvasRef} width={560} height={160}
+                style={{ border:"2px solid #003366", borderRadius:"8px", width:"100%", height:"120px", touchAction:"none", backgroundColor:"#fafcff", display:"block" }}
+                onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+                onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
+              />
+              <div style={{ display:"flex", gap:"8px", marginTop:"12px" }}>
+                <button onClick={clear} style={{ flex:1, padding:"10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>🗑️ Löschen</button>
+                <button onClick={function(){ setSorgerechtSigModal(false); }} style={{ flex:1, padding:"10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>Abbrechen</button>
+                <button onClick={save} style={{ flex:2, padding:"10px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>✅ Übernehmen</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
