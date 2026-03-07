@@ -4319,13 +4319,15 @@ function App() {
                                   if (felder.gegenseiteName) updates.gegenseiteName = felder.gegenseiteName;
                                   if (felder.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                                   if (felder.kinder && felder.kinder.length > 0) {
-                                    updates.alleinerziehend = true;
-                                    updates.kinder = felder.kinder.map(function(k) {
+                                    var kinderMapped1 = felder.kinder.map(function(k) {
                                       var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
                                       var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
                                       var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
                                       return { name:(k.nachname||f.name||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:true };
                                     });
+                                    updates.kinder = kinderMapped1;
+                                    // alleinerziehend nur wenn mind. ein Kind beim Antragsteller wohnt
+                                    updates.alleinerziehend = kinderMapped1.some(function(k){ return k.wohnort && (k.wohnort.toLowerCase().includes("antragstell") || k.wohnort.toLowerCase().includes("mir")); });
                                   }
 
                                   // Bürgergeld-Felder (bgXxx)
@@ -4346,13 +4348,14 @@ function App() {
                                   if (felder.bgAnliegen && felder.bgAnliegen.length > 0) updates.bgAnliegen = felder.bgAnliegen;
                                   if (felder.bgHatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                                   if (felder.bgKinder && felder.bgKinder.length > 0) {
-                                    updates.alleinerziehend = true;
-                                    updates.kinder = felder.bgKinder.map(function(k) {
+                                    var kinderMapped2 = felder.bgKinder.map(function(k) {
                                       var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
                                       var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
                                       var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
                                       return { name:(k.nachname||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:k.kindergeld==="ja" };
                                     });
+                                    updates.kinder = kinderMapped2;
+                                    updates.alleinerziehend = kinderMapped2.some(function(k){ return k.wohnort && (k.wohnort.toLowerCase().includes("antragstell") || k.wohnort.toLowerCase().includes("mir")); });
                                   }
 
                                   setMemberExtras(function(prev) { var next=Object.assign({},prev); next[passendesMitglied.id]=Object.assign({},prev[passendesMitglied.id]||{},updates); return next; });
@@ -5373,13 +5376,14 @@ function App() {
                 if (fd.trennungSeit) updates.trennungSeit = fd.trennungSeit;
                 if (fd.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                 if (fd.kinder && fd.kinder.length > 0) {
-                  updates.alleinerziehend = true;
-                  updates.kinder = fd.kinder.map(function(k) {
+                  var km3 = fd.kinder.map(function(k) {
                     var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
                     var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
                     var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
                     return { name:(k.nachname||fd.name||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:true };
                   });
+                  updates.kinder = km3;
+                  updates.alleinerziehend = km3.some(function(k){ return k.wohnort && (k.wohnort.toLowerCase().includes("antragstell") || k.wohnort.toLowerCase().includes("mir")); });
                 }
 
                 // Bürgergeld-Felder (bgXxx)
@@ -5399,13 +5403,14 @@ function App() {
                 if (fd.bgAnliegen && fd.bgAnliegen.length > 0) updates.bgAnliegen = fd.bgAnliegen;
                 if (fd.bgHatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                 if (fd.bgKinder && fd.bgKinder.length > 0) {
-                  updates.alleinerziehend = true;
-                  updates.kinder = fd.bgKinder.map(function(k) {
+                  var km4 = fd.bgKinder.map(function(k) {
                     var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
                     var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
                     var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
                     return { name:(k.nachname||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:k.kindergeld==="ja" };
                   });
+                  updates.kinder = km4;
+                  updates.alleinerziehend = km4.some(function(k){ return k.wohnort && (k.wohnort.toLowerCase().includes("antragstell") || k.wohnort.toLowerCase().includes("mir")); });
                 }
 
                 // Konflikterkennung

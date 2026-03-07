@@ -121,24 +121,9 @@ function App() {
   var ermittleGericht = function() {
     var plz = (daten.kind_plz || "").trim();
     if (!plz || plz.length < 5) { setGerichtFehler("Bitte zuerst PLZ des Kindes eingeben."); return; }
-    setGerichtSuche(true); setGerichtFehler("");
-    fetch("https://www.justiz.de/onlinedienste/gerichtsverzeichnis/index.php?plz=" + encodeURIComponent(plz) + "&gtyp=AG&land=")
-      .then(function(r) { return r.text(); })
-      .then(function(html) {
-        var match = html.match(/Amtsgericht\s+([^<"\n,]+)/i);
-        var name = match ? ("Amtsgericht " + match[1].trim()) : null;
-        if (!name) {
-          var m2 = html.match(/<td[^>]*>\s*(Amtsgericht[^<]+)<\/td>/i);
-          name = m2 ? m2[1].trim() : null;
-        }
-        if (name) { upd("gericht", name); setGerichtFehler("✅ Gericht ermittelt."); }
-        else { setGerichtFehler("⚠️ Kein Ergebnis – bitte manuell eintragen."); }
-        setGerichtSuche(false);
-      })
-      .catch(function() {
-        setGerichtFehler("⚠️ Automatische Ermittlung nicht möglich – bitte manuell eintragen.");
-        setGerichtSuche(false);
-      });
+    // CORS verhindert direkten Fetch – Link zum Justizportal öffnen
+    window.open("https://www.justiz.de/onlinedienste/gerichtsverzeichnis/index.php?plz=" + encodeURIComponent(plz) + "&gtyp=AG&land=", "_blank");
+    setGerichtFehler("🔍 Justizportal geöffnet – bitte Amtsgericht oben eintragen.");
   };
 
   // ── Render ──────────────────────────────────────────────
@@ -237,9 +222,9 @@ function App() {
               <label style={styles.label}>Amtsgericht</label>
               <input style={styles.input} placeholder="Wird automatisch ermittelt oder manuell eintragen" value={daten.gericht||""} onChange={function(e){ upd("gericht", e.target.value); }} />
             </div>
-            <button onClick={ermittleGericht} disabled={gerichtSuche}
-              style={{ padding:"10px 12px", backgroundColor: gerichtSuche ? "#aaa" : "#1565c0", color:"#fff", border:"none", borderRadius:"6px", cursor: gerichtSuche ? "not-allowed" : "pointer", fontWeight:"bold", fontSize:"11px", whiteSpace:"nowrap", marginBottom:"10px" }}>
-              {gerichtSuche ? "⏳ Suche..." : "🔍 Per PLZ ermitteln"}
+            <button onClick={ermittleGericht}
+              style={{ padding:"10px 12px", backgroundColor:"#1565c0", color:"#fff", border:"none", borderRadius:"6px", cursor:"pointer", fontWeight:"bold", fontSize:"11px", whiteSpace:"nowrap", marginBottom:"10px" }}>
+              🔍 Gericht nachschlagen
             </button>
           </div>
           {gerichtFehler && (
