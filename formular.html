@@ -399,6 +399,217 @@ function App() {
     );
   }
 
+  // ── Stammdaten-Fragebogen ────────────────────────────────
+  if (formTyp === "stammdaten") {
+    var d = daten;
+    var inp = function(field, placeholder, type) {
+      return <input style={styles.input} type={type||"text"} placeholder={placeholder||""} value={d[field]||""} onChange={function(e){ upd(field, e.target.value); }} />;
+    };
+    var lbl = function(text) { return <label style={styles.label}>{text}</label>; };
+    var sec = function(icon, title) {
+      return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>{icon} {title}</div>;
+    };
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Stammdaten-Fragebogen</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Bitte füllen Sie alle Felder so vollständig wie möglich aus.</div>
+        </div>
+        <div style={{ padding:"0 16px" }}>
+
+          {sec("👤", "Persönliche Daten")}
+          {lbl("Titel (Dr., Prof. etc.)")} {inp("titel", "Dr., Prof. etc.")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("vorname", "Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("name", "Nachname")}</div>
+          </div>
+          {lbl("Geburtsdatum")} {inp("geburt", "TT.MM.JJJJ")}
+          {lbl("E-Mail")} {inp("mail", "name@beispiel.de", "email")}
+          {lbl("Telefon")} {inp("tel", "+49 123 456789", "tel")}
+
+          {sec("🏠", "Adresse")}
+          {lbl("Straße & Hausnummer")} {inp("strasse", "Musterstraße 1")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ width:"90px" }}>{lbl("PLZ")} {inp("plz", "12345")}</div>
+            <div style={{ flex:1 }}>{lbl("Ort")} {inp("ort", "Stadt")}</div>
+          </div>
+
+          {sec("💍", "Familienstand & Trennung")}
+          {lbl("Familienstand")}
+          <select style={styles.input} value={d.familienstand||""} onChange={function(e){ upd("familienstand", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>ledig</option><option>verheiratet</option><option>getrennt lebend</option><option>geschieden</option><option>verwitwet</option>
+          </select>
+          {lbl("Getrennt seit (Datum)")} {inp("trennungSeit", "MM.JJJJ")}
+          {lbl("Name der Gegenseite")} {inp("gegenseiteName", "Vorname Nachname")}
+          {lbl("Adresse Gegenseite")} {inp("gegenseiteAdresse", "Straße, PLZ Ort")}
+          {lbl("Einkommen Gegenseite (€/Monat)")} {inp("gegenseiteEinkommen", "z.B. 2500", "number")}
+
+          {sec("💼", "Beschäftigung & Einkommen")}
+          {lbl("Beschäftigungsart")}
+          <select style={styles.input} value={d.beschaeftigungsart||""} onChange={function(e){ upd("beschaeftigungsart", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Angestellt (Vollzeit)</option><option>Angestellt (Teilzeit)</option><option>Selbständig</option><option>Beamter/Beamtin</option><option>Arbeitslos</option><option>Rentner/Rentnerin</option><option>Sonstiges</option>
+          </select>
+          {lbl("Arbeitgeber")} {inp("arbeitgeber", "Firma GmbH")}
+          {lbl("Wochenstunden")} {inp("wochenstunden", "z.B. 40", "number")}
+          {lbl("Nettoeinkommen (€/Monat)")} {inp("einkommenNetto", "z.B. 2500", "number")}
+          {lbl("Bruttoeinkommen (€/Monat)")} {inp("einkommenBrutto", "z.B. 3200", "number")}
+          {lbl("Steuerklasse")} {inp("steuerklasse", "z.B. I, III")}
+
+          {sec("🏡", "Wohnsituation")}
+          {lbl("Kaltmiete (€/Monat)")} {inp("mieteKalt", "z.B. 700", "number")}
+          {lbl("Nebenkosten (€/Monat)")} {inp("nebenkosten", "z.B. 150", "number")}
+          {lbl("Heizkosten (€/Monat)")} {inp("heizkosten", "z.B. 100", "number")}
+          {lbl("Wohnfläche (m²)")} {inp("wohnungGroesse", "z.B. 75", "number")}
+          {lbl("Mietstufe (1–6)")} {inp("mietStufe", "z.B. 3")}
+
+          {sec("👶", "Kinder")}
+          {lbl("Anzahl Kinder")}
+          <select style={styles.input} value={d.anzahlKinder||"0"} onChange={function(e){ upd("anzahlKinder", e.target.value); }}>
+            {["0","1","2","3","4","5+"].map(function(n){ return <option key={n}>{n}</option>; })}
+          </select>
+          {parseInt(d.anzahlKinder||"0") > 0 && (
+            <div style={{ backgroundColor:"#f5f5f5", borderRadius:"8px", padding:"10px", marginBottom:"8px" }}>
+              <div style={{ fontSize:"11px", color:"#555", marginBottom:"6px" }}>Bitte Namen und Geburtsdaten der Kinder angeben:</div>
+              {inp("kinderAngaben", "z.B. Max Mustermann, 12.03.2015; Anna Mustermann, 04.07.2018")}
+              {lbl("Wohnort der Kinder")}
+              <select style={styles.input} value={d.kinderWohnort||""} onChange={function(e){ upd("kinderWohnort", e.target.value); }}>
+                <option value="">– bitte wählen –</option>
+                <option>bei mir</option><option>beim anderen Elternteil</option><option>Wechselmodell</option>
+              </select>
+              {lbl("UVG bezogen? (je Kind)")} {inp("uvg", "z.B. ja / nein")}
+            </div>
+          )}
+
+          {sec("📝", "Anmerkungen")}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Informationen oder Anmerkungen..." value={d.notizen||""} onChange={function(e){ upd("notizen", e.target.value); }} />
+
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Bürgergeld-Fragebogen ─────────────────────────────────
+  if (formTyp === "buergergeld") {
+    var d = daten;
+    var inp = function(field, placeholder, type) {
+      return <input style={styles.input} type={type||"text"} placeholder={placeholder||""} value={d[field]||""} onChange={function(e){ upd(field, e.target.value); }} />;
+    };
+    var lbl = function(text) { return <label style={styles.label}>{text}</label>; };
+    var sec = function(icon, title) {
+      return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>{icon} {title}</div>;
+    };
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Bürgergeld-Fragebogen</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Bedarfsgemeinschaft & Leistungsberechnung</div>
+        </div>
+        <div style={{ padding:"0 16px" }}>
+
+          {sec("👤", "Persönliche Daten")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("bgVorname", "Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("bgName", "Nachname")}</div>
+          </div>
+          {lbl("Geburtsdatum")} {inp("bgGeburt", "TT.MM.JJJJ")}
+          {lbl("Staatsangehörigkeit")} {inp("bgStaatsangehörigkeit", "z.B. deutsch")}
+          {lbl("E-Mail")} {inp("bgMail", "name@beispiel.de", "email")}
+          {lbl("Telefon")} {inp("bgTel", "+49 123 456789", "tel")}
+          {lbl("Straße & Hausnummer")} {inp("bgStrasse", "Musterstraße 1")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ width:"90px" }}>{lbl("PLZ")} {inp("bgPlz", "12345")}</div>
+            <div style={{ flex:1 }}>{lbl("Ort")} {inp("bgOrt", "Stadt")}</div>
+          </div>
+          {lbl("Familienstand")}
+          <select style={styles.input} value={d.bgFamilienstand||""} onChange={function(e){ upd("bgFamilienstand", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>ledig</option><option>verheiratet</option><option>getrennt lebend</option><option>geschieden</option><option>verwitwet</option>
+          </select>
+          {lbl("Getrennt seit")} {inp("bgTrennungSeit", "MM.JJJJ")}
+
+          {sec("🏡", "Wohnsituation")}
+          {lbl("Kaltmiete (€/Monat)")} {inp("bgMieteKalt", "z.B. 600", "number")}
+          {lbl("Nebenkosten (€/Monat)")} {inp("bgNebenkosten", "z.B. 120", "number")}
+          {lbl("Heizkosten (€/Monat)")} {inp("bgHeizkosten", "z.B. 80", "number")}
+          {lbl("Wohnfläche (m²)")} {inp("bgWohnflaeche", "z.B. 60", "number")}
+
+          {sec("💼", "Einkommen")}
+          {lbl("Erwerbsstatus")}
+          <select style={styles.input} value={d.bgErwerbsstatus||""} onChange={function(e){ upd("bgErwerbsstatus", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Arbeitslos</option><option>Angestellt (Vollzeit)</option><option>Angestellt (Teilzeit)</option><option>Selbständig</option><option>Mini-Job</option><option>Ausbildung</option><option>Rentner/Rentnerin</option>
+          </select>
+          {lbl("Arbeitgeber (falls angestellt)")} {inp("bgArbeitgeber", "Firma GmbH")}
+          {lbl("Nettoeinkommen (€/Monat)")} {inp("bgEinkommenNetto", "z.B. 800", "number")}
+          {lbl("ALG I (€/Monat)")} {inp("bgAlg1Betrag", "z.B. 950", "number")}
+          {lbl("Weitere Einkünfte (€/Monat)")} {inp("bgWeitereEinkuenfte", "z.B. Unterhalt, Kindergeld", "number")}
+          {lbl("Vermögen (€)")} {inp("bgVermoegen", "z.B. 5000", "number")}
+
+          {sec("👶", "Kinder in der Bedarfsgemeinschaft")}
+          {lbl("Kinder vorhanden?")}
+          <select style={styles.input} value={d.bgHatKinder||""} onChange={function(e){ upd("bgHatKinder", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option value="ja">Ja</option><option value="nein">Nein</option>
+          </select>
+          {d.bgHatKinder === "ja" && (
+            <div style={{ backgroundColor:"#f5f5f5", borderRadius:"8px", padding:"10px", marginBottom:"8px" }}>
+              <div style={{ fontSize:"11px", color:"#555", marginBottom:"6px" }}>Namen, Geburtsdaten und Wohnort der Kinder:</div>
+              <textarea style={Object.assign({}, styles.input, { minHeight:"70px", resize:"vertical" })} placeholder="z.B. Max Mustermann, 12.03.2015, bei mir; Anna, 04.07.2018, Wechselmodell" value={d.bgKinderAngaben||""} onChange={function(e){ upd("bgKinderAngaben", e.target.value); }} />
+              {lbl("UVG bezogen? (je Kind)")} {inp("bgUvg", "z.B. ja / nein")}
+              {lbl("Kindergeld-Empfänger")} {inp("bgKindergeld", "z.B. ich / andere Person")}
+            </div>
+          )}
+
+          {sec("📋", "Bürgergeld-Verfahren")}
+          {lbl("Antrag beim Jobcenter gestellt?")}
+          <select style={styles.input} value={d.bgAntragGestellt||""} onChange={function(e){ upd("bgAntragGestellt", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option value="ja">Ja</option><option value="nein">Nein</option>
+          </select>
+          {lbl("Name des Jobcenters")} {inp("bgJobcenter", "Jobcenter Stadt")}
+          {lbl("Bescheid erhalten?")}
+          <select style={styles.input} value={d.bgBescheidArt||""} onChange={function(e){ upd("bgBescheidArt", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Kein Bescheid</option><option>Bewilligungsbescheid</option><option>Ablehnungsbescheid</option><option>Änderungsbescheid</option><option>Aufhebungsbescheid</option><option>Sanktionsbescheid</option>
+          </select>
+          {lbl("Widerspruch eingelegt?")}
+          <select style={styles.input} value={d.bgWiderspruch||""} onChange={function(e){ upd("bgWiderspruch", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option value="ja">Ja</option><option value="nein">Nein</option><option value="geplant">Geplant</option>
+          </select>
+
+          {sec("📝", "Anliegen & Anmerkungen")}
+          {lbl("Mein Anliegen (Mehrfachauswahl möglich)")}
+          {["Erstantrag", "Widerspruch", "Sanktionen", "Mehrbedarf", "Jobcenter-Probleme", "Sonstiges"].map(function(a) {
+            var selected = (d.bgAnliegen||[]).includes(a);
+            return (
+              <button key={a} onClick={function(){
+                var current = d.bgAnliegen || [];
+                upd("bgAnliegen", selected ? current.filter(function(x){ return x !== a; }) : [...current, a]);
+              }} style={{ display:"inline-block", margin:"3px", padding:"6px 10px", backgroundColor: selected ? "#003366" : "#eee", color: selected ? "#fff" : "#333", border:"none", borderRadius:"20px", fontSize:"12px", cursor:"pointer" }}>
+                {a}
+              </button>
+            );
+          })}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical", marginTop:"10px" })} placeholder="Weitere Anmerkungen..." value={d.bgNotizen||""} onChange={function(e){ upd("bgNotizen", e.target.value); }} />
+
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Fallback: unbekannter Formulartyp ────────────────────
   return (
     <div style={{ textAlign:"center", padding:"60px 20px" }}>
