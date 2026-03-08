@@ -3816,6 +3816,14 @@ function App() {
   const [showFormulare, setShowFormulare] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showRechner, setShowRechner] = useState(false);
+  const [showWichtigeKontakte, setShowWichtigeKontakte] = useState(false);
+  const [wichtigeKontakte, setWichtigeKontakte] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("isuv_wichtige_kontakte")||"[]"); } catch(e) { return []; }
+  });
+  const [kontaktBearbeiten, setKontaktBearbeiten] = useState(null); // null | { id, name, mail, tel, notiz } | "neu"
+  useEffect(() => {
+    try { localStorage.setItem("isuv_wichtige_kontakte", JSON.stringify(wichtigeKontakte)); } catch(e) {}
+  }, [wichtigeKontakte]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [activeMember, setActiveMember] = useState(null);
@@ -4752,6 +4760,142 @@ function App() {
               </div>
               {showRechner && <div style={{ marginTop: "10px" }}><RechnerReiter /></div>}
             </div>
+
+            {/* WICHTIGE KONTAKTE */}
+            <div style={styles.card}>
+              <div onClick={() => setShowWichtigeKontakte(!showWichtigeKontakte)} style={styles.reiterHeader}>
+                <h3 style={{ margin: 0, fontSize: "14px" }}>📞 Wichtige Kontakte</h3>
+                <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                  {wichtigeKontakte.length > 0 && (
+                    <span style={{ fontSize:"10px", backgroundColor:"#003366", color:"#fff", borderRadius:"10px", padding:"1px 7px", fontWeight:"bold" }}>{wichtigeKontakte.length}</span>
+                  )}
+                  <span>{showWichtigeKontakte ? "▲" : "▼"}</span>
+                </div>
+              </div>
+              {showWichtigeKontakte && (
+                <div style={{ marginTop:"12px" }}>
+                  {/* Kontakt-Liste */}
+                  {wichtigeKontakte.length === 0 && (
+                    <div style={{ textAlign:"center", padding:"20px 0", color:"#aaa", fontSize:"12px" }}>
+                      Noch keine Kontakte gespeichert.<br/>Füge deinen ersten Kontakt hinzu.
+                    </div>
+                  )}
+                  {wichtigeKontakte.map(function(k) {
+                    var waNum = (k.tel||"").replace(/[^0-9]/g,"").replace(/^0/,"49");
+                    return (
+                      <div key={k.id} style={{ backgroundColor:"#f8f9fb", borderRadius:"10px", padding:"11px 12px", marginBottom:"8px", border:"1px solid #eee", position:"relative" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontWeight:"bold", fontSize:"13px", color:"#003366", marginBottom:"3px" }}>{k.name||"(kein Name)"}</div>
+                            {k.mail && (
+                              <div style={{ fontSize:"11px", color:"#555", marginBottom:"2px", display:"flex", alignItems:"center", gap:"5px" }}>
+                                <span>✉️</span>
+                                <a href={"mailto:"+k.mail} style={{ color:"#1976d2", textDecoration:"none" }} onClick={function(e){ e.stopPropagation(); }}>{k.mail}</a>
+                              </div>
+                            )}
+                            {k.tel && (
+                              <div style={{ fontSize:"11px", color:"#555", marginBottom:"2px", display:"flex", alignItems:"center", gap:"5px" }}>
+                                <span>📱</span>
+                                <a href={"tel:"+k.tel} style={{ color:"#333", textDecoration:"none" }} onClick={function(e){ e.stopPropagation(); }}>{k.tel}</a>
+                                {waNum.length >= 7 && (
+                                  <a href={"https://wa.me/"+waNum} target="_blank" rel="noreferrer"
+                                    style={{ marginLeft:"4px", fontSize:"10px", backgroundColor:"#25D366", color:"#fff", borderRadius:"10px", padding:"1px 7px", textDecoration:"none", fontWeight:"bold" }}
+                                    onClick={function(e){ e.stopPropagation(); }}>WA</a>
+                                )}
+                              </div>
+                            )}
+                            {k.notiz && (
+                              <div style={{ fontSize:"11px", color:"#888", marginTop:"5px", fontStyle:"italic", borderTop:"1px solid #eee", paddingTop:"5px" }}>
+                                {k.notiz}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display:"flex", gap:"5px", marginLeft:"8px", flexShrink:0 }}>
+                            <button onClick={function(){ setKontaktBearbeiten(Object.assign({}, k)); }}
+                              style={{ padding:"4px 9px", fontSize:"11px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px solid #003366", borderRadius:"5px", cursor:"pointer", fontWeight:"bold" }}>✏️</button>
+                            <button onClick={function(){
+                                if (window.confirm("Kontakt \"" + (k.name||"") + "\" wirklich löschen?")) {
+                                  setWichtigeKontakte(function(prev){ return prev.filter(function(x){ return x.id !== k.id; }); });
+                                }
+                              }}
+                              style={{ padding:"4px 9px", fontSize:"11px", backgroundColor:"#fff0f0", color:"#e53935", border:"1px solid #e53935", borderRadius:"5px", cursor:"pointer", fontWeight:"bold" }}>🗑️</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Neu-Button */}
+                  <button onClick={function(){ setKontaktBearbeiten({ id: null, name:"", mail:"", tel:"", notiz:"" }); }}
+                    style={{ width:"100%", padding:"9px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginTop:"4px" }}>
+                    + Kontakt hinzufügen
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* KONTAKT-BEARBEITUNGS-DIALOG */}
+            {kontaktBearbeiten && (
+              <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, backgroundColor:"rgba(0,0,0,0.5)", zIndex:600, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+                <div style={{ backgroundColor:"#fff", borderRadius:"16px 16px 0 0", padding:"20px 16px 32px", width:"100%", maxWidth:"520px", maxHeight:"85vh", overflowY:"auto" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"16px" }}>
+                    <div style={{ fontWeight:"bold", fontSize:"15px", color:"#003366" }}>
+                      {kontaktBearbeiten.id ? "✏️ Kontakt bearbeiten" : "➕ Neuer Kontakt"}
+                    </div>
+                    <button onClick={function(){ setKontaktBearbeiten(null); }} style={{ background:"none", border:"none", fontSize:"22px", cursor:"pointer", color:"#999" }}>×</button>
+                  </div>
+
+                  {[
+                    { field:"name", label:"Name *",        placeholder:"z.B. Jugendamt Musterstadt",  type:"text"  },
+                    { field:"mail", label:"E-Mail",         placeholder:"kontakt@behoerde.de",          type:"email" },
+                    { field:"tel",  label:"Telefon",        placeholder:"+49 123 456789",               type:"tel"   },
+                  ].map(function(f) {
+                    return (
+                      <div key={f.field} style={{ marginBottom:"10px" }}>
+                        <label style={{ fontSize:"11px", fontWeight:"bold", color:"#555", display:"block", marginBottom:"3px" }}>{f.label}</label>
+                        <input
+                          type={f.type} placeholder={f.placeholder}
+                          value={kontaktBearbeiten[f.field]||""}
+                          onChange={function(e){ var v=e.target.value; setKontaktBearbeiten(function(p){ return Object.assign({},p,{[f.field]:v}); }); }}
+                          style={{ width:"100%", padding:"9px 11px", border:"1px solid #ccc", borderRadius:"7px", fontSize:"14px", boxSizing:"border-box" }}
+                        />
+                      </div>
+                    );
+                  })}
+
+                  <div style={{ marginBottom:"14px" }}>
+                    <label style={{ fontSize:"11px", fontWeight:"bold", color:"#555", display:"block", marginBottom:"3px" }}>Notiz</label>
+                    <textarea
+                      placeholder="z.B. Zuständig für PLZ 12345, Mo–Fr 8–16 Uhr..."
+                      value={kontaktBearbeiten.notiz||""}
+                      onChange={function(e){ var v=e.target.value; setKontaktBearbeiten(function(p){ return Object.assign({},p,{notiz:v}); }); }}
+                      style={{ width:"100%", padding:"9px 11px", border:"1px solid #ccc", borderRadius:"7px", fontSize:"14px", boxSizing:"border-box", minHeight:"70px", resize:"vertical", fontFamily:"inherit" }}
+                    />
+                  </div>
+
+                  <div style={{ display:"flex", gap:"8px" }}>
+                    <button onClick={function(){ setKontaktBearbeiten(null); }}
+                      style={{ flex:1, padding:"11px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>
+                      Abbrechen
+                    </button>
+                    <button onClick={function(){
+                        var k = kontaktBearbeiten;
+                        if (!k.name || !k.name.trim()) { alert("Bitte einen Namen eingeben."); return; }
+                        if (k.id) {
+                          setWichtigeKontakte(function(prev){ return prev.map(function(x){ return x.id === k.id ? k : x; }); });
+                        } else {
+                          var neu = Object.assign({}, k, { id: Date.now() });
+                          setWichtigeKontakte(function(prev){ return prev.concat([neu]); });
+                        }
+                        setKontaktBearbeiten(null);
+                      }}
+                      style={{ flex:2, padding:"11px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>
+                      ✅ Speichern
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
