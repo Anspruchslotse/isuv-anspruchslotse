@@ -4132,6 +4132,23 @@ function App() {
                             <div style={styles.actionMenu}>
                               <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("akte"); setOpenActionMenuId(null); }}>📋 Akte</div>
                               <div style={styles.menuItem} onClick={() => { setFormularVersandDialogNeu({ member: m, formTyp: "stammdaten" }); setVersandFelder(null); setOpenActionMenuId(null); }}>✉️ Formular senden</div>
+                              {(function() {
+                                var rawTel = m.tel || "";
+                                var waNum = rawTel.replace(/[^0-9]/g, "").replace(/^0/, "49");
+                                var hasNum = waNum.length >= 7;
+                                return (
+                                  <div
+                                    style={{ ...styles.menuItem, color: hasNum ? "#25D366" : "#bbb", cursor: hasNum ? "pointer" : "default" }}
+                                    onClick={function() {
+                                      if (!hasNum) return;
+                                      window.open("https://wa.me/" + waNum, "_blank");
+                                      setOpenActionMenuId(null);
+                                    }}
+                                  >
+                                    💬 WhatsApp{!hasNum && <span style={{ fontSize:"10px", marginLeft:"4px", color:"#ccc" }}>(keine Nr.)</span>}
+                                  </div>
+                                );
+                              })()}
                               <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("berechnung"); setBerechnungRechner(null); setBerechnungKategorie(null); setOpenActionMenuId(null); }}>🧮 Berechnung</div>
                               <div style={styles.menuItem} onClick={function() { setPinnedIds(function(prev) { return isPinned ? prev.filter(function(x){return x!==m.id;}) : [...prev,m.id]; }); setOpenActionMenuId(null); }}>
                                 {isPinned ? "📌 Entpinnen" : "📌 Anpinnen"}
