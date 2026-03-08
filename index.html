@@ -3264,6 +3264,164 @@ function exportPDF(member, ergebnisse, beraterName) {
 
 
 // =============================================
+// EXPORT: MITGLIEDER-AKTE ALS PDF
+// =============================================
+function exportAktePDF(member, ext, ergebnisse, ausgangFormulare, abschnitte, beraterName) {
+  var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!jsPDF) { alert("PDF-Bibliothek nicht geladen. Bitte Seite neu laden."); return null; }
+  var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  var W = 210, H = 297, margin = 16, y = 0;
+
+  function checkPage(needed) {
+    if (y + (needed||20) > H - 18) { doc.addPage(); y = 22; }
+  }
+  function sectionHeader(icon, title) {
+    checkPage(14);
+    doc.setFillColor(232,240,251);
+    doc.roundedRect(margin, y, W-2*margin, 9, 2, 2, "F");
+    doc.setTextColor(0,51,102); doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
+    doc.text(icon + "  " + title.toUpperCase(), margin+4, y+6);
+    y += 13;
+  }
+  function row(label, value) {
+    if (!value && value !== 0) return;
+    checkPage(7);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
+    doc.text(label, margin+2, y);
+    doc.setTextColor(30,30,30); doc.setFont("helvetica","bold");
+    doc.text(String(value), margin+55, y, {maxWidth: W-margin-55-margin});
+    y += 6;
+  }
+
+  // ── Kopfzeile ──
+  doc.setFillColor(0,51,102);
+  doc.rect(0,0,W,28,"F");
+  doc.setFillColor(0,175,173);
+  doc.rect(0,28,W,2,"F");
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(14);
+  doc.text("ISUV Anspruchslotse", margin, 11);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(180,210,240);
+  doc.text("Mitglieder-Akte – vertraulich", margin, 18);
+  var heute = new Date().toLocaleDateString("de-DE");
+  doc.text("Erstellt: " + heute, W-margin, 18, {align:"right"});
+  y = 38;
+
+  // Mitglieds-Header-Box
+  doc.setFillColor(0,175,173);
+  doc.roundedRect(margin, y, W-2*margin, 20, 3, 3, "F");
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(13);
+  var nameStr = ((member.vorname||"") + " " + (member.name||"")).trim() || "Unbekannt";
+  doc.text(nameStr, margin+5, y+8);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8);
+  var kontaktStr = [member.tel, member.mail, member.ort].filter(Boolean).join("  ·  ");
+  if (kontaktStr) doc.text(kontaktStr, margin+5, y+15);
+  if (beraterName) doc.text("Berater/in: " + beraterName, W-margin-2, y+15, {align:"right"});
+  y += 26;
+
+  // ── 1. STAMMDATEN ──
+  if (abschnitte.stammdaten) {
+    sectionHeader("👤", "Stammdaten & Kontakt");
+    row("Vorname", member.vorname);
+    row("Nachname", member.name);
+    row("Geburtsdatum", member.geburt || (ext && ext.geburtsdatum));
+    row("Telefon", member.tel);
+    row("E-Mail", member.mail);
+    row("Straße", member.strasse);
+    row("PLZ / Ort", [member.plz, member.ort].filter(Boolean).join(" "));
+    if (ext) {
+      row("Familienstand", ext.familienstand);
+      row("Betreuungsmodell", ext.betreuungsmodell);
+      row("Arbeitsstatus", ext.arbeitsstatus);
+      row("Einkommen netto", ext.einkommenNetto ? ext.einkommenNetto + " €/Monat" : null);
+      row("Einkommen brutto", ext.einkommenBrutto ? ext.einkommenBrutto + " €/Monat" : null);
+      row("Kaltmiete", ext.mieteKalt ? ext.mieteKalt + " €/Monat" : null);
+      row("Nebenkosten", ext.nebenkosten ? ext.nebenkosten + " €/Monat" : null);
+      row("Heizkosten", ext.heizkosten ? ext.heizkosten + " €/Monat" : null);
+      row("Alleinerziehend", ext.alleinerziehend ? "Ja" : null);
+      row("Unterhalt", ext.unterhaltsTitel ? "Titel vorhanden" + (ext.unterhaltBetrag ? " · " + ext.unterhaltBetrag + " €" : "") : null);
+      if (ext.kinder && ext.kinder.length > 0) {
+        row("Kinder", ext.kinder.map(function(k){ return k.name + (k.alter ? " (" + k.alter + " J.)" : "") + (k.wohnort ? " – " + k.wohnort : ""); }).join(", "));
+      }
+    }
+    y += 4;
+  }
+
+  // ── 2. EINGEGANGENE FORMULARE ──
+  if (abschnitte.formulare) {
+    var memberName = (member.vorname + " " + member.name).trim();
+    var relevanteAusgang = (ausgangFormulare||[]).filter(function(af){ return af.mitglied === memberName; });
+    if (relevanteAusgang.length > 0) {
+      sectionHeader("📤", "Gesendete Formulare");
+      relevanteAusgang.forEach(function(af) {
+        checkPage(8);
+        var statusLabel = af.status === "beantwortet" ? "✓ Beantwortet" : af.status === "geoeffnet" ? "Geöffnet" : "Unbeantwortet";
+        doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(30,30,30);
+        doc.text(af.typ || "Formular", margin+2, y);
+        doc.setFont("helvetica","normal"); doc.setTextColor(100,100,100);
+        doc.text(statusLabel, margin+55, y);
+        doc.text(af.datum || "", W-margin-2, y, {align:"right"});
+        y += 6;
+      });
+      y += 4;
+    }
+  }
+
+  // ── 3. BERECHNUNGSERGEBNISSE ──
+  if (abschnitte.berechnungen && ergebnisse && ergebnisse.length > 0) {
+    sectionHeader("🧮", "Berechnungsergebnisse");
+    var alle = [...ergebnisse].reverse();
+    alle.forEach(function(e) {
+      checkPage(24);
+      var borderR = (e.rechtsbereich === "Familienrecht") ? [0,51,102] : [0,175,173];
+      var bgR = (e.rechtsbereich === "Familienrecht") ? [232,240,251] : [232,245,233];
+      doc.setFillColor(bgR[0],bgR[1],bgR[2]);
+      doc.roundedRect(margin, y, W-2*margin, 18, 2, 2, "F");
+      doc.setFillColor(borderR[0],borderR[1],borderR[2]);
+      doc.rect(margin, y, 3, 18, "F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(0,51,102);
+      doc.text(e.typ || "Berechnung", margin+6, y+6);
+      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
+      doc.text(e.datum || "", W-margin-2, y+6, {align:"right"});
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(0,175,173);
+      doc.text(e.ergebnis || "", margin+6, y+14);
+      if (e.details) {
+        doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(80,80,80);
+        doc.text(e.details, margin+6, y+14, {maxWidth: 80});
+      }
+      y += 22;
+    });
+    y += 2;
+  }
+
+  // ── 4. NOTIZEN ──
+  if (abschnitte.notizen && ext && ext.notizen && ext.notizen.trim()) {
+    sectionHeader("📋", "Interne Notizen");
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(40,40,40);
+    var lines = doc.splitTextToSize(ext.notizen, W-2*margin-8);
+    lines.forEach(function(line) {
+      checkPage(7);
+      doc.text(line, margin+4, y);
+      y += 5.5;
+    });
+    y += 4;
+  }
+
+  // ── Fußzeile ──
+  var pageCount = doc.getNumberOfPages();
+  for (var p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFillColor(0,51,102);
+    doc.rect(0, H-10, W, 10, "F");
+    doc.setTextColor(180,210,240); doc.setFont("helvetica","normal"); doc.setFontSize(7);
+    doc.text("ISUV Anspruchslotse  ·  Vertraulich  ·  Nur für interne Beratungszwecke", W/2, H-4, {align:"center"});
+    doc.setTextColor(255,255,255);
+    doc.text("Seite " + p + " / " + pageCount, W-margin, H-4, {align:"right"});
+  }
+
+  return { doc: doc, filename: "ISUV_Akte_" + nameStr.replace(/\s+/g,"_") + "_" + heute.replace(/\./g,"-") + ".pdf" };
+}
+
+// =============================================
 // KINDERZUSCHLAG-RECHNER (§ 6a BKGG) – 2024/2025
 // =============================================
 function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
@@ -3786,6 +3944,7 @@ function App() {
   const [gerichtFehler, setGerichtFehler] = useState("");
   const [sorgerechtSigModal, setSorgerechtSigModal] = useState(false);
   const [sorgerechtSigData, setSorgerechtSigData] = useState(null);
+  const [aktePdfDialog, setAktePdfDialog] = useState(null); // { member, ext, ergebnisse, ausgangFormulare }
   const [ausgangFormulare, setAusgangFormulare] = useState(() => { try { return JSON.parse(localStorage.getItem("isuv_ausgang") || "[]"); } catch(e) { return []; } });
   useEffect(function() { try { localStorage.setItem("isuv_ausgang", JSON.stringify(ausgangFormulare)); } catch(e) {} }, [ausgangFormulare]);
   const [showAusgang, setShowAusgang] = useState(false);
@@ -4132,23 +4291,6 @@ function App() {
                             <div style={styles.actionMenu}>
                               <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("akte"); setOpenActionMenuId(null); }}>📋 Akte</div>
                               <div style={styles.menuItem} onClick={() => { setFormularVersandDialogNeu({ member: m, formTyp: "stammdaten" }); setVersandFelder(null); setOpenActionMenuId(null); }}>✉️ Formular senden</div>
-                              {(function() {
-                                var rawTel = m.tel || "";
-                                var waNum = rawTel.replace(/[^0-9]/g, "").replace(/^0/, "49");
-                                var hasNum = waNum.length >= 7;
-                                return (
-                                  <div
-                                    style={{ ...styles.menuItem, color: hasNum ? "#25D366" : "#bbb", cursor: hasNum ? "pointer" : "default" }}
-                                    onClick={function() {
-                                      if (!hasNum) return;
-                                      window.open("https://wa.me/" + waNum, "_blank");
-                                      setOpenActionMenuId(null);
-                                    }}
-                                  >
-                                    💬 WhatsApp{!hasNum && <span style={{ fontSize:"10px", marginLeft:"4px", color:"#ccc" }}>(keine Nr.)</span>}
-                                  </div>
-                                );
-                              })()}
                               <div style={styles.menuItem} onClick={() => { setActiveMember(m); setView("berechnung"); setBerechnungRechner(null); setBerechnungKategorie(null); setOpenActionMenuId(null); }}>🧮 Berechnung</div>
                               <div style={styles.menuItem} onClick={function() { setPinnedIds(function(prev) { return isPinned ? prev.filter(function(x){return x!==m.id;}) : [...prev,m.id]; }); setOpenActionMenuId(null); }}>
                                 {isPinned ? "📌 Entpinnen" : "📌 Anpinnen"}
@@ -4678,29 +4820,46 @@ function App() {
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
               <h2 style={{ color:"#003366", margin:0, fontSize:"17px" }}>Mitglieder-Stammdaten</h2>
               {!isEditing ? (
-                <button onClick={function() {
-                    var ext2=memberExtras[activeMember.id]||{};
-                    setEditMemberDaten({
-                      vorname:activeMember.vorname, name:activeMember.name, tel:activeMember.tel,
-                      mail:activeMember.mail, strasse:activeMember.strasse, plz:activeMember.plz, ort:activeMember.ort,
-                      geburt:activeMember.geburt||ext2.geburtsdatum||"",
-                      familienstand:ext2.familienstand||"", betreuungsmodell:ext2.betreuungsmodell||"",
-                      einkommenNetto:ext2.einkommenNetto||"", einkommenBrutto:ext2.einkommenBrutto||"",
-                      arbeitsstatus:ext2.arbeitsstatus||"",
-                      mieteKalt:ext2.mieteKalt||"", nebenkosten:ext2.nebenkosten||"", heizkosten:ext2.heizkosten||"",
-                      fahrtkostenKm:ext2.fahrtkostenKm||"", fahrtkostenFahrtenProMonat:ext2.fahrtkostenFahrtenProMonat||"",
-                      anzahlKinder:ext2.anzahlKinder||"", kinderAlter:ext2.kinderAlter||"",
-                      kindergeldBezug:ext2.kindergeldBezug||"", kindGemeldetBei:ext2.kindGemeldetBei||"",
-                      alleinerziehend: ext2.alleinerziehend||false,
-                      unterhaltsTitel: ext2.unterhaltsTitel||false,
-                      unterhaltBetrag: ext2.unterhaltBetrag||"",
-                      kinder: (ext2.kinder||[]).map(function(k){ return Object.assign({},k); })
+                <div style={{ display:"flex", gap:"6px" }}>
+                  <button onClick={function() {
+                      var ext2=memberExtras[activeMember.id]||{};
+                      setEditMemberDaten({
+                        vorname:activeMember.vorname, name:activeMember.name, tel:activeMember.tel,
+                        mail:activeMember.mail, strasse:activeMember.strasse, plz:activeMember.plz, ort:activeMember.ort,
+                        geburt:activeMember.geburt||ext2.geburtsdatum||"",
+                        familienstand:ext2.familienstand||"", betreuungsmodell:ext2.betreuungsmodell||"",
+                        einkommenNetto:ext2.einkommenNetto||"", einkommenBrutto:ext2.einkommenBrutto||"",
+                        arbeitsstatus:ext2.arbeitsstatus||"",
+                        mieteKalt:ext2.mieteKalt||"", nebenkosten:ext2.nebenkosten||"", heizkosten:ext2.heizkosten||"",
+                        fahrtkostenKm:ext2.fahrtkostenKm||"", fahrtkostenFahrtenProMonat:ext2.fahrtkostenFahrtenProMonat||"",
+                        anzahlKinder:ext2.anzahlKinder||"", kinderAlter:ext2.kinderAlter||"",
+                        kindergeldBezug:ext2.kindergeldBezug||"", kindGemeldetBei:ext2.kindGemeldetBei||"",
+                        alleinerziehend: ext2.alleinerziehend||false,
+                        unterhaltsTitel: ext2.unterhaltsTitel||false,
+                        unterhaltBetrag: ext2.unterhaltBetrag||"",
+                        kinder: (ext2.kinder||[]).map(function(k){ return Object.assign({},k); })
                     });
                     setEditMemberMode(true);
                   }}
                   style={{ fontSize:"11px", padding:"5px 12px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px solid #003366", borderRadius:"6px", cursor:"pointer", fontWeight:"bold" }}>
                   ✏️ Bearbeiten
                 </button>
+                  <button onClick={function() {
+                    setAktePdfDialog({
+                      member: activeMember,
+                      ext: memberExtras[activeMember.id] || {},
+                      ergebnisse: memberErgebnisse[activeMember.id] || [],
+                      ausgangFormulare: ausgangFormulare,
+                      abschnitte: { stammdaten: true, formulare: true, berechnungen: true, notizen: true },
+                      empfaenger: "mitglied",
+                      empfaengerMail: activeMember.mail || "",
+                      empfaengerWA: activeMember.tel || ""
+                    });
+                  }}
+                  style={{ fontSize:"11px", padding:"5px 12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"6px", cursor:"pointer", fontWeight:"bold" }}>
+                  📄 Akte senden
+                </button>
+                </div>
               ) : (
                 <div style={{ display:"flex", gap:"6px" }}>
                   <button onClick={function() {
@@ -8096,6 +8255,145 @@ function App() {
         )}
 
       </main>
+
+      {/* ── PDF-Akte senden Dialog ── */}
+      {aktePdfDialog && (function() {
+        var d = aktePdfDialog;
+        var abschn = d.abschnitte;
+        var toggleAbschn = function(key) {
+          setAktePdfDialog(function(p) { return Object.assign({}, p, { abschnitte: Object.assign({}, p.abschnitte, { [key]: !p.abschnitte[key] }) }); });
+        };
+        var checkboxRow = function(key, label) {
+          return (
+            <div onClick={function(){ toggleAbschn(key); }}
+              style={{ display:"flex", alignItems:"center", gap:"10px", padding:"8px 10px", borderRadius:"7px", cursor:"pointer", backgroundColor: abschn[key] ? "#e8f0fb" : "#f7f7f7", marginBottom:"5px", border: abschn[key] ? "1px solid #003366" : "1px solid #eee" }}>
+              <div style={{ width:"18px", height:"18px", borderRadius:"4px", border:"2px solid " + (abschn[key] ? "#003366" : "#bbb"), backgroundColor: abschn[key] ? "#003366" : "#fff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                {abschn[key] && <span style={{ color:"#fff", fontSize:"12px", lineHeight:1 }}>✓</span>}
+              </div>
+              <span style={{ fontSize:"13px", fontWeight: abschn[key] ? "bold" : "normal", color: abschn[key] ? "#003366" : "#555" }}>{label}</span>
+            </div>
+          );
+        };
+        var noneSelected = !abschn.stammdaten && !abschn.formulare && !abschn.berechnungen && !abschn.notizen;
+        var rawWA = (d.empfaengerWA||"").replace(/[^0-9]/g,"").replace(/^0/,"49");
+        var hasWA = rawWA.length >= 7;
+        return (
+          <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, backgroundColor:"rgba(0,0,0,0.55)", zIndex:600, display:"flex", alignItems:"flex-end", justifyContent:"center", padding:"0" }}>
+            <div style={{ backgroundColor:"#fff", borderRadius:"16px 16px 0 0", padding:"20px 16px 32px", width:"100%", maxWidth:"520px", maxHeight:"90vh", overflowY:"auto" }}>
+
+              {/* Header */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"16px" }}>
+                <div>
+                  <div style={{ fontWeight:"bold", fontSize:"15px", color:"#003366" }}>📄 PDF-Akte senden</div>
+                  <div style={{ fontSize:"11px", color:"#888", marginTop:"2px" }}>{d.member.vorname} {d.member.name}</div>
+                </div>
+                <button onClick={function(){ setAktePdfDialog(null); }} style={{ background:"none", border:"none", fontSize:"22px", cursor:"pointer", color:"#999", lineHeight:1 }}>×</button>
+              </div>
+
+              {/* Abschnitte wählen */}
+              <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"8px" }}>Abschnitte auswählen</div>
+              {checkboxRow("stammdaten", "👤 Stammdaten & Kontakt")}
+              {checkboxRow("formulare",  "📤 Gesendete Formulare")}
+              {checkboxRow("berechnungen","🧮 Berechnungsergebnisse")}
+              {checkboxRow("notizen",    "📋 Interne Notizen")}
+              {noneSelected && (
+                <div style={{ fontSize:"11px", color:"#e53935", padding:"6px 8px", backgroundColor:"#fff5f5", borderRadius:"6px", marginTop:"4px" }}>
+                  Bitte mindestens einen Abschnitt auswählen.
+                </div>
+              )}
+
+              {/* Empfänger */}
+              <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px", marginTop:"16px", marginBottom:"8px" }}>Empfänger</div>
+              <div style={{ display:"flex", gap:"6px", marginBottom:"10px" }}>
+                {["mitglied","andere"].map(function(opt) {
+                  var sel = d.empfaenger === opt;
+                  return (
+                    <div key={opt} onClick={function(){ setAktePdfDialog(function(p){ return Object.assign({},p,{empfaenger:opt, empfaengerMail: opt==="mitglied" ? (d.member.mail||"") : "", empfaengerWA: opt==="mitglied" ? (d.member.tel||"") : ""}); }); }}
+                      style={{ flex:1, padding:"8px", textAlign:"center", borderRadius:"7px", cursor:"pointer", fontSize:"12px", fontWeight:"bold", backgroundColor: sel ? "#003366" : "#f0f4f7", color: sel ? "#fff" : "#555", border: sel ? "none" : "1px solid #ddd" }}>
+                      {opt === "mitglied" ? "👤 Mitglied" : "✏️ Andere Person"}
+                    </div>
+                  );
+                })}
+              </div>
+              {d.empfaenger === "andere" && (
+                <div>
+                  <label style={{ fontSize:"11px", color:"#555", fontWeight:"bold", display:"block", marginBottom:"3px" }}>E-Mail-Adresse</label>
+                  <input style={{ width:"100%", padding:"9px 11px", border:"1px solid #ccc", borderRadius:"7px", fontSize:"13px", marginBottom:"8px", boxSizing:"border-box" }}
+                    type="email" placeholder="empfaenger@beispiel.de"
+                    value={d.empfaengerMail||""}
+                    onChange={function(e){ var v=e.target.value; setAktePdfDialog(function(p){ return Object.assign({},p,{empfaengerMail:v}); }); }} />
+                  <label style={{ fontSize:"11px", color:"#555", fontWeight:"bold", display:"block", marginBottom:"3px" }}>WhatsApp-Nummer</label>
+                  <input style={{ width:"100%", padding:"9px 11px", border:"1px solid #ccc", borderRadius:"7px", fontSize:"13px", marginBottom:"8px", boxSizing:"border-box" }}
+                    type="tel" placeholder="+49 170 1234567"
+                    value={d.empfaengerWA||""}
+                    onChange={function(e){ var v=e.target.value; setAktePdfDialog(function(p){ return Object.assign({},p,{empfaengerWA:v}); }); }} />
+                </div>
+              )}
+              {d.empfaenger === "mitglied" && (
+                <div style={{ backgroundColor:"#f5f7fa", borderRadius:"7px", padding:"8px 10px", fontSize:"11px", color:"#555", marginBottom:"10px" }}>
+                  {d.member.mail ? <div>✉️ {d.member.mail}</div> : <div style={{ color:"#e53935" }}>⚠️ Keine E-Mail hinterlegt</div>}
+                  {d.member.tel  ? <div style={{ marginTop:"3px" }}>📱 {d.member.tel}</div> : <div style={{ color:"#aaa", marginTop:"3px" }}>Keine Telefonnummer hinterlegt</div>}
+                </div>
+              )}
+
+              {/* Trennlinie */}
+              <div style={{ borderTop:"1px solid #eee", margin:"12px 0" }} />
+
+              {/* Aktions-Buttons */}
+              <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+
+                {/* PDF herunterladen */}
+                <button disabled={noneSelected} onClick={function() {
+                    if (noneSelected) return;
+                    var res = exportAktePDF(d.member, d.ext, d.ergebnisse, d.ausgangFormulare, d.abschnitte, (loginDaten&&loginDaten.name)||"");
+                    if (res) res.doc.save(res.filename);
+                  }}
+                  style={{ width:"100%", padding:"11px", backgroundColor: noneSelected ? "#bbb" : "#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor: noneSelected ? "not-allowed" : "pointer" }}>
+                  ⬇️ PDF herunterladen
+                </button>
+
+                {/* Per E-Mail senden */}
+                {(function() {
+                  var mail = d.empfaengerMail || (d.empfaenger==="mitglied" ? d.member.mail : "");
+                  var disabled = noneSelected || !mail;
+                  return (
+                    <button disabled={disabled} onClick={function() {
+                        if (disabled) return;
+                        var res = exportAktePDF(d.member, d.ext, d.ergebnisse, d.ausgangFormulare, d.abschnitte, (loginDaten&&loginDaten.name)||"");
+                        if (res) res.doc.save(res.filename);
+                        var betreff = encodeURIComponent("ISUV Anspruchslotse – Ihre Akte (" + d.member.vorname + " " + d.member.name + ")");
+                        var body = encodeURIComponent("Guten Tag,\n\nim Anhang finden Sie Ihre ISUV-Akte als PDF.\n\nMit freundlichen Grüßen\n" + ((loginDaten&&loginDaten.leiter)||"ISUV") + (loginDaten&&loginDaten.ort ? "\n" + loginDaten.ort : ""));
+                        setTimeout(function(){ window.open("mailto:" + encodeURIComponent(mail) + "?subject=" + betreff + "&body=" + body); }, 300);
+                      }}
+                      style={{ width:"100%", padding:"11px", backgroundColor: disabled ? "#e0e0e0" : "#1976d2", color: disabled ? "#aaa" : "#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor: disabled ? "not-allowed" : "pointer" }}>
+                      ✉️ Per E-Mail senden{!mail && !noneSelected ? " (keine Adresse)" : ""}
+                    </button>
+                  );
+                })()}
+
+                {/* Per WhatsApp senden */}
+                {(function() {
+                  var rawNum = (d.empfaengerWA || (d.empfaenger==="mitglied" ? d.member.tel : "")).replace(/[^0-9]/g,"").replace(/^0/,"49");
+                  var disabled = noneSelected || rawNum.length < 7;
+                  return (
+                    <button disabled={disabled} onClick={function() {
+                        if (disabled) return;
+                        var res = exportAktePDF(d.member, d.ext, d.ergebnisse, d.ausgangFormulare, d.abschnitte, (loginDaten&&loginDaten.name)||"");
+                        if (res) res.doc.save(res.filename);
+                        var msg = encodeURIComponent("Hallo " + d.member.vorname + ", ich habe Ihre ISUV-Akte als PDF gespeichert und sende sie Ihnen hiermit zu.\n\n– " + ((loginDaten&&loginDaten.leiter)||"ISUV"));
+                        setTimeout(function(){ window.open("https://wa.me/" + rawNum + "?text=" + msg, "_blank"); }, 300);
+                      }}
+                      style={{ width:"100%", padding:"11px", backgroundColor: disabled ? "#e0e0e0" : "#25D366", color: disabled ? "#aaa" : "#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor: disabled ? "not-allowed" : "pointer" }}>
+                      💬 Per WhatsApp senden{rawNum.length < 7 && !noneSelected ? " (keine Nummer)" : ""}
+                    </button>
+                  );
+                })()}
+
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Unterschrift-Modal Sorgerecht ── */}
       {sorgerechtSigModal && (
