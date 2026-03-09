@@ -2508,7 +2508,7 @@ function BuergergeldRechnerCore({ ext, onSaveErgebnis, changedFields, changedDat
   var REGEL = { allein:563, partner:506, k05:357, k613:390, k1417:471, k18:451 };
   function getKR(a) { var age=parseInt(a)||10; return age<6?REGEL.k05:age<14?REGEL.k613:age<18?REGEL.k1417:REGEL.k18; }
   function calcFB(b,hatK) { b=parseFloat(b)||0; if(b<=100)return b; var f=100; if(b>100)f+=(Math.min(b,1000)-100)*0.20; if(b>1000)f+=(Math.min(b,1200)-1000)*0.10; return Math.min(f,hatK?352:302); }
-  var initK=(ext&&ext.kinder)?ext.kinder.map(function(k,i){var age=10;if(k.geburt){var d=new Date(k.geburt);age=Math.floor((new Date()-d)/(365.25*24*3600*1000));}return{id:i+1,name:k.name||("Kind "+(i+1)),alter:String(age),kg:"250",uvg:k.uvg?"ja":"nein"};}):[]; 
+  var initK=(ext&&ext.kinder)?ext.kinder.filter(function(k){var wo=(k.wohnort||"").toLowerCase();return !(wo.includes("anderen")||wo.includes("and.")||wo==="beim anderen elternteil");}).map(function(k,i){var age=10;if(k.geburt){var d=new Date(k.geburt);age=Math.floor((new Date()-d)/(365.25*24*3600*1000));}return{id:i+1,name:k.name||("Kind "+(i+1)),alter:String(age),kg:"250",uvg:k.uvg?"ja":"nein"};}):[]; 
   const [schritt,setSchritt]=React.useState(1);
   const [hatPartner,setHatPartner]=React.useState(false);
   const [kinder,setKinder]=React.useState(initK);
@@ -2551,7 +2551,7 @@ function BuergergeldRechnerCore({ ext, onSaveErgebnis, changedFields, changedDat
     var anspruch=Math.max(0,bedarf-einGes);
     var anzP=1+(hatPartner?1:0)+kinder.length,vFreig=anzP*15000,vB=parseFloat(vermoegen)||0;
     var res={rbH,rbP,rbK,rb,mb,mbD,kdu,bedarf,fb,einAnr,pAnr,a1,ren,we,kg,einGes,anspruch,kein:anspruch===0,vB,vFreig,vUeber:Math.max(0,vB-vFreig)};
-    setResult(res);
+    if(onSaveErgebnis)onSaveErgebnis({typ:"Bürgergeld (SGB II)",ergebnis:anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" EUR/Monat",details:anzP+" Personen, Bedarf "+bedarf.toFixed(2)+" EUR",rechtsbereich:"Sozialrecht",detailSchritte:[{label:"Regelbedarf Antragsteller",wert:rbH+" €"},{label:"Regelbedarf Partner",wert:rbP+" €"},{label:"Regelbedarf Kinder",wert:rbK+" €"},{label:"Mehrbedarf",wert:mb.toFixed(2)+" €"},{label:"Kosten der Unterkunft (KdU)",wert:kdu.toFixed(2)+" €",bold:false},{label:"Gesamtbedarf",wert:bedarf.toFixed(2)+" €",bold:true},{label:"Freibetrag Erwerbstätigkeit",wert:fb.toFixed(2)+" €"},{label:"Anrechenbares Einkommen",wert:einGes.toFixed(2)+" €"},{label:"Bürgergeld-Anspruch",wert:anspruch.toFixed(2)+" € / Monat",bold:true}]});
     if(onSaveErgebnis)onSaveErgebnis({typ:"Buergergeld",ergebnis:anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" EUR/Monat",details:anzP+" Personen, Bedarf "+bedarf.toFixed(2)+" EUR"});
     setSchritt(4);
   }
@@ -2867,7 +2867,7 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis, 
     if (!ext || !ext.mieteWarm) neueFelder.mieteWarm = parseFloat(wgMiete||0);
     if (!ext || !ext.mietStufe) neueFelder.mietStufe = wgStufe;
     if (!ext || !ext.unterhaltsTitel) { neueFelder.unterhaltsTitel = wgUTitel==="ja"; neueFelder.unterhaltBetrag = parseFloat(wgUnterhalt||0); }
-    speichern(neueFelder, { typ:"🏡 Wohngeld", ergebnis: wohngeld<=0 ? "Kein Anspruch" : wohngeld+" € / Monat", details: "Miete "+wgMiete+" €, Stufe "+wgStufe+", HH "+wgHH+" Pers." });
+    speichern(neueFelder, { typ:"🏡 Wohngeld", ergebnis: wohngeld<=0 ? "Kein Anspruch" : wohngeld+" € / Monat", details: "Miete "+wgMiete+" €, Stufe "+wgStufe+", HH "+wgHH+" Pers.", rechtsbereich:"Sozialrecht", detailSchritte:[{label:"Nettoeinkommen",wert:n.toFixed(2)+" €"},{label:"Unterhalt-Abzug",wert:uAbzug.toFixed(2)+" €"},{label:"Verfügbares Einkommen",wert:verf.toFixed(2)+" €"},{label:"Einkommensfreibetrag",wert:frei.toFixed(2)+" €"},{label:"Anrechenbares Einkommen",wert:anr.toFixed(2)+" €"},{label:"Höchstbetrag Wohngeld",wert:hb.toFixed(2)+" €"},{label:"Anrechenbare Miete",wert:mietAnr.toFixed(2)+" €"},{label:"Wohngeld ca.",wert:wohngeld+" € / Monat",bold:true}] });
   };
 
   // ── Render ───────────────────────────────────────────────
@@ -3735,6 +3735,15 @@ function MehrDatenView({ ext }) {
           📋 <strong>Notizen:</strong><br />{ext.notizen}
         </div>
       )}
+      {(ext.anwaltName || ext.anwaltTel || ext.anwaltMail || ext.anwaltAdresse) && (
+        <div style={{ marginTop:"12px", backgroundColor:"#f5f0ff", borderRadius:"8px", padding:"10px", fontSize:"12px", color:"#444", borderLeft:"3px solid #6a0dad" }}>
+          <div style={{ fontWeight:"bold", color:"#4a0090", marginBottom:"4px" }}>⚖️ Anwalt / Anwältin</div>
+          {ext.anwaltName && <div><strong>Name:</strong> {ext.anwaltName}</div>}
+          {ext.anwaltAdresse && <div><strong>Adresse:</strong> {ext.anwaltAdresse}</div>}
+          {ext.anwaltTel && <div><strong>Tel:</strong> <a href={"tel:"+ext.anwaltTel} style={{ color:"#4a0090" }}>{ext.anwaltTel}</a></div>}
+          {ext.anwaltMail && <div><strong>Mail:</strong> <a href={"mailto:"+ext.anwaltMail} style={{ color:"#4a0090" }}>{ext.anwaltMail}</a></div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -3811,7 +3820,14 @@ function App() {
   const [showProfil, setShowProfil] = useState(false);
   const [formularVersandDialogNeu, setFormularVersandDialogNeu] = useState(null);
   const [view, setView] = useState("dashboard");
-  const [monthOffset, setMonthOffset] = useState(new Date().getMonth());
+  const [monthOffset, setMonthOffset] = useState({ monat: new Date().getMonth(), jahr: new Date().getFullYear() });
+  const navMonth = function(delta) {
+    setMonthOffset(function(p) {
+      var m = p.monat + delta; var j = p.jahr;
+      if (m > 11) { m = 0; j++; } if (m < 0) { m = 11; j--; }
+      return { monat: m, jahr: j };
+    });
+  };
   const [showMemberList, setShowMemberList] = useState(false);
   const [showFormulare, setShowFormulare] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -3973,9 +3989,11 @@ function App() {
   const [showSozialrechtFormulare, setShowSozialrechtFormulare] = useState(true);
   const [terminTyp, setTerminTyp] = useState("beratung");
 
-  const [termine, setTermine] = useState([
-    { id: 101, tag: 18, monat: new Date().getMonth(), zeit: "17:00", text: "Beratung: Anlage TBG", notiz: "Wichtiges Erstgespräch" }
-  ]);
+  const [termine, setTermine] = useState(function() {
+    try { var s = localStorage.getItem("isuv_termine"); if (s) return JSON.parse(s); } catch(e) {}
+    return [{ id: 101, tag: 18, monat: new Date().getMonth(), jahr: new Date().getFullYear(), zeit: "17:00", text: "Beratung: Anlage TBG", notiz: "Wichtiges Erstgespräch", typ: "beratung" }];
+  });
+  useEffect(function() { try { localStorage.setItem("isuv_termine", JSON.stringify(termine)); } catch(e) {} }, [termine]);
   const [newTerminDialog, setNewTerminDialog] = useState(null);
 
   const [tbgKinder, setTbgKinder] = useState([
@@ -4003,9 +4021,9 @@ function App() {
   }, [tbgFormDaten]);
 
   const addKind = () => setTbgKinder([...tbgKinder, { id: Date.now(), kNachname: "", kVorname: "", kGeburt: "", pNachname: "", pVorname: "", pStrasse: "", pPlz: "", pOrt: "", modell: "", tageAnt: Array(12).fill(""), tageAnd: Array(12).fill("") }]);
-  const handleAddTermin = (day) => setNewTerminDialog({ day, text: "", typ: "beratung" });
+  const handleAddTermin = (day) => setNewTerminDialog({ day, monat: monthOffset.monat, jahr: monthOffset.jahr, text: "", typ: "beratung" });
   const confirmAddTermin = () => {
-    if (newTerminDialog && newTerminDialog.text.trim()) setTermine([...termine, { id: Date.now(), tag: newTerminDialog.day, monat: monthOffset, zeit: "10:00", text: newTerminDialog.text.trim(), typ: newTerminDialog.typ || "beratung", notiz: "" }]);
+    if (newTerminDialog && newTerminDialog.text.trim()) setTermine(function(prev) { return [...prev, { id: Date.now(), tag: newTerminDialog.day, monat: newTerminDialog.monat, jahr: newTerminDialog.jahr, zeit: "10:00", text: newTerminDialog.text.trim(), typ: newTerminDialog.typ || "beratung", notiz: "" }]; });
     setNewTerminDialog(null);
   };
   const updateTermin = (id, field, value) => setTermine(termine.map(t => t.id === id ? { ...t, [field]: value } : t));
@@ -4108,6 +4126,11 @@ function App() {
       if(fd.bgNebenkosten) upd.nebenkosten=parseFloat(fd.bgNebenkosten);
       if(fd.bgWohnflaeche) upd.wohnungGroesse=parseFloat(fd.bgWohnflaeche);
       if(fd.bgNotizen) upd.notizen=fd.bgNotizen;
+      // Anwalt-Daten aus Stammdaten-Formular
+      if(fd.anwaltName) upd.anwaltName=fd.anwaltName;
+      if(fd.anwaltAdresse) upd.anwaltAdresse=fd.anwaltAdresse;
+      if(fd.anwaltTel) upd.anwaltTel=fd.anwaltTel;
+      if(fd.anwaltMail) upd.anwaltMail=fd.anwaltMail;
       // Alleinerziehend nur setzen wenn explizit im Fragebogen angegeben, nicht automatisch bei Kindern
       if(fd.alleinerziehend !== undefined) upd.alleinerziehend = fd.alleinerziehend === true || fd.alleinerziehend === "ja";
       if(fd.hatKinder === "nein") { upd.alleinerziehend = false; upd.kinder = []; }
@@ -4236,7 +4259,7 @@ function App() {
           {(function() {
             var heute = new Date();
             var heuteTermine = termine.filter(function(t) {
-              return t.tag === heute.getDate() && t.monat === heute.getMonth();
+              return t.tag === heute.getDate() && t.monat === heute.getMonth() && (!t.jahr || t.jahr === heute.getFullYear());
             });
             if (heuteTermine.length > 0) {
               return (
@@ -4341,6 +4364,7 @@ function App() {
                     { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Wohnen", farbe:"#1b5e20" },
                     { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen", farbe:"#1b5e20" },
                     { id:"tbg", label:"📋 Anlage TBG (Bürgergeld)", desc:"Temporäre Bedarfsgemeinschaft", farbe:"#1b5e20" },
+                    { id:"wohngeld_fb", label:"🏡 Wohngeld-Fragebogen", desc:"WoGG – Miete, Haushalt, Einkommen", farbe:"#1b5e20" },
                   ].map(function(f) {
                     return (
                       <div key={f.id}
@@ -4701,13 +4725,13 @@ function App() {
               {showCalendar && (
                 <div style={{ marginTop: "10px" }}>
                   <div style={styles.calHeader}>
-                    <button onClick={() => setMonthOffset(monthOffset - 1)} style={styles.btnCal}>‹</button>
-                    <strong>{new Date(2026, monthOffset).toLocaleString("de-DE", { month: "long" })}</strong>
-                    <button onClick={() => setMonthOffset(monthOffset + 1)} style={styles.btnCal}>›</button>
+                    <button onClick={() => navMonth(-1)} style={styles.btnCal}>‹</button>
+                    <strong>{new Date(monthOffset.jahr, monthOffset.monat).toLocaleString("de-DE", { month: "long" })} {monthOffset.jahr}</strong>
+                    <button onClick={() => navMonth(1)} style={styles.btnCal}>›</button>
                   </div>
                   {newTerminDialog && (
                     <div style={{ backgroundColor: "#f0fdfd", border: "1px solid #00afad", borderRadius: "8px", padding: "10px", marginBottom: "10px" }}>
-                      <div style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "6px" }}>Neuer Termin am {newTerminDialog.day}.{monthOffset + 1}.:</div>
+                      <div style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "6px" }}>Neuer Termin am {newTerminDialog.day}.{monthOffset.monat + 1}.{monthOffset.jahr}:</div>
                       <input style={{ ...styles.input, marginBottom: "6px" }} placeholder="Terminbezeichnung..." value={newTerminDialog.text} autoFocus onChange={e => setNewTerminDialog({ ...newTerminDialog, text: e.target.value })} onKeyDown={e => { if (e.key === "Enter") confirmAddTermin(); if (e.key === "Escape") setNewTerminDialog(null); }} />
                       <div style={{ display:"flex", flexWrap:"wrap", gap:"5px", marginBottom:"8px" }}>
                         {TERMIN_TYPEN.map(function(tt) {
@@ -4727,27 +4751,53 @@ function App() {
                     </div>
                   )}
                   <div style={styles.dayGrid}>
-                    {[...Array(new Date(2026, monthOffset + 1, 0).getDate())].map((_, i) => {
-                      const day = i + 1;
-                      const dayTermine = termine.filter(t => t.tag === day && t.monat === monthOffset);
-                      const hasTermin = dayTermine.length > 0;
-                      const dayFarbe = hasTermin ? terminFarbe(dayTermine[0].typ) : "#eee";
-                      return (<div key={i} onClick={() => handleAddTermin(day)} style={{ ...styles.day, backgroundColor: dayFarbe, color: hasTermin ? "#fff" : "#333", position:"relative" }}>
-                        {day}
-                        {dayTermine.length > 1 && <span style={{ position:"absolute", top:"1px", right:"2px", fontSize:"7px", fontWeight:"bold" }}>+{dayTermine.length-1}</span>}
-                      </div>);
+                    {["Mo","Di","Mi","Do","Fr","Sa","So"].map(function(d) {
+                      return <div key={d} style={{ textAlign:"center", fontSize:"9px", fontWeight:"bold", color:"#003366", padding:"2px 0", opacity:0.7 }}>{d}</div>;
                     })}
+                    {(function() {
+                      var ersterTag = new Date(monthOffset.jahr, monthOffset.monat, 1).getDay();
+                      var leereTage = ersterTag === 0 ? 6 : ersterTag - 1; // Mo=0
+                      var anzTage = new Date(monthOffset.jahr, monthOffset.monat + 1, 0).getDate();
+                      var zellen = [];
+                      for (var e = 0; e < leereTage; e++) {
+                        zellen.push(<div key={"e"+e} />);
+                      }
+                      for (var d2 = 1; d2 <= anzTage; d2++) {
+                        (function(day) {
+                          var wochentag = new Date(monthOffset.jahr, monthOffset.monat, day).getDay();
+                          var istWE = wochentag === 0 || wochentag === 6;
+                          var dayTermine = termine.filter(function(t) { return t.tag === day && t.monat === monthOffset.monat && (!t.jahr || t.jahr === monthOffset.jahr); });
+                          var hasTermin = dayTermine.length > 0;
+                          var dayFarbe = hasTermin ? terminFarbe(dayTermine[0].typ) : istWE ? "#f0f0f0" : "#eee";
+                          var textFarbe = hasTermin ? "#fff" : istWE ? "#aaa" : "#333";
+                          zellen.push(
+                            <div key={day} onClick={function() { handleAddTermin(day); }}
+                              style={{ ...styles.day, backgroundColor: dayFarbe, color: textFarbe, position:"relative", fontWeight: istWE ? "normal" : "normal" }}
+                              title={dayTermine.map(function(t){ return t.zeit+" "+t.text; }).join(", ")}>
+                              {day}
+                              {dayTermine.length > 1 && <span style={{ position:"absolute", top:"1px", right:"2px", fontSize:"7px", fontWeight:"bold" }}>+{dayTermine.length-1}</span>}
+                            </div>
+                          );
+                        })(d2);
+                      }
+                      return zellen;
+                    })()}
                   </div>
                   <div style={{ marginTop: "15px", borderTop: "1px solid #eee", paddingTop: "10px" }}>
                     <h4 style={{ fontSize: "12px", color: "#003366", margin: "0 0 8px 0" }}>Bevorstehende Termine:</h4>
-                    {termine.filter(t => t.monat === monthOffset).map(t => (
-                      <div key={t.id} onClick={() => { setSelectedTerminId(t.id); setView("termin_detail"); }} style={styles.terminItem}>
-                        <span style={{ ...styles.terminTag, backgroundColor: terminFarbe(t.typ) }}>{t.tag}.</span>
-                        <span style={{ flex: 1 }}>{t.text}</span>
-                        <span style={{ fontSize: "9px", backgroundColor: terminFarbe(t.typ)+"22", color: terminFarbe(t.typ), borderRadius:"4px", padding:"1px 5px", fontWeight:"bold" }}>{(TERMIN_TYPEN.find(function(x){return x.id===t.typ;})||{label:"Beratung"}).label}</span>
-                        <span style={{ fontSize: "10px", color: "#999" }}>{t.zeit} Uhr</span>
-                      </div>
-                    ))}
+                    {termine.filter(function(t) { return t.monat === monthOffset.monat && (!t.jahr || t.jahr === monthOffset.jahr); }).sort(function(a,b){ return a.tag-b.tag; }).map(function(t) {
+                      var wt = new Date(t.jahr || monthOffset.jahr, t.monat, t.tag).getDay();
+                      var wtNamen = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+                      var wtName = wtNamen[wt];
+                      return (
+                        <div key={t.id} onClick={function(){ setSelectedTerminId(t.id); setView("termin_detail"); }} style={styles.terminItem}>
+                          <span style={{ ...styles.terminTag, backgroundColor: terminFarbe(t.typ), minWidth:"42px", textAlign:"center" }}>{wtName} {t.tag}.</span>
+                          <span style={{ flex: 1 }}>{t.text}</span>
+                          <span style={{ fontSize: "9px", backgroundColor: terminFarbe(t.typ)+"22", color: terminFarbe(t.typ), borderRadius:"4px", padding:"1px 5px", fontWeight:"bold" }}>{(TERMIN_TYPEN.find(function(x){return x.id===t.typ;})||{label:"Beratung"}).label}</span>
+                          <span style={{ fontSize: "10px", color: "#999" }}>{t.zeit} Uhr</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -4981,7 +5031,9 @@ function App() {
                         alleinerziehend: ext2.alleinerziehend||false,
                         unterhaltsTitel: ext2.unterhaltsTitel||false,
                         unterhaltBetrag: ext2.unterhaltBetrag||"",
-                        kinder: (ext2.kinder||[]).map(function(k){ return Object.assign({},k); })
+                        kinder: (ext2.kinder||[]).map(function(k){ return Object.assign({},k); }),
+                        anwaltName: ext2.anwaltName||"", anwaltAdresse: ext2.anwaltAdresse||"",
+                        anwaltTel: ext2.anwaltTel||"", anwaltMail: ext2.anwaltMail||""
                     });
                     setEditMemberMode(true);
                   }}
@@ -5007,7 +5059,7 @@ function App() {
               ) : (
                 <div style={{ display:"flex", gap:"6px" }}>
                   <button onClick={function() {
-                    var extrasFelder = ["familienstand","betreuungsmodell","einkommenNetto","einkommenBrutto","arbeitsstatus","mieteKalt","nebenkosten","heizkosten","fahrtkostenKm","fahrtkostenFahrtenProMonat","geburt","alleinerziehend","unterhaltsTitel","unterhaltBetrag","kinder","kindergeldBezug"];
+                    var extrasFelder = ["familienstand","betreuungsmodell","einkommenNetto","einkommenBrutto","arbeitsstatus","mieteKalt","nebenkosten","heizkosten","fahrtkostenKm","fahrtkostenFahrtenProMonat","geburt","alleinerziehend","unterhaltsTitel","unterhaltBetrag","kinder","kindergeldBezug","anwaltName","anwaltAdresse","anwaltTel","anwaltMail"];
                     var memberFelder = ["vorname","name","tel","mail","strasse","plz","ort"];
                     var memberUpd = {}; memberFelder.forEach(function(f){ if(editDaten[f]!==undefined) memberUpd[f]=editDaten[f]; });
                     var extrasUpd = {}; extrasFelder.forEach(function(f){ if(editDaten[f]!==undefined) extrasUpd[f]=editDaten[f]; });
@@ -5220,12 +5272,24 @@ function App() {
                     → ca. {((parseFloat(editDaten.fahrtkostenKm)||0)*2*(parseFloat(editDaten.fahrtkostenFahrtenProMonat)||0)*0.20).toFixed(2)} €/Monat (0,20 €/km)
                   </div>
                 )}
+
+                {/* ANWALT */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"4px", padding:"4px 8px", marginTop:"12px", marginBottom:"8px" }}>⚖️ Rechtsanwalt / Rechtsanwältin</div>
+                <label style={styles.label}>Name</label>
+                <input style={styles.input} placeholder="Rechtsanwalt/Rechtsanwältin" value={editDaten.anwaltName||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{anwaltName:v}); }); }} />
+                <label style={styles.label}>Adresse / Kanzlei</label>
+                <input style={styles.input} placeholder="Kanzlei, Straße, PLZ Ort" value={editDaten.anwaltAdresse||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{anwaltAdresse:v}); }); }} />
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <div style={{ flex:1 }}><label style={styles.label}>Telefon</label><input style={styles.input} placeholder="+49 221..." value={editDaten.anwaltTel||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{anwaltTel:v}); }); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>E-Mail</label><input style={styles.input} placeholder="kanzlei@..." value={editDaten.anwaltMail||""} onChange={function(e){ var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{anwaltMail:v}); }); }} /></div>
+                </div>
               </div>
             )}
             <button onClick={() => setShowMehrDaten(!showMehrDaten)}
               style={{ width:"100%", marginTop:"14px", padding:"10px", backgroundColor: showMehrDaten ? "#003366" : "#f0f4f7", color: showMehrDaten ? "#fff" : "#003366", border:"1px solid #003366", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px" }}>
               {showMehrDaten ? "▲ Mehr Daten ausblenden" : "▼ Mehr Daten"}
             </button>
+
             {showMehrDaten && activeMember && memberExtras[activeMember.id] && (
               <MehrDatenView ext={memberExtras[activeMember.id]} />
             )}
@@ -7938,6 +8002,7 @@ function App() {
                   { id:"stammdaten", label:"📋 Stammdaten-Fragebogen", desc:"Persönliche Daten, Einkommen, Kinder" },
                   { id:"buergergeld", label:"🏛️ Bürgergeld-Fragebogen", desc:"ALG II / SGB II – Bedarf & Einkommen" },
                   { id:"tbg", label:"📋 Anlage TBG", desc:"Temporäre Bedarfsgemeinschaft" },
+                  { id:"wohngeld_fb", label:"🏡 Wohngeld-Fragebogen", desc:"WoGG – Miete, Haushalt, Einkommen" },
                   { id:"fr_kindesunterhalt", label:"👶 Kindesunterhalt-Fragebogen", desc:"Düsseldorfer Tabelle, Selbstbehalt" },
                   { id:"fr_wechselmodell", label:"🔄 Wechselmodell-Fragebogen", desc:"Betreuungsaufteilung, Fahrtkosten" },
                   { id:"fr_umgang", label:"🤝 Musterantrag Umgang", desc:"§ 1684 BGB – Umgangsregelung" },
@@ -7965,7 +8030,7 @@ function App() {
 
                 // Warnung: bereits offenes Formular?
                 var memberName = m ? m.vorname + " " + m.name : null;
-                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : "Anlage TBG";
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : fTyp === "tbg" ? "Anlage TBG" : fTyp === "wohngeld_fb" ? "Wohngeld-Fragebogen" : fTyp === "fr_kindesunterhalt" ? "Kindesunterhalt-Fragebogen" : fTyp === "fr_wechselmodell" ? "Wechselmodell-Fragebogen" : fTyp === "fr_umgang" ? "Umgangsregelung-Fragebogen" : fTyp === "fr_trennungsvereinbarung" ? "Trennungs-Scheidungsfragebogen" : "Fragebogen";
                 var offenes = memberName ? ausgangFormulare.find(function(af) { return af.mitglied === memberName && af.typ === fLabel && af.status !== "beantwortet"; }) : null;
 
                 var alleFelder = fTyp === "stammdaten" ? [
@@ -7981,6 +8046,7 @@ function App() {
                   { id:"wohnen",         label:"Wohnsituation (Miete, Fläche, Heizkosten)", hatDaten: !!(ext.mieteWarm) },
                   { id:"kinder",         label:"Kinder (Geburt, Wohnort, UVG)",       hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
                   { id:"notizen",        label:"Anmerkungen / Notizen",               hatDaten: !!(ext.notizen) },
+                  { id:"anwalt",         label:"Anwalt / Anwältin (Name, Adresse, Tel, E-Mail)", hatDaten: !!(ext.anwaltName) },
                 ] : fTyp === "buergergeld" ? [
                   { id:"bg_person",      label:"Persönliche Daten & Kontakt",         hatDaten: !!(m && m.vorname) },
                   { id:"bg_haushalt",    label:"Haushalt & Bedarfsgemeinschaft",      hatDaten: false },
@@ -7999,7 +8065,41 @@ function App() {
                   { id:"tbg_kalender",      label:"Kalender (Tage pro Monat)",          hatDaten: false },
                   { id:"tbg_kindergeld",    label:"Kindergeld (Empfänger & Betrag)",    hatDaten: !!(ext.kindergeldBetrag) },
                   { id:"tbg_einkommen_kind",label:"Einkommen des Kindes (UVG etc.)",    hatDaten: !!(ext.uvgBetrag) },
-                ];
+                ] : fTyp === "wohngeld_fb" ? [
+                  { id:"wg_person",   label:"Persönliche Daten & Kontakt",        hatDaten: !!(m && m.vorname) },
+                  { id:"wg_adresse",  label:"Adresse & Mietstufe",                hatDaten: !!(m && m.strasse) },
+                  { id:"wg_haushalt", label:"Haushaltsgröße",                     hatDaten: false },
+                  { id:"wg_wohnen",   label:"Mietkosten (Kalt, NK, Heizung)",     hatDaten: !!(ext.mieteKalt) },
+                  { id:"wg_einkommen",label:"Einkommen (Netto, Abzüge)",          hatDaten: !!(ext.einkommenNetto) },
+                  { id:"wg_kinder",   label:"Kinder & Unterhalt",                 hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"wg_anliegen", label:"Anliegen & Anmerkungen",             hatDaten: false },
+                ] : fTyp === "fr_kindesunterhalt" ? [
+                  { id:"ku_person",    label:"Ihre Person & Rolle",               hatDaten: !!(m && m.vorname) },
+                  { id:"ku_einkommen", label:"Ihr Einkommen",                     hatDaten: !!(ext.einkommenNetto) },
+                  { id:"ku_kinder",    label:"Kinder (Name, Geburt, Wohnort)",    hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"ku_unterhalt", label:"Bisheriger Unterhalt / Titel",      hatDaten: false },
+                  { id:"ku_anliegen",  label:"Anliegen & Anmerkungen",            hatDaten: false },
+                ] : fTyp === "fr_wechselmodell" ? [
+                  { id:"wm_person",    label:"Ihre Person",                       hatDaten: !!(m && m.vorname) },
+                  { id:"wm_kind",      label:"Kind (Name, Geburt)",               hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"wm_modell",    label:"Betreuungsaufteilung",              hatDaten: false },
+                  { id:"wm_einkommen", label:"Einkommen & Kindergeld",            hatDaten: !!(ext.einkommenNetto) },
+                  { id:"wm_anliegen",  label:"Anmerkungen",                       hatDaten: false },
+                ] : fTyp === "fr_umgang" ? [
+                  { id:"um_person",    label:"Antragsteller*in",                  hatDaten: !!(m && m.vorname) },
+                  { id:"um_anderer",   label:"Anderer Elternteil",                hatDaten: !!(ext.gegenseiteName) },
+                  { id:"um_kind",      label:"Kind",                              hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"um_umgang",    label:"Gewünschte Umgangsregelung",        hatDaten: false },
+                  { id:"um_anliegen",  label:"Anmerkungen",                       hatDaten: false },
+                ] : fTyp === "fr_trennungsvereinbarung" ? [
+                  { id:"tv_person",    label:"Persönliche Daten",                 hatDaten: !!(m && m.vorname) },
+                  { id:"tv_ehe",       label:"Ehe & Trennungsdatum",              hatDaten: !!(ext.trennungSeit) },
+                  { id:"tv_wohnen",    label:"Wohnung & Eigentum",                hatDaten: !!(ext.mieteKalt) },
+                  { id:"tv_einkommen", label:"Einkommen & Unterhalt",             hatDaten: !!(ext.einkommenNetto) },
+                  { id:"tv_kinder",    label:"Kinder & Sorge",                    hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"tv_vermoegen", label:"Vermögen & Schulden",               hatDaten: false },
+                  { id:"tv_anliegen",  label:"Anliegen & Anmerkungen",            hatDaten: false },
+                ] : [];
 
                 var aktiveFelder = versandFelder !== null ? versandFelder : alleFelder.map(function(f){ return f.id; });
                 var alleAktiv = aktiveFelder.length === alleFelder.length;
@@ -8066,7 +8166,7 @@ function App() {
               {formularVersandDialogNeu.formTyp && (function() {
                 var m = formularVersandDialogNeu.member;
                 var fTyp = formularVersandDialogNeu.formTyp;
-                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : "Anlage TBG";
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : fTyp === "tbg" ? "Anlage TBG" : fTyp === "wohngeld_fb" ? "Wohngeld-Fragebogen" : fTyp === "fr_kindesunterhalt" ? "Kindesunterhalt-Fragebogen" : fTyp === "fr_wechselmodell" ? "Wechselmodell-Fragebogen" : fTyp === "fr_umgang" ? "Umgangsregelung-Fragebogen" : fTyp === "fr_trennungsvereinbarung" ? "Trennungs-Scheidungsfragebogen" : "Fragebogen";
 
                 // Feldlabels für den Mail-Text
                 var alleFeldLabels = fTyp === "stammdaten" ? {
@@ -8081,7 +8181,8 @@ function App() {
                   einkommen: "Einkommen (Brutto, Netto, Steuerklasse)",
                   wohnen: "Wohnsituation (Miete, Fläche, Heizkosten)",
                   kinder: "Kinder (Geburtsdatum, Wohnort, UVG)",
-                  notizen: "Anmerkungen / Notizen"
+                  notizen: "Anmerkungen / Notizen",
+                  anwalt: "Anwalt / Anwältin (Name, Adresse, Tel, E-Mail)"
                 } : fTyp === "buergergeld" ? {
                   bg_person:    "Persönliche Daten & Kontakt",
                   bg_haushalt:  "Haushalt & Bedarfsgemeinschaft",
@@ -8102,7 +8203,7 @@ function App() {
                   tbg_einkommen_kind: "Einkommen des Kindes"
                 };
                 var aktiveFeldIds = (versandFelder !== null && versandFelder.length > 0) ? versandFelder : Object.keys(alleFeldLabels);
-                var detailFragen = fTyp==="stammdaten" ? { titel:["Titel (Dr., Prof. etc.)"], vorname_name:["Vorname","Nachname"], tel:["Telefonnummer"], mail:["E-Mail-Adresse"], adresse:["Strasse & Hausnummer","PLZ","Ort"], familienstand:["Familienstand (ledig/getrennt/geschieden/verheiratet)","Getrennt seit (Datum)"], gegenseite:["Vorname & Name Gegenseite","Adresse","Einkommen (EUR/Monat)"], beschaeftigung:["Beschaeftigungsart","Arbeitgeber","Wochenstunden"], einkommen:["Nettoeinkommen (EUR/Monat)","Bruttoeinkommen (EUR/Monat)","Steuerklasse"], wohnen:["Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)","Mietstufe (1-6)"], kinder:["Vorname & Nachname je Kind","Geburtsdatum","Wohnort (Antragsteller*in / and. Elternteil / wechselnd)","UVG bezogen? (ja/nein)","Kindergeld-Empfaenger"], notizen:["Anmerkungen"]
+                var detailFragen = fTyp==="stammdaten" ? { titel:["Titel (Dr., Prof. etc.)"], vorname_name:["Vorname","Nachname"], tel:["Telefonnummer"], mail:["E-Mail-Adresse"], adresse:["Strasse & Hausnummer","PLZ","Ort"], familienstand:["Familienstand (ledig/getrennt/geschieden/verheiratet)","Getrennt seit (Datum)"], gegenseite:["Vorname & Name Gegenseite","Adresse","Einkommen (EUR/Monat)"], beschaeftigung:["Beschaeftigungsart","Arbeitgeber","Wochenstunden"], einkommen:["Nettoeinkommen (EUR/Monat)","Bruttoeinkommen (EUR/Monat)","Steuerklasse"], wohnen:["Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)","Mietstufe (1-6)"], kinder:["Vorname & Nachname je Kind","Geburtsdatum","Wohnort (Antragsteller*in / and. Elternteil / wechselnd)","UVG bezogen? (ja/nein)","Kindergeld-Empfaenger"], notizen:["Anmerkungen"], anwalt:["Name Anwalt/Anwältin","Kanzlei/Adresse","Telefon Kanzlei","E-Mail Kanzlei"]
                 } : fTyp==="buergergeld" ? { bg_person:["Vorname","Nachname","Geburtsdatum","Staatsangehoerigkeit","E-Mail","Telefon","Strasse","PLZ","Ort","Familienstand"], bg_haushalt:["Wohnsituation (allein/mit Partner/WG)","Anzahl Personen in der BG"], bg_kinder:["Kinder vorhanden? (ja/nein)","Je Kind: Name, Geburtsdatum, Wohnort, Kindergeld, UVG bezogen?"], bg_einkommen:["Erwerbsstatus","Arbeitgeber","Nettoeinkommen (EUR/Monat)","ALG-I (EUR/Monat)","Weitere Einkuenfte","Vermoegen (EUR)"], bg_wohnen:["Mietverhaeltnis","Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)"], bg_bedarfe:["Schwerbehinderung? (ja/nein)","GdB & Merkzeichen","Schulden? (ja/nein)","Schulden-Betrag & Rate (EUR)"], bg_verfahren:["Antrag beim Jobcenter? (ja/nein)","Antragsdatum","Name Jobcenter","Bescheid erhalten?","Art des Bescheids","Widerspruch eingelegt?"], bg_anliegen:["Anliegen: Erstantrag / Widerspruch / Sanktionen / Mehrbedarf / Jobcenter-Probleme / Sonstiges","Anmerkungen"]
                 } : { tbg_antragsteller:["Vorname","Nachname","Geburtsdatum","E-Mail","Telefon"], tbg_adresse:["Strasse & Hausnummer","PLZ","Ort"], tbg_betreuungsmodell:["Betreuungsmodell (paritaetisch/asymmetrisch/Residenz)","Anteil Betreuung in %"], tbg_kind_name:["Vorname Kind","Nachname Kind","Geburtsdatum Kind"], tbg_anderer_et:["Vorname & Nachname anderer Elternteil","Adresse anderer Elternteil"], tbg_kalender:["Tage/Monat beim Antragsteller (Jan-Dez)","Tage/Monat beim anderen Elternteil (Jan-Dez)"], tbg_kindergeld:["Wer bezieht Kindergeld?","Kindergeldbetrag (EUR/Monat)"], tbg_einkommen_kind:["Eigenes Einkommen des Kindes (EUR/Monat)"]
                 };
