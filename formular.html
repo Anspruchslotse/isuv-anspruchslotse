@@ -134,6 +134,13 @@ function App() {
 
   var upd = function(f, v) { setDaten(function(p) { return Object.assign({}, p, {[f]: v}); }); };
 
+  // Prüft ob ein Feld/Abschnitt angezeigt werden soll (basierend auf versandFelder aus Supabase)
+  var zeigeAbschnitt = function(feldId) {
+    var vf = daten.versandFelder;
+    if (!vf || !Array.isArray(vf) || vf.length === 0) return true; // kein Filter = alles anzeigen
+    return vf.indexOf(feldId) >= 0;
+  };
+
   var absenden = function() {
     // Validation per formtyp
     if (formTyp === "fr_sorgerecht") {
@@ -418,54 +425,60 @@ function App() {
         </div>
         <div style={{ padding:"0 16px" }}>
 
-          {sec("👤", "Persönliche Daten")}
-          {lbl("Titel (Dr., Prof. etc.)")} {inp("titel", "Dr., Prof. etc.")}
+          {zeigeAbschnitt("titel") && (<>{sec("👤", "Persönliche Daten")}
+          {lbl("Titel (Dr., Prof. etc.)")} {inp("titel", "Dr., Prof. etc.")}</>)}
+          {zeigeAbschnitt("vorname_name") && (
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("vorname", "Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("name", "Nachname")}</div>
-          </div>
-          {lbl("Geburtsdatum")} {inp("geburt", "TT.MM.JJJJ")}
-          {lbl("E-Mail")} {inp("mail", "name@beispiel.de", "email")}
-          {lbl("Telefon")} {inp("tel", "+49 123 456789", "tel")}
+          </div>)}
+          {!zeigeAbschnitt("titel") && zeigeAbschnitt("vorname_name") && sec("👤", "Persönliche Daten")}
+          {zeigeAbschnitt("vorname_name") && (<>{lbl("Geburtsdatum")} {inp("geburt", "TT.MM.JJJJ")}</>)}
+          {zeigeAbschnitt("mail") && (<>{lbl("E-Mail")} {inp("mail", "name@beispiel.de", "email")}</>)}
+          {zeigeAbschnitt("tel") && (<>{lbl("Telefon")} {inp("tel", "+49 123 456789", "tel")}</>)}
 
-          {sec("🏠", "Adresse")}
+          {zeigeAbschnitt("adresse") && (<>{sec("🏠", "Adresse")}
           {lbl("Straße & Hausnummer")} {inp("strasse", "Musterstraße 1")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ width:"90px" }}>{lbl("PLZ")} {inp("plz", "12345")}</div>
             <div style={{ flex:1 }}>{lbl("Ort")} {inp("ort", "Stadt")}</div>
-          </div>
+          </div></>)}
 
-          {sec("💍", "Familienstand & Trennung")}
+          {zeigeAbschnitt("familienstand") && (<>{sec("💍", "Familienstand & Trennung")}
           {lbl("Familienstand")}
           <select style={styles.input} value={d.familienstand||""} onChange={function(e){ upd("familienstand", e.target.value); }}>
             <option value="">– bitte wählen –</option>
             <option>ledig</option><option>verheiratet</option><option>getrennt lebend</option><option>geschieden</option><option>verwitwet</option>
           </select>
-          {lbl("Getrennt seit (Datum)")} {inp("trennungSeit", "MM.JJJJ")}
+          {lbl("Getrennt seit (Datum)")} {inp("trennungSeit", "MM.JJJJ")}</>)}
+
+          {zeigeAbschnitt("gegenseite") && (<>{!zeigeAbschnitt("familienstand") && sec("💍", "Angaben zur Gegenseite")}
           {lbl("Name der Gegenseite")} {inp("gegenseiteName", "Vorname Nachname")}
           {lbl("Adresse Gegenseite")} {inp("gegenseiteAdresse", "Straße, PLZ Ort")}
-          {lbl("Einkommen Gegenseite (€/Monat)")} {inp("gegenseiteEinkommen", "z.B. 2500", "number")}
+          {lbl("Einkommen Gegenseite (€/Monat)")} {inp("gegenseiteEinkommen", "z.B. 2500", "number")}</>)}
 
-          {sec("💼", "Beschäftigung & Einkommen")}
+          {zeigeAbschnitt("beschaeftigung") && (<>{sec("💼", "Beschäftigung & Einkommen")}
           {lbl("Beschäftigungsart")}
           <select style={styles.input} value={d.beschaeftigungsart||""} onChange={function(e){ upd("beschaeftigungsart", e.target.value); }}>
             <option value="">– bitte wählen –</option>
             <option>Angestellt (Vollzeit)</option><option>Angestellt (Teilzeit)</option><option>Selbständig</option><option>Beamter/Beamtin</option><option>Arbeitslos</option><option>Rentner/Rentnerin</option><option>Sonstiges</option>
           </select>
           {lbl("Arbeitgeber")} {inp("arbeitgeber", "Firma GmbH")}
-          {lbl("Wochenstunden")} {inp("wochenstunden", "z.B. 40", "number")}
+          {lbl("Wochenstunden")} {inp("wochenstunden", "z.B. 40", "number")}</>)}
+
+          {zeigeAbschnitt("einkommen") && (<>{!zeigeAbschnitt("beschaeftigung") && sec("💶", "Einkommen")}
           {lbl("Nettoeinkommen (€/Monat)")} {inp("einkommenNetto", "z.B. 2500", "number")}
           {lbl("Bruttoeinkommen (€/Monat)")} {inp("einkommenBrutto", "z.B. 3200", "number")}
-          {lbl("Steuerklasse")} {inp("steuerklasse", "z.B. I, III")}
+          {lbl("Steuerklasse")} {inp("steuerklasse", "z.B. I, III")}</>)}
 
-          {sec("🏡", "Wohnsituation")}
+          {zeigeAbschnitt("wohnen") && (<>{sec("🏡", "Wohnsituation")}
           {lbl("Kaltmiete (€/Monat)")} {inp("mieteKalt", "z.B. 700", "number")}
           {lbl("Nebenkosten (€/Monat)")} {inp("nebenkosten", "z.B. 150", "number")}
           {lbl("Heizkosten (€/Monat)")} {inp("heizkosten", "z.B. 100", "number")}
           {lbl("Wohnfläche (m²)")} {inp("wohnungGroesse", "z.B. 75", "number")}
-          {lbl("Mietstufe (1–6)")} {inp("mietStufe", "z.B. 3")}
+          {lbl("Mietstufe (1–6)")} {inp("mietStufe", "z.B. 3")}</>)}
 
-          {sec("👶", "Kinder")}
+          {zeigeAbschnitt("kinder") && (<>{sec("👶", "Kinder")}
           {lbl("Anzahl Kinder")}
           <select style={styles.input} value={d.anzahlKinder||"0"} onChange={function(e){ upd("anzahlKinder", e.target.value); }}>
             {["0","1","2","3","4","5+"].map(function(n){ return <option key={n}>{n}</option>; })}
@@ -481,10 +494,18 @@ function App() {
               </select>
               {lbl("UVG bezogen? (je Kind)")} {inp("uvg", "z.B. ja / nein")}
             </div>
-          )}
+          )}</>)}
 
-          {sec("📝", "Anmerkungen")}
-          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Informationen oder Anmerkungen..." value={d.notizen||""} onChange={function(e){ upd("notizen", e.target.value); }} />
+          {zeigeAbschnitt("notizen") && (<>{sec("📝", "Anmerkungen")}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Informationen oder Anmerkungen..." value={d.notizen||""} onChange={function(e){ upd("notizen", e.target.value); }} /></>)}
+
+          {zeigeAbschnitt("anwalt") && (<>{sec("⚖️", "Rechtsanwalt / Rechtsanwältin")}
+          {lbl("Name")} {inp("anwaltName","Rechtsanwalt/Rechtsanwältin")}
+          {lbl("Adresse / Kanzlei")} {inp("anwaltAdresse","Kanzlei, Straße, PLZ Ort")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Telefon")} {inp("anwaltTel","+49 221...","tel")}</div>
+            <div style={{ flex:1 }}>{lbl("E-Mail")} {inp("anwaltMail","kanzlei@...","email")}</div>
+          </div></>)}
 
           <button onClick={absenden}
             style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
@@ -601,6 +622,450 @@ function App() {
           })}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical", marginTop:"10px" })} placeholder="Weitere Anmerkungen..." value={d.bgNotizen||""} onChange={function(e){ upd("bgNotizen", e.target.value); }} />
 
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+
+  // ── TBG-Formular ─────────────────────────────────────────
+  if (formTyp === "tbg") {
+    var d = daten;
+    var inp = function(field, placeholder, type) {
+      return <input style={styles.input} type={type||"text"} placeholder={placeholder||""} value={d[field]||""} onChange={function(e){ upd(field, e.target.value); }} />;
+    };
+    var lbl = function(text) { return <label style={styles.label}>{text}</label>; };
+    var sec = function(icon, title) {
+      return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>{icon} {title}</div>;
+    };
+    var MONATE = ["Jan","Feb","Mrz","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Anlage TBG – Temporäre Bedarfsgemeinschaft</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 7 Abs. 3 Nr. 4 SGB II</div>
+        </div>
+        <div style={{ padding:"0 16px" }}>
+          {sec("👤","Persönliche Daten Antragsteller*in")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("tbgVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("tbgName","Nachname")}</div>
+          </div>
+          {lbl("Geburtsdatum")} {inp("tbgGeburt","TT.MM.JJJJ")}
+          {lbl("E-Mail")} {inp("tbgMail","name@beispiel.de","email")}
+          {lbl("Telefon")} {inp("tbgTel","+49 123 456789","tel")}
+          {sec("🏠","Adresse")}
+          {lbl("Straße & Hausnummer")} {inp("tbgStrasse","Musterstraße 1")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ width:"90px" }}>{lbl("PLZ")} {inp("tbgPlz","12345")}</div>
+            <div style={{ flex:1 }}>{lbl("Ort")} {inp("tbgOrt","Stadt")}</div>
+          </div>
+          {sec("⚖️","Betreuungsmodell")}
+          {lbl("Betreuungsmodell")}
+          <select style={styles.input} value={d.tbgModell||""} onChange={function(e){ upd("tbgModell", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Paritätisches Wechselmodell (50/50)</option>
+            <option>Asymmetrisches Wechselmodell</option>
+            <option>Residenzmodell mit erweitertem Umgang</option>
+          </select>
+          {lbl("Anteil Betreuung in %")} {inp("tbgBetreuungsanteil","z.B. 40","number")}
+          {sec("👶","Kind")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname Kind")} {inp("tbgKindVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname Kind")} {inp("tbgKindName","Nachname")}</div>
+          </div>
+          {lbl("Geburtsdatum Kind")} {inp("tbgKindGeburt","TT.MM.JJJJ","date")}
+          {sec("👨‍👩‍👧","Andere*r Erziehungsberechtigte*r")}
+          {lbl("Vollständiger Name")} {inp("tbgAndererElternteil","Vorname Nachname")}
+          {lbl("Adresse")} {inp("tbgAndererAdresse","Straße, PLZ Ort")}
+          {sec("📅","Betreuungskalender (Tage beim Antragsteller/bei der Antragstellerin)")}
+          <div style={{ fontSize:"11px", color:"#666", marginBottom:"8px" }}>Bitte für jeden Monat die Anzahl der Tage angeben, an denen das Kind bei Ihnen ist:</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px" }}>
+            {MONATE.map(function(m, i) {
+              return (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                  <span style={{ fontSize:"11px", color:"#555", width:"36px", flexShrink:0 }}>{m}:</span>
+                  <input type="number" style={{ ...styles.input, marginBottom:0, flex:1 }} placeholder="0"
+                    value={d["tbgTage_"+i]||""}
+                    onChange={function(e){ upd("tbgTage_"+i, e.target.value); }} />
+                </div>
+              );
+            })}
+          </div>
+          {sec("💰","Kindergeld")}
+          {lbl("Wer bezieht das Kindergeld?")}
+          <select style={styles.input} value={d.tbgKindergeldEmpfaenger||""} onChange={function(e){ upd("tbgKindergeldEmpfaenger", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Ich</option><option>Andere*r Elternteil</option>
+          </select>
+          {lbl("Kindergeldbetrag (€/Monat)")} {inp("tbgKindergeld","z.B. 255","number")}
+          {sec("💶","Einkommen des Kindes")}
+          {lbl("Eigenes Einkommen des Kindes (€/Monat, z.B. UVG)")} {inp("tbgKindEinkommen","z.B. 272","number")}
+          {sec("📝","Anmerkungen")}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Informationen..." value={d.tbgNotizen||""} onChange={function(e){ upd("tbgNotizen", e.target.value); }} />
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Kindesunterhalt-Fragebogen ────────────────────────────
+  if (formTyp === "fr_kindesunterhalt") {
+    var d = daten;
+    var inp = function(field, placeholder, type) {
+      return <input style={styles.input} type={type||"text"} placeholder={placeholder||""} value={d[field]||""} onChange={function(e){ upd(field, e.target.value); }} />;
+    };
+    var lbl = function(text) { return <label style={styles.label}>{text}</label>; };
+    var sec = function(icon, title) {
+      return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>{icon} {title}</div>;
+    };
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Kindesunterhalt – Fragebogen</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Düsseldorfer Tabelle · § 1601 ff. BGB</div>
+        </div>
+        <div style={{ padding:"0 16px" }}>
+          {sec("👤","Ihre Person")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("kuVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("kuName","Nachname")}</div>
+          </div>
+          {lbl("Rolle")}
+          <select style={styles.input} value={d.kuRolle||""} onChange={function(e){ upd("kuRolle", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Barunterhaltspflichtiger Elternteil</option>
+            <option>Betreuender Elternteil / Anspruchsteller</option>
+          </select>
+          {lbl("Nettoeinkommen (€/Monat)")} {inp("kuEinkommen","z.B. 2800","number")}
+          {lbl("Bruttoeinkommen (€/Monat)")} {inp("kuEinkommenBrutto","z.B. 3800","number")}
+          {lbl("Steuerklasse")} {inp("kuSteuerklasse","z.B. I, III")}
+          {lbl("Beschäftigungsart")}
+          <select style={styles.input} value={d.kuBeschaeftigung||""} onChange={function(e){ upd("kuBeschaeftigung", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Angestellt (Vollzeit)</option><option>Angestellt (Teilzeit)</option><option>Selbständig</option><option>Beamter/Beamtin</option><option>Arbeitslos</option><option>Rentner/Rentnerin</option>
+          </select>
+          {sec("👶","Kind(er)")}
+          {lbl("Anzahl Kinder")}
+          <select style={styles.input} value={d.kuAnzahlKinder||"1"} onChange={function(e){ upd("kuAnzahlKinder", e.target.value); }}>
+            {["1","2","3","4","5+"].map(function(n){ return <option key={n}>{n}</option>; })}
+          </select>
+          {lbl("Kinder mit Namen & Geburtsdatum")} {inp("kuKinderAngaben","z.B. Max, 12.03.2015; Anna, 04.07.2018")}
+          {lbl("Wohnort der Kinder")}
+          <select style={styles.input} value={d.kuKinderWohnort||""} onChange={function(e){ upd("kuKinderWohnort", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Beim anderen Elternteil (Residenzmodell)</option>
+            <option>Bei mir</option>
+            <option>Wechselmodell</option>
+          </select>
+          {lbl("UVG wird bezogen?")}
+          <select style={styles.input} value={d.kuUvg||""} onChange={function(e){ upd("kuUvg", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option value="ja">Ja</option><option value="nein">Nein</option><option value="beantragt">Beantragt</option>
+          </select>
+          {sec("📋","Unterhaltssituation")}
+          {lbl("Unterhalt bisher gezahlt (€/Monat)")} {inp("kuUnterhaltGezahlt","z.B. 400","number")}
+          {lbl("Unterhaltsbescheid / -urteil vorhanden?")}
+          <select style={styles.input} value={d.kuTitel||""} onChange={function(e){ upd("kuTitel", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option value="ja">Ja</option><option value="nein">Nein</option>
+          </select>
+          {d.kuTitel === "ja" && (<>{lbl("Betrag laut Bescheid (€/Monat)")} {inp("kuTitelBetrag","z.B. 450","number")}</>)}
+          {sec("📝","Anliegen & Anmerkungen")}
+          {lbl("Mein Anliegen")}
+          {["Erstberechnung","Abänderung","Widerspruch/Klage","Titulierung","Vollstreckung","Sonstiges"].map(function(a) {
+            var selected = (d.kuAnliegen||[]).includes(a);
+            return (
+              <button key={a} onClick={function(){
+                var current = d.kuAnliegen || [];
+                upd("kuAnliegen", selected ? current.filter(function(x){ return x !== a; }) : [...current, a]);
+              }} style={{ display:"inline-block", margin:"3px", padding:"6px 10px", backgroundColor: selected ? "#003366" : "#eee", color: selected ? "#fff" : "#333", border:"none", borderRadius:"20px", fontSize:"12px", cursor:"pointer" }}>
+                {a}
+              </button>
+            );
+          })}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical", marginTop:"10px" })} placeholder="Weitere Anmerkungen..." value={d.kuNotizen||""} onChange={function(e){ upd("kuNotizen", e.target.value); }} />
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Wechselmodell-Fragebogen ──────────────────────────────
+  if (formTyp === "fr_wechselmodell") {
+    var d = daten;
+    var inp = function(field, placeholder, type) {
+      return <input style={styles.input} type={type||"text"} placeholder={placeholder||""} value={d[field]||""} onChange={function(e){ upd(field, e.target.value); }} />;
+    };
+    var lbl = function(text) { return <label style={styles.label}>{text}</label>; };
+    var sec = function(icon, title) {
+      return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>{icon} {title}</div>;
+    };
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Wechselmodell – Fragebogen</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Betreuungsaufteilung · Fahrtkosten · Unterhalt</div>
+        </div>
+        <div style={{ padding:"0 16px" }}>
+          {sec("👤","Ihre Person")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("wmVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("wmName","Nachname")}</div>
+          </div>
+          {lbl("E-Mail")} {inp("wmMail","name@beispiel.de","email")}
+          {lbl("Telefon")} {inp("wmTel","+49 123 456789","tel")}
+          {lbl("Nettoeinkommen (€/Monat)")} {inp("wmEinkommen","z.B. 2800","number")}
+          {sec("👶","Kind")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname Kind")} {inp("wmKindVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname Kind")} {inp("wmKindName","Nachname")}</div>
+          </div>
+          {lbl("Geburtsdatum Kind")} {inp("wmKindGeburt","TT.MM.JJJJ","date")}
+          {sec("⚖️","Betreuungsaufteilung")}
+          {lbl("Betreuungsmodell")}
+          <select style={styles.input} value={d.wmModell||""} onChange={function(e){ upd("wmModell", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Paritätisch (50/50)</option>
+            <option>Asymmetrisch (z.B. 60/40)</option>
+            <option>Wechselwöchentlich</option>
+          </select>
+          {lbl("Mein Betreuungsanteil (%)")} {inp("wmAnteil","z.B. 50","number")}
+          {lbl("Entfernung zwischen den Haushalten (km)")} {inp("wmEntfernung","z.B. 15","number")}
+          {lbl("Fahrten pro Monat (hin & zurück)")} {inp("wmFahrten","z.B. 8","number")}
+          {sec("💰","Einkommen & Unterhalt")}
+          {lbl("Nettoeinkommen anderer Elternteil (€/Monat, falls bekannt)")} {inp("wmEinkommenAnderer","z.B. 3200","number")}
+          {lbl("Kindergeld: wer bezieht es?")}
+          <select style={styles.input} value={d.wmKindergeldEmpfaenger||""} onChange={function(e){ upd("wmKindergeldEmpfaenger", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Ich</option><option>Anderer Elternteil</option>
+          </select>
+          {lbl("UVG wird bezogen?")}
+          <select style={styles.input} value={d.wmUvg||""} onChange={function(e){ upd("wmUvg", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option value="ja">Ja</option><option value="nein">Nein</option>
+          </select>
+          {sec("📝","Anmerkungen")}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Informationen..." value={d.wmNotizen||""} onChange={function(e){ upd("wmNotizen", e.target.value); }} />
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Umgangsantrag-Fragebogen ──────────────────────────────
+  if (formTyp === "fr_umgang") {
+    var d = daten;
+    var inp = function(field, placeholder, type) {
+      return <input style={styles.input} type={type||"text"} placeholder={placeholder||""} value={d[field]||""} onChange={function(e){ upd(field, e.target.value); }} />;
+    };
+    var lbl = function(text) { return <label style={styles.label}>{text}</label>; };
+    var sec = function(icon, title) {
+      return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>{icon} {title}</div>;
+    };
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Angaben Umgangsregelung</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 1684 BGB – Musterantrag</div>
+        </div>
+        <div style={{ padding:"0 16px" }}>
+          {sec("👤","Antragsteller*in")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("umVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("umName","Nachname")}</div>
+          </div>
+          {lbl("Adresse")} {inp("umAdresse","Straße, PLZ Ort")}
+          {lbl("Telefon")} {inp("umTel","+49 123","tel")}
+          {sec("👩","Andere*r Elternteil")}
+          {lbl("Vollständiger Name")} {inp("umAndererName","Vorname Nachname")}
+          {lbl("Adresse")} {inp("umAndererAdresse","Straße, PLZ Ort")}
+          {sec("👶","Kind")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname Kind")} {inp("umKindVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname Kind")} {inp("umKindName","Nachname")}</div>
+          </div>
+          {lbl("Geburtsdatum Kind")} {inp("umKindGeburt","TT.MM.JJJJ","date")}
+          {lbl("Derzeitige Umgangsregelung (falls vorhanden)")} {inp("umBisherig","z.B. jedes 2. Wochenende")}
+          {sec("🕐","Gewünschte Umgangsregelung")}
+          {lbl("Gewünschter Umfang")} {inp("umGewuenscht","z.B. jedes Wochenende Fr–So, Ferien hälftig")}
+          {lbl("Bisherige Hindernisse / Konflikte")}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="z.B. keine Einigung möglich..." value={d.umHindernisse||""} onChange={function(e){ upd("umHindernisse", e.target.value); }} />
+          {sec("📝","Anmerkungen")}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"60px", resize:"vertical" })} placeholder="Weitere Informationen..." value={d.umNotizen||""} onChange={function(e){ upd("umNotizen", e.target.value); }} />
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Trennungs-/Scheidungsfragebogen ──────────────────────
+  if (formTyp === "fr_trennungsvereinbarung") {
+    var d = daten;
+    var inp = function(field, placeholder, type) {
+      return <input style={styles.input} type={type||"text"} placeholder={placeholder||""} value={d[field]||""} onChange={function(e){ upd(field, e.target.value); }} />;
+    };
+    var lbl = function(text) { return <label style={styles.label}>{text}</label>; };
+    var sec = function(icon, title) {
+      return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>{icon} {title}</div>;
+    };
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Trennungs- und Scheidungsfragebogen</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Vermögen · Unterhalt · Kinder · Wohnen</div>
+        </div>
+        <div style={{ padding:"0 16px" }}>
+          {sec("👤","Persönliche Daten")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("tvVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("tvName","Nachname")}</div>
+          </div>
+          {lbl("Geburtsdatum")} {inp("tvGeburt","TT.MM.JJJJ")}
+          {lbl("E-Mail")} {inp("tvMail","name@beispiel.de","email")}
+          {lbl("Telefon")} {inp("tvTel","+49 123","tel")}
+          {lbl("Adresse")} {inp("tvAdresse","Straße, PLZ Ort")}
+          {sec("💍","Ehe & Trennung")}
+          {lbl("Heiratsdatum")} {inp("tvHeirat","TT.MM.JJJJ","date")}
+          {lbl("Trennungsdatum")} {inp("tvTrennung","TT.MM.JJJJ","date")}
+          {lbl("Zugewinngemeinschaft?")}
+          <select style={styles.input} value={d.tvGueterstand||""} onChange={function(e){ upd("tvGueterstand", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Zugewinngemeinschaft (Standard)</option>
+            <option>Gütertrennung (ehevertragliche Vereinbarung)</option>
+            <option>Gütergemeinschaft</option>
+          </select>
+          {sec("🏠","Wohnen")}
+          {lbl("Familienwohnung: Eigentum oder Miete?")}
+          <select style={styles.input} value={d.tvWohnung||""} onChange={function(e){ upd("tvWohnung", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Miete</option><option>Eigentum (gemeinsam)</option><option>Eigentum (ein Ehepartner)</option>
+          </select>
+          {lbl("Wer wohnt weiterhin in der Familienwohnung?")}
+          <select style={styles.input} value={d.tvWohnungBleibt||""} onChange={function(e){ upd("tvWohnungBleibt", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option>Ich</option><option>Ehepartner/in</option><option>Beide ausgezogen</option>
+          </select>
+          {sec("💶","Einkommen & Unterhalt")}
+          {lbl("Ihr Nettoeinkommen (€/Monat)")} {inp("tvEinkommen","z.B. 2800","number")}
+          {lbl("Einkommen Ehepartner/in (€/Monat, falls bekannt)")} {inp("tvEinkommenPartner","z.B. 3200","number")}
+          {lbl("Trennungsunterhalt bisher gezahlt (€/Monat)")} {inp("tvUnterhalt","z.B. 600","number")}
+          {sec("👶","Kinder")}
+          {lbl("Anzahl gemeinsamer Kinder")}
+          <select style={styles.input} value={d.tvAnzahlKinder||"0"} onChange={function(e){ upd("tvAnzahlKinder", e.target.value); }}>
+            {["0","1","2","3","4","5+"].map(function(n){ return <option key={n}>{n}</option>; })}
+          </select>
+          {parseInt(d.tvAnzahlKinder||"0") > 0 && (<>
+            {lbl("Kinder mit Namen & Geburtsdaten")} {inp("tvKinderAngaben","z.B. Max, 12.03.2015")}
+            {lbl("Kinderbetreuung")}
+            <select style={styles.input} value={d.tvKinderBetreuung||""} onChange={function(e){ upd("tvKinderBetreuung", e.target.value); }}>
+              <option value="">– bitte wählen –</option>
+              <option>Hauptsächlich bei mir</option><option>Hauptsächlich beim anderen Elternteil</option><option>Wechselmodell</option>
+            </select>
+          </>)}
+          {sec("🏦","Vermögen & Schulden")}
+          {lbl("Gemeinsames Vermögen vorhanden? (Immobilien, Ersparnisse)")}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"60px", resize:"vertical" })} placeholder="z.B. Haus Wert ca. 320.000 €, gemeinsames Konto 15.000 €..." value={d.tvVermoegen||""} onChange={function(e){ upd("tvVermoegen", e.target.value); }} />
+          {lbl("Schulden (gemeinsam oder einzeln)")} {inp("tvSchulden","z.B. Hypothek 150.000 €")}
+          {sec("📝","Anliegen & Anmerkungen")}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Anmerkungen oder offene Fragen..." value={d.tvNotizen||""} onChange={function(e){ upd("tvNotizen", e.target.value); }} />
+          <button onClick={absenden}
+            style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
+            ✅ Angaben übermitteln
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Wohngeld-Fragebogen ────────────────────────────────────
+  if (formTyp === "wohngeld_fb") {
+    var d = daten;
+    var inp = function(field, placeholder, type) {
+      return <input style={styles.input} type={type||"text"} placeholder={placeholder||""} value={d[field]||""} onChange={function(e){ upd(field, e.target.value); }} />;
+    };
+    var lbl = function(text) { return <label style={styles.label}>{text}</label>; };
+    var sec = function(icon, title) {
+      return <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>{icon} {title}</div>;
+    };
+    return (
+      <div style={styles.formPage}>
+        <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
+          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Wohngeld – Fragebogen</div>
+          <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 16 WoGG – Wohngeldbehörde</div>
+        </div>
+        <div style={{ padding:"0 16px" }}>
+          {sec("👤","Persönliche Daten")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("wgVorname","Vorname")}</div>
+            <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("wgName","Nachname")}</div>
+          </div>
+          {lbl("E-Mail")} {inp("wgMail","name@beispiel.de","email")}
+          {lbl("Telefon")} {inp("wgTel","+49 123 456789","tel")}
+          {sec("🏠","Adresse & Mietstufe")}
+          {lbl("Straße & Hausnummer")} {inp("wgStrasse","Musterstraße 1")}
+          <div style={{ display:"flex", gap:"6px" }}>
+            <div style={{ width:"90px" }}>{lbl("PLZ")} {inp("wgPlz","12345")}</div>
+            <div style={{ flex:1 }}>{lbl("Ort")} {inp("wgOrt","Stadt")}</div>
+          </div>
+          {lbl("Mietstufe (1–6)")} {inp("wgMietstufe","z.B. 3")}
+          {sec("👨‍👩‍👧","Haushaltsgröße")}
+          {lbl("Anzahl Personen im Haushalt")}
+          <select style={styles.input} value={d.wgHaushalt||"1"} onChange={function(e){ upd("wgHaushalt", e.target.value); }}>
+            {["1","2","3","4","5","6+"].map(function(n){ return <option key={n}>{n}</option>; })}
+          </select>
+          {sec("🏡","Mietkosten")}
+          {lbl("Kaltmiete (€/Monat)")} {inp("wgMieteKalt","z.B. 600","number")}
+          {lbl("Nebenkosten (€/Monat)")} {inp("wgNebenkosten","z.B. 120","number")}
+          {lbl("Heizkosten (€/Monat)")} {inp("wgHeizkosten","z.B. 80","number")}
+          {lbl("Wohnfläche (m²)")} {inp("wgWohnflaeche","z.B. 60","number")}
+          {sec("💶","Einkommen")}
+          {lbl("Nettoeinkommen (€/Monat)")} {inp("wgEinkommen","z.B. 1200","number")}
+          {lbl("ALG I / ALG II (€/Monat, falls vorhanden)")} {inp("wgAlg","z.B. 800","number")}
+          {lbl("Unterhalt erhalten (€/Monat, falls vorhanden)")} {inp("wgUnterhalt","z.B. 400","number")}
+          {sec("👶","Kinder")}
+          {lbl("Kinder im Haushalt?")}
+          <select style={styles.input} value={d.wgKinder||""} onChange={function(e){ upd("wgKinder", e.target.value); }}>
+            <option value="">– bitte wählen –</option>
+            <option value="ja">Ja</option><option value="nein">Nein</option>
+          </select>
+          {d.wgKinder === "ja" && (<>
+            {lbl("Kindergeld (€/Monat)")} {inp("wgKindergeld","z.B. 255","number")}
+            {lbl("Kinder mit Namen & Geburtsdaten")} {inp("wgKinderAngaben","z.B. Max, 12.03.2015")}
+          </>)}
+          {sec("📝","Anliegen & Anmerkungen")}
+          {lbl("Mein Anliegen")}
+          {["Erstantrag","Widerspruch","Neuberechnung","Sonstiges"].map(function(a) {
+            var selected = (d.wgAnliegen||[]).includes(a);
+            return (
+              <button key={a} onClick={function(){
+                var current = d.wgAnliegen || [];
+                upd("wgAnliegen", selected ? current.filter(function(x){ return x !== a; }) : [...current, a]);
+              }} style={{ display:"inline-block", margin:"3px", padding:"6px 10px", backgroundColor: selected ? "#003366" : "#eee", color: selected ? "#fff" : "#333", border:"none", borderRadius:"20px", fontSize:"12px", cursor:"pointer" }}>
+                {a}
+              </button>
+            );
+          })}
+          <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical", marginTop:"10px" })} placeholder="Weitere Anmerkungen..." value={d.wgNotizen||""} onChange={function(e){ upd("wgNotizen", e.target.value); }} />
           <button onClick={absenden}
             style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
             ✅ Angaben übermitteln
