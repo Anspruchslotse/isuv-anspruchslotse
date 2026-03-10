@@ -149,10 +149,24 @@ function App() {
         if (!mapped.tbgStrasse && str) mapped.tbgStrasse = str;
         if (!mapped.tbgPlz && plz) mapped.tbgPlz = plz;
         if (!mapped.tbgOrt && ort) mapped.tbgOrt = ort;
+        if (!mapped.tbgModell && vorausgefuellt.betreuungsmodell) {
+          var bm = vorausgefuellt.betreuungsmodell.toLowerCase();
+          mapped.tbgModell = bm.includes("parit") ? "Paritätisches Wechselmodell (50/50)" :
+                             bm.includes("asymm") ? "Asymmetrisches Wechselmodell" :
+                             bm.includes("residenz") ? "Residenzmodell mit erweitertem Umgang" :
+                             vorausgefuellt.betreuungsmodell;
+        }
+        if (!mapped.tbgBetreuungsanteil && vorausgefuellt.betreuungsanteil) mapped.tbgBetreuungsanteil = vorausgefuellt.betreuungsanteil;
         // Alle Kinder als Array übertragen
         if (!mapped.tbgKinder && kinder.length > 0) {
           mapped.tbgKinder = kinder.map(function(k) {
-            return { vorname: k.vorname||"", nachname: k.nachname||"", geburt: k.geburt||"", kalender: Array(12).fill(""), kindergeldEmpfaenger:"", kindergeld:"", einkommen:"" };
+            // Datum von YYYY-MM-DD zu TT.MM.JJJJ konvertieren
+            var geb = k.geburt || "";
+            if (geb && geb.includes("-") && geb.length === 10) {
+              var parts = geb.split("-");
+              geb = parts[2] + "." + parts[1] + "." + parts[0];
+            }
+            return { vorname: k.vorname||"", nachname: k.nachname||"", geburt: geb, kalender: Array(12).fill(""), kindergeldEmpfaenger:"", kindergeld:"", einkommen:"" };
           });
         }
       } else if (typ === "wohngeld_fb") {
@@ -753,14 +767,31 @@ function App() {
             <div style={{ flex:1 }}>{lbl("Ort")} {inp("tbgOrt","Stadt")}</div>
           </div></>)}
           {zeigeAbschnitt("tbg_betreuungsmodell") && (<>{sec("⚖️","Betreuungsmodell")}
-          {lbl("Betreuungsmodell")}
-          <select style={styles.input} value={d.tbgModell||""} onChange={function(e){ upd("tbgModell", e.target.value); }}>
-            <option value="">– bitte wählen –</option>
-            <option>Paritätisches Wechselmodell (50/50)</option>
-            <option>Asymmetrisches Wechselmodell</option>
-            <option>Residenzmodell mit erweitertem Umgang</option>
-          </select>
-          {lbl("Anteil Betreuung in %")} {inp("tbgBetreuungsanteil","z.B. 40","number")}</>)}
+          {(d.tbgModell) ? (
+            <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"6px", padding:"8px 12px", fontSize:"12px", marginBottom:"10px" }}>
+              📂 Aus Akte: <strong>{d.tbgModell}</strong>{d.tbgBetreuungsanteil ? " · "+d.tbgBetreuungsanteil+"% Betreuungsanteil" : ""}
+              <div style={{ fontSize:"10px", color:"#555", marginTop:"3px" }}>Bitte korrigieren falls nicht mehr aktuell:</div>
+              {lbl("Betreuungsmodell")}
+              <select style={styles.input} value={d.tbgModell||""} onChange={function(e){ upd("tbgModell", e.target.value); }}>
+                <option value="">– bitte wählen –</option>
+                <option>Paritätisches Wechselmodell (50/50)</option>
+                <option>Asymmetrisches Wechselmodell</option>
+                <option>Residenzmodell mit erweitertem Umgang</option>
+              </select>
+              {lbl("Anteil Betreuung in %")} {inp("tbgBetreuungsanteil","z.B. 40","number")}
+            </div>
+          ) : (
+            <>
+            {lbl("Betreuungsmodell")}
+            <select style={styles.input} value={d.tbgModell||""} onChange={function(e){ upd("tbgModell", e.target.value); }}>
+              <option value="">– bitte wählen –</option>
+              <option>Paritätisches Wechselmodell (50/50)</option>
+              <option>Asymmetrisches Wechselmodell</option>
+              <option>Residenzmodell mit erweitertem Umgang</option>
+            </select>
+            {lbl("Anteil Betreuung in %")} {inp("tbgBetreuungsanteil","z.B. 40","number")}
+            </>
+          )}</>)}
           {(function() {
             // Kinder aus Vorausfüllung oder Initialwert
             var tbgKinder = d.tbgKinder || [{ vorname:"", nachname:"", geburt:"", kalender:Array(12).fill(""), kindergeldEmpfaenger:"", kindergeld:"", einkommen:"" }];
@@ -791,7 +822,13 @@ function App() {
                         <div style={{ flex:1 }}>{lbl("Vorname")} <input style={styles.input} value={kind.vorname||""} onChange={function(e){ updKind(kidIdx,"vorname",e.target.value); }} /></div>
                         <div style={{ flex:1 }}>{lbl("Nachname")} <input style={styles.input} value={kind.nachname||""} onChange={function(e){ updKind(kidIdx,"nachname",e.target.value); }} /></div>
                       </div>
-                      {lbl("Geburtsdatum")} <input style={styles.input} type="date" value={kind.geburt||""} onChange={function(e){ updKind(kidIdx,"geburt",e.target.value); }} />
+                      {lbl("Geburtsdatum (TT.MM.JJJJ)")} <input style={styles.input} type="text" placeholder="TT.MM.JJJJ" inputMode="numeric" value={kind.geburt||""} onChange={function(e){
+                        var v = e.target.value.replace(/[^0-9.]/g,"");
+                        // Auto-Punkte einfügen
+                        if (v.length === 2 && !v.includes(".") && (kind.geburt||"").length === 1) v = v + ".";
+                        if (v.length === 5 && v.split(".").length === 2 && (kind.geburt||"").length === 4) v = v + ".";
+                        updKind(kidIdx,"geburt",v);
+                      }} />
                       {zeigeAbschnitt("tbg_kalender") && (<>
                         <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"4px 8px", margin:"8px 0", letterSpacing:"0.5px" }}>📅 Tage/Monat bei mir</div>
                         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px" }}>

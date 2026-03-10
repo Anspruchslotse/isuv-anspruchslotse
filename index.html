@@ -8434,6 +8434,8 @@ function App() {
                                     arbeitgeber: ext_m.arbeitgeber || "",
                                     trennungSeit: ext_m.trennungSeit || "",
                                     titel: ext_m.titel || "",
+                                    betreuungsmodell: ext_m.betreuungsmodell || "",
+                                    betreuungsanteil: ext_m.betreuungsanteil ? String(ext_m.betreuungsanteil) : "",
                                     versandFelder: versandFelder,
                                     hatKinder: (ext_m.kinder && ext_m.kinder.length > 0) ? "ja" : "",
                                     kinder: (ext_m.kinder || []).map(function(k) { return { vorname:(k.name||"").split(", ")[1]||"", nachname:(k.name||"").split(", ")[0]||"", geburt:k.geburt||"", wohnort:k.wohnort||"", uvg:k.uvg?"ja":"nein" }; })
@@ -8511,6 +8513,8 @@ function App() {
                                   steuerklasse: ext_m2.steuerklasse || "",
                                   beschaeftigungsart: ext_m2.beschaeftigungsart || ext_m2.einkommenArt || "",
                                   titel: ext_m2.titel || "",
+                                  betreuungsmodell: ext_m2.betreuungsmodell || "",
+                                  betreuungsanteil: ext_m2.betreuungsanteil ? String(ext_m2.betreuungsanteil) : "",
                                   versandFelder: versandFelder,
                                   hatKinder: (ext_m2.kinder && ext_m2.kinder.length > 0) ? "ja" : "",
                                   kinder: (ext_m2.kinder || []).map(function(k) { return { vorname:(k.name||"").split(", ")[1]||"", nachname:(k.name||"").split(", ")[0]||"", geburt:k.geburt||"", wohnort:k.wohnort||"", uvg:k.uvg?"ja":"nein" }; })
