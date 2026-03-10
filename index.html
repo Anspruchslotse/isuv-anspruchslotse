@@ -8056,7 +8056,7 @@ function App() {
                   { id:"bg_bedarfe",     label:"Besondere Bedarfe & Schulden",        hatDaten: false },
                   { id:"bg_verfahren",   label:"Jobcenter / Bescheid / Widerspruch",  hatDaten: false },
                   { id:"bg_anliegen",    label:"Anliegen & Anmerkungen",              hatDaten: false },
-                ] : [
+                ] : fTyp === "tbg" ? [
                   { id:"tbg_antragsteller", label:"Persönliche Daten Antragsteller*in", hatDaten: !!(m && m.vorname) },
                   { id:"tbg_adresse",       label:"Adresse",                            hatDaten: !!(m && m.strasse) },
                   { id:"tbg_betreuungsmodell", label:"Betreuungsmodell",               hatDaten: !!(ext.betreuungsmodell) },
