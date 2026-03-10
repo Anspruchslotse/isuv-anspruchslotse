@@ -535,7 +535,7 @@ function App() {
         </div>
         <div style={{ padding:"0 16px" }}>
 
-          {sec("👤", "Persönliche Daten")}
+          {zeigeAbschnitt("bg_person") && <>{sec("👤", "Persönliche Daten")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("bgVorname", "Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("bgName", "Nachname")}</div>
@@ -556,13 +556,15 @@ function App() {
           </select>
           {lbl("Getrennt seit")} {inp("bgTrennungSeit", "MM.JJJJ")}
 
-          {sec("🏡", "Wohnsituation")}
+</> }
+          {zeigeAbschnitt("bg_wohnen") && <>{sec("🏡", "Wohnsituation")}
           {lbl("Kaltmiete (€/Monat)")} {inp("bgMieteKalt", "z.B. 600", "number")}
           {lbl("Nebenkosten (€/Monat)")} {inp("bgNebenkosten", "z.B. 120", "number")}
           {lbl("Heizkosten (€/Monat)")} {inp("bgHeizkosten", "z.B. 80", "number")}
           {lbl("Wohnfläche (m²)")} {inp("bgWohnflaeche", "z.B. 60", "number")}
 
-          {sec("💼", "Einkommen")}
+</> }
+          {zeigeAbschnitt("bg_einkommen") && <>{sec("💼", "Einkommen")}
           {lbl("Erwerbsstatus")}
           <select style={styles.input} value={d.bgErwerbsstatus||""} onChange={function(e){ upd("bgErwerbsstatus", e.target.value); }}>
             <option value="">– bitte wählen –</option>
@@ -574,7 +576,8 @@ function App() {
           {lbl("Weitere Einkünfte (€/Monat)")} {inp("bgWeitereEinkuenfte", "z.B. Unterhalt, Kindergeld", "number")}
           {lbl("Vermögen (€)")} {inp("bgVermoegen", "z.B. 5000", "number")}
 
-          {sec("👶", "Kinder in der Bedarfsgemeinschaft")}
+</> }
+          {zeigeAbschnitt("bg_kinder") && <>{sec("👶", "Kinder in der Bedarfsgemeinschaft")}
           {lbl("Kinder vorhanden?")}
           <select style={styles.input} value={d.bgHatKinder||""} onChange={function(e){ upd("bgHatKinder", e.target.value); }}>
             <option value="">– bitte wählen –</option>
@@ -589,7 +592,8 @@ function App() {
             </div>
           )}
 
-          {sec("📋", "Bürgergeld-Verfahren")}
+</> }
+          {zeigeAbschnitt("bg_verfahren") && <>{sec("📋", "Bürgergeld-Verfahren")}
           {lbl("Antrag beim Jobcenter gestellt?")}
           <select style={styles.input} value={d.bgAntragGestellt||""} onChange={function(e){ upd("bgAntragGestellt", e.target.value); }}>
             <option value="">– bitte wählen –</option>
@@ -607,7 +611,8 @@ function App() {
             <option value="ja">Ja</option><option value="nein">Nein</option><option value="geplant">Geplant</option>
           </select>
 
-          {sec("📝", "Anliegen & Anmerkungen")}
+          </> }
+          {zeigeAbschnitt("bg_anliegen") && <>{sec("📝", "Anliegen & Anmerkungen")}
           {lbl("Mein Anliegen (Mehrfachauswahl möglich)")}
           {["Erstantrag", "Widerspruch", "Sanktionen", "Mehrbedarf", "Jobcenter-Probleme", "Sonstiges"].map(function(a) {
             var selected = (d.bgAnliegen||[]).includes(a);
@@ -621,13 +626,15 @@ function App() {
             );
           })}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical", marginTop:"10px" })} placeholder="Weitere Anmerkungen..." value={d.bgNotizen||""} onChange={function(e){ upd("bgNotizen", e.target.value); }} />
-
+          </> }
           <button onClick={absenden}
             style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
             ✅ Angaben übermitteln
           </button>
         </div>
       </div>
+    );
+  }
 
   // ── TBG-Formular ─────────────────────────────────────────
   if (formTyp === "tbg") {
@@ -648,21 +655,21 @@ function App() {
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 7 Abs. 3 Nr. 4 SGB II</div>
         </div>
         <div style={{ padding:"0 16px" }}>
-          {sec("👤","Persönliche Daten Antragsteller*in")}
+          {zeigeAbschnitt("tbg_antragsteller") && (<>{sec("👤","Persönliche Daten Antragsteller*in")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("tbgVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("tbgName","Nachname")}</div>
           </div>
           {lbl("Geburtsdatum")} {inp("tbgGeburt","TT.MM.JJJJ")}
           {lbl("E-Mail")} {inp("tbgMail","name@beispiel.de","email")}
-          {lbl("Telefon")} {inp("tbgTel","+49 123 456789","tel")}
-          {sec("🏠","Adresse")}
+          {lbl("Telefon")} {inp("tbgTel","+49 123 456789","tel")}</>)}
+          {zeigeAbschnitt("tbg_adresse") && (<>{sec("🏠","Adresse")}
           {lbl("Straße & Hausnummer")} {inp("tbgStrasse","Musterstraße 1")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ width:"90px" }}>{lbl("PLZ")} {inp("tbgPlz","12345")}</div>
             <div style={{ flex:1 }}>{lbl("Ort")} {inp("tbgOrt","Stadt")}</div>
-          </div>
-          {sec("⚖️","Betreuungsmodell")}
+          </div></>)}
+          {zeigeAbschnitt("tbg_betreuungsmodell") && (<>{sec("⚖️","Betreuungsmodell")}
           {lbl("Betreuungsmodell")}
           <select style={styles.input} value={d.tbgModell||""} onChange={function(e){ upd("tbgModell", e.target.value); }}>
             <option value="">– bitte wählen –</option>
@@ -670,17 +677,17 @@ function App() {
             <option>Asymmetrisches Wechselmodell</option>
             <option>Residenzmodell mit erweitertem Umgang</option>
           </select>
-          {lbl("Anteil Betreuung in %")} {inp("tbgBetreuungsanteil","z.B. 40","number")}
-          {sec("👶","Kind")}
+          {lbl("Anteil Betreuung in %")} {inp("tbgBetreuungsanteil","z.B. 40","number")}</>)}
+          {zeigeAbschnitt("tbg_kind_name") && (<>{sec("👶","Kind")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname Kind")} {inp("tbgKindVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname Kind")} {inp("tbgKindName","Nachname")}</div>
           </div>
-          {lbl("Geburtsdatum Kind")} {inp("tbgKindGeburt","TT.MM.JJJJ","date")}
-          {sec("👨‍👩‍👧","Andere*r Erziehungsberechtigte*r")}
+          {lbl("Geburtsdatum Kind")} {inp("tbgKindGeburt","TT.MM.JJJJ","date")}</>)}
+          {zeigeAbschnitt("tbg_anderer_et") && (<>{sec("👨‍👩‍👧","Andere*r Erziehungsberechtigte*r")}
           {lbl("Vollständiger Name")} {inp("tbgAndererElternteil","Vorname Nachname")}
-          {lbl("Adresse")} {inp("tbgAndererAdresse","Straße, PLZ Ort")}
-          {sec("📅","Betreuungskalender (Tage beim Antragsteller/bei der Antragstellerin)")}
+          {lbl("Adresse")} {inp("tbgAndererAdresse","Straße, PLZ Ort")}</>)}
+          {zeigeAbschnitt("tbg_kalender") && (<>{sec("📅","Betreuungskalender (Tage beim Antragsteller/bei der Antragstellerin)")}
           <div style={{ fontSize:"11px", color:"#666", marginBottom:"8px" }}>Bitte für jeden Monat die Anzahl der Tage angeben, an denen das Kind bei Ihnen ist:</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px" }}>
             {MONATE.map(function(m, i) {
@@ -693,16 +700,16 @@ function App() {
                 </div>
               );
             })}
-          </div>
-          {sec("💰","Kindergeld")}
+          </div></>)}
+          {zeigeAbschnitt("tbg_kindergeld") && (<>{sec("💰","Kindergeld")}
           {lbl("Wer bezieht das Kindergeld?")}
           <select style={styles.input} value={d.tbgKindergeldEmpfaenger||""} onChange={function(e){ upd("tbgKindergeldEmpfaenger", e.target.value); }}>
             <option value="">– bitte wählen –</option>
             <option>Ich</option><option>Andere*r Elternteil</option>
           </select>
-          {lbl("Kindergeldbetrag (€/Monat)")} {inp("tbgKindergeld","z.B. 255","number")}
-          {sec("💶","Einkommen des Kindes")}
-          {lbl("Eigenes Einkommen des Kindes (€/Monat, z.B. UVG)")} {inp("tbgKindEinkommen","z.B. 272","number")}
+          {lbl("Kindergeldbetrag (€/Monat)")} {inp("tbgKindergeld","z.B. 255","number")}</>)}
+          {zeigeAbschnitt("tbg_einkommen_kind") && (<>{sec("💶","Einkommen des Kindes")}
+          {lbl("Eigenes Einkommen des Kindes (€/Monat, z.B. UVG)")} {inp("tbgKindEinkommen","z.B. 272","number")}</>)}
           {sec("📝","Anmerkungen")}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Informationen..." value={d.tbgNotizen||""} onChange={function(e){ upd("tbgNotizen", e.target.value); }} />
           <button onClick={absenden}
@@ -732,7 +739,7 @@ function App() {
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Düsseldorfer Tabelle · § 1601 ff. BGB</div>
         </div>
         <div style={{ padding:"0 16px" }}>
-          {sec("👤","Ihre Person")}
+          {zeigeAbschnitt("ku_person") && <>{sec("👤","Ihre Person")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("kuVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("kuName","Nachname")}</div>
@@ -751,7 +758,8 @@ function App() {
             <option value="">– bitte wählen –</option>
             <option>Angestellt (Vollzeit)</option><option>Angestellt (Teilzeit)</option><option>Selbständig</option><option>Beamter/Beamtin</option><option>Arbeitslos</option><option>Rentner/Rentnerin</option>
           </select>
-          {sec("👶","Kind(er)")}
+          </> }
+          {zeigeAbschnitt("ku_kinder") && <>{sec("👶","Kind(er)")}
           {lbl("Anzahl Kinder")}
           <select style={styles.input} value={d.kuAnzahlKinder||"1"} onChange={function(e){ upd("kuAnzahlKinder", e.target.value); }}>
             {["1","2","3","4","5+"].map(function(n){ return <option key={n}>{n}</option>; })}
@@ -769,7 +777,8 @@ function App() {
             <option value="">– bitte wählen –</option>
             <option value="ja">Ja</option><option value="nein">Nein</option><option value="beantragt">Beantragt</option>
           </select>
-          {sec("📋","Unterhaltssituation")}
+          </> }
+          {zeigeAbschnitt("ku_unterhalt") && <>{sec("📋","Unterhaltssituation")}
           {lbl("Unterhalt bisher gezahlt (€/Monat)")} {inp("kuUnterhaltGezahlt","z.B. 400","number")}
           {lbl("Unterhaltsbescheid / -urteil vorhanden?")}
           <select style={styles.input} value={d.kuTitel||""} onChange={function(e){ upd("kuTitel", e.target.value); }}>
@@ -777,7 +786,8 @@ function App() {
             <option value="ja">Ja</option><option value="nein">Nein</option>
           </select>
           {d.kuTitel === "ja" && (<>{lbl("Betrag laut Bescheid (€/Monat)")} {inp("kuTitelBetrag","z.B. 450","number")}</>)}
-          {sec("📝","Anliegen & Anmerkungen")}
+          </> }
+          {zeigeAbschnitt("ku_anliegen") && <>{sec("📝","Anliegen & Anmerkungen")}
           {lbl("Mein Anliegen")}
           {["Erstberechnung","Abänderung","Widerspruch/Klage","Titulierung","Vollstreckung","Sonstiges"].map(function(a) {
             var selected = (d.kuAnliegen||[]).includes(a);
@@ -791,6 +801,7 @@ function App() {
             );
           })}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical", marginTop:"10px" })} placeholder="Weitere Anmerkungen..." value={d.kuNotizen||""} onChange={function(e){ upd("kuNotizen", e.target.value); }} />
+          </> }
           <button onClick={absenden}
             style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
             ✅ Angaben übermitteln
@@ -818,7 +829,7 @@ function App() {
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Betreuungsaufteilung · Fahrtkosten · Unterhalt</div>
         </div>
         <div style={{ padding:"0 16px" }}>
-          {sec("👤","Ihre Person")}
+          {zeigeAbschnitt("wm_person") && <>{sec("👤","Ihre Person")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("wmVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("wmName","Nachname")}</div>
@@ -826,13 +837,15 @@ function App() {
           {lbl("E-Mail")} {inp("wmMail","name@beispiel.de","email")}
           {lbl("Telefon")} {inp("wmTel","+49 123 456789","tel")}
           {lbl("Nettoeinkommen (€/Monat)")} {inp("wmEinkommen","z.B. 2800","number")}
-          {sec("👶","Kind")}
+          </> }
+          {zeigeAbschnitt("wm_kind") && <>{sec("👶","Kind")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname Kind")} {inp("wmKindVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname Kind")} {inp("wmKindName","Nachname")}</div>
           </div>
           {lbl("Geburtsdatum Kind")} {inp("wmKindGeburt","TT.MM.JJJJ","date")}
-          {sec("⚖️","Betreuungsaufteilung")}
+          </> }
+          {zeigeAbschnitt("wm_modell") && <>{sec("⚖️","Betreuungsaufteilung")}
           {lbl("Betreuungsmodell")}
           <select style={styles.input} value={d.wmModell||""} onChange={function(e){ upd("wmModell", e.target.value); }}>
             <option value="">– bitte wählen –</option>
@@ -843,7 +856,8 @@ function App() {
           {lbl("Mein Betreuungsanteil (%)")} {inp("wmAnteil","z.B. 50","number")}
           {lbl("Entfernung zwischen den Haushalten (km)")} {inp("wmEntfernung","z.B. 15","number")}
           {lbl("Fahrten pro Monat (hin & zurück)")} {inp("wmFahrten","z.B. 8","number")}
-          {sec("💰","Einkommen & Unterhalt")}
+          </> }
+          {zeigeAbschnitt("wm_einkommen") && <>{sec("💰","Einkommen & Unterhalt")}
           {lbl("Nettoeinkommen anderer Elternteil (€/Monat, falls bekannt)")} {inp("wmEinkommenAnderer","z.B. 3200","number")}
           {lbl("Kindergeld: wer bezieht es?")}
           <select style={styles.input} value={d.wmKindergeldEmpfaenger||""} onChange={function(e){ upd("wmKindergeldEmpfaenger", e.target.value); }}>
@@ -855,8 +869,10 @@ function App() {
             <option value="">– bitte wählen –</option>
             <option value="ja">Ja</option><option value="nein">Nein</option>
           </select>
-          {sec("📝","Anmerkungen")}
+          </> }
+          {zeigeAbschnitt("wm_anliegen") && <>{sec("📝","Anmerkungen")}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Informationen..." value={d.wmNotizen||""} onChange={function(e){ upd("wmNotizen", e.target.value); }} />
+          </> }
           <button onClick={absenden}
             style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
             ✅ Angaben übermitteln
@@ -884,29 +900,34 @@ function App() {
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 1684 BGB – Musterantrag</div>
         </div>
         <div style={{ padding:"0 16px" }}>
-          {sec("👤","Antragsteller*in")}
+          {zeigeAbschnitt("um_person") && <>{sec("👤","Antragsteller*in")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("umVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("umName","Nachname")}</div>
           </div>
           {lbl("Adresse")} {inp("umAdresse","Straße, PLZ Ort")}
           {lbl("Telefon")} {inp("umTel","+49 123","tel")}
-          {sec("👩","Andere*r Elternteil")}
+          </> }
+          {zeigeAbschnitt("um_anderer") && <>{sec("👩","Andere*r Elternteil")}
           {lbl("Vollständiger Name")} {inp("umAndererName","Vorname Nachname")}
           {lbl("Adresse")} {inp("umAndererAdresse","Straße, PLZ Ort")}
-          {sec("👶","Kind")}
+          </> }
+          {zeigeAbschnitt("um_kind") && <>{sec("👶","Kind")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname Kind")} {inp("umKindVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname Kind")} {inp("umKindName","Nachname")}</div>
           </div>
           {lbl("Geburtsdatum Kind")} {inp("umKindGeburt","TT.MM.JJJJ","date")}
           {lbl("Derzeitige Umgangsregelung (falls vorhanden)")} {inp("umBisherig","z.B. jedes 2. Wochenende")}
-          {sec("🕐","Gewünschte Umgangsregelung")}
+          </> }
+          {zeigeAbschnitt("um_umgang") && <>{sec("🕐","Gewünschte Umgangsregelung")}
           {lbl("Gewünschter Umfang")} {inp("umGewuenscht","z.B. jedes Wochenende Fr–So, Ferien hälftig")}
           {lbl("Bisherige Hindernisse / Konflikte")}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="z.B. keine Einigung möglich..." value={d.umHindernisse||""} onChange={function(e){ upd("umHindernisse", e.target.value); }} />
-          {sec("📝","Anmerkungen")}
+          </> }
+          {zeigeAbschnitt("um_anliegen") && <>{sec("📝","Anmerkungen")}
           <textarea style={Object.assign({}, styles.input, { minHeight:"60px", resize:"vertical" })} placeholder="Weitere Informationen..." value={d.umNotizen||""} onChange={function(e){ upd("umNotizen", e.target.value); }} />
+          </> }
           <button onClick={absenden}
             style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
             ✅ Angaben übermitteln
@@ -934,7 +955,7 @@ function App() {
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Vermögen · Unterhalt · Kinder · Wohnen</div>
         </div>
         <div style={{ padding:"0 16px" }}>
-          {sec("👤","Persönliche Daten")}
+          {zeigeAbschnitt("tv_person") && <>{sec("👤","Persönliche Daten")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("tvVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("tvName","Nachname")}</div>
@@ -943,7 +964,8 @@ function App() {
           {lbl("E-Mail")} {inp("tvMail","name@beispiel.de","email")}
           {lbl("Telefon")} {inp("tvTel","+49 123","tel")}
           {lbl("Adresse")} {inp("tvAdresse","Straße, PLZ Ort")}
-          {sec("💍","Ehe & Trennung")}
+          </> }
+          {zeigeAbschnitt("tv_ehe") && <>{sec("💍","Ehe & Trennung")}
           {lbl("Heiratsdatum")} {inp("tvHeirat","TT.MM.JJJJ","date")}
           {lbl("Trennungsdatum")} {inp("tvTrennung","TT.MM.JJJJ","date")}
           {lbl("Zugewinngemeinschaft?")}
@@ -953,7 +975,8 @@ function App() {
             <option>Gütertrennung (ehevertragliche Vereinbarung)</option>
             <option>Gütergemeinschaft</option>
           </select>
-          {sec("🏠","Wohnen")}
+          </> }
+          {zeigeAbschnitt("tv_wohnen") && <>{sec("🏠","Wohnen")}
           {lbl("Familienwohnung: Eigentum oder Miete?")}
           <select style={styles.input} value={d.tvWohnung||""} onChange={function(e){ upd("tvWohnung", e.target.value); }}>
             <option value="">– bitte wählen –</option>
@@ -964,11 +987,13 @@ function App() {
             <option value="">– bitte wählen –</option>
             <option>Ich</option><option>Ehepartner/in</option><option>Beide ausgezogen</option>
           </select>
-          {sec("💶","Einkommen & Unterhalt")}
+          </> }
+          {zeigeAbschnitt("tv_einkommen") && <>{sec("💶","Einkommen & Unterhalt")}
           {lbl("Ihr Nettoeinkommen (€/Monat)")} {inp("tvEinkommen","z.B. 2800","number")}
           {lbl("Einkommen Ehepartner/in (€/Monat, falls bekannt)")} {inp("tvEinkommenPartner","z.B. 3200","number")}
           {lbl("Trennungsunterhalt bisher gezahlt (€/Monat)")} {inp("tvUnterhalt","z.B. 600","number")}
-          {sec("👶","Kinder")}
+          </> }
+          {zeigeAbschnitt("tv_kinder") && <>{sec("👶","Kinder")}
           {lbl("Anzahl gemeinsamer Kinder")}
           <select style={styles.input} value={d.tvAnzahlKinder||"0"} onChange={function(e){ upd("tvAnzahlKinder", e.target.value); }}>
             {["0","1","2","3","4","5+"].map(function(n){ return <option key={n}>{n}</option>; })}
@@ -981,12 +1006,15 @@ function App() {
               <option>Hauptsächlich bei mir</option><option>Hauptsächlich beim anderen Elternteil</option><option>Wechselmodell</option>
             </select>
           </>)}
-          {sec("🏦","Vermögen & Schulden")}
+          </> }
+          {zeigeAbschnitt("tv_vermoegen") && <>{sec("🏦","Vermögen & Schulden")}
           {lbl("Gemeinsames Vermögen vorhanden? (Immobilien, Ersparnisse)")}
           <textarea style={Object.assign({}, styles.input, { minHeight:"60px", resize:"vertical" })} placeholder="z.B. Haus Wert ca. 320.000 €, gemeinsames Konto 15.000 €..." value={d.tvVermoegen||""} onChange={function(e){ upd("tvVermoegen", e.target.value); }} />
           {lbl("Schulden (gemeinsam oder einzeln)")} {inp("tvSchulden","z.B. Hypothek 150.000 €")}
-          {sec("📝","Anliegen & Anmerkungen")}
+          </> }
+          {zeigeAbschnitt("tv_anliegen") && <>{sec("📝","Anliegen & Anmerkungen")}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Anmerkungen oder offene Fragen..." value={d.tvNotizen||""} onChange={function(e){ upd("tvNotizen", e.target.value); }} />
+          </> }
           <button onClick={absenden}
             style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
             ✅ Angaben übermitteln
@@ -1014,35 +1042,40 @@ function App() {
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 16 WoGG – Wohngeldbehörde</div>
         </div>
         <div style={{ padding:"0 16px" }}>
-          {sec("👤","Persönliche Daten")}
+          {zeigeAbschnitt("wg_person") && <>{sec("👤","Persönliche Daten")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ flex:1 }}>{lbl("Vorname *")} {inp("wgVorname","Vorname")}</div>
             <div style={{ flex:1 }}>{lbl("Nachname *")} {inp("wgName","Nachname")}</div>
           </div>
           {lbl("E-Mail")} {inp("wgMail","name@beispiel.de","email")}
           {lbl("Telefon")} {inp("wgTel","+49 123 456789","tel")}
-          {sec("🏠","Adresse & Mietstufe")}
+          </> }
+          {zeigeAbschnitt("wg_adresse") && <>{sec("🏠","Adresse & Mietstufe")}
           {lbl("Straße & Hausnummer")} {inp("wgStrasse","Musterstraße 1")}
           <div style={{ display:"flex", gap:"6px" }}>
             <div style={{ width:"90px" }}>{lbl("PLZ")} {inp("wgPlz","12345")}</div>
             <div style={{ flex:1 }}>{lbl("Ort")} {inp("wgOrt","Stadt")}</div>
           </div>
           {lbl("Mietstufe (1–6)")} {inp("wgMietstufe","z.B. 3")}
-          {sec("👨‍👩‍👧","Haushaltsgröße")}
+          </> }
+          {zeigeAbschnitt("wg_haushalt") && <>{sec("👨‍👩‍👧","Haushaltsgröße")}
           {lbl("Anzahl Personen im Haushalt")}
           <select style={styles.input} value={d.wgHaushalt||"1"} onChange={function(e){ upd("wgHaushalt", e.target.value); }}>
             {["1","2","3","4","5","6+"].map(function(n){ return <option key={n}>{n}</option>; })}
           </select>
-          {sec("🏡","Mietkosten")}
+          </> }
+          {zeigeAbschnitt("wg_wohnen") && <>{sec("🏡","Mietkosten")}
           {lbl("Kaltmiete (€/Monat)")} {inp("wgMieteKalt","z.B. 600","number")}
           {lbl("Nebenkosten (€/Monat)")} {inp("wgNebenkosten","z.B. 120","number")}
           {lbl("Heizkosten (€/Monat)")} {inp("wgHeizkosten","z.B. 80","number")}
           {lbl("Wohnfläche (m²)")} {inp("wgWohnflaeche","z.B. 60","number")}
-          {sec("💶","Einkommen")}
+          </> }
+          {zeigeAbschnitt("wg_einkommen") && <>{sec("💶","Einkommen")}
           {lbl("Nettoeinkommen (€/Monat)")} {inp("wgEinkommen","z.B. 1200","number")}
           {lbl("ALG I / ALG II (€/Monat, falls vorhanden)")} {inp("wgAlg","z.B. 800","number")}
           {lbl("Unterhalt erhalten (€/Monat, falls vorhanden)")} {inp("wgUnterhalt","z.B. 400","number")}
-          {sec("👶","Kinder")}
+          </> }
+          {zeigeAbschnitt("wg_kinder") && <>{sec("👶","Kinder")}
           {lbl("Kinder im Haushalt?")}
           <select style={styles.input} value={d.wgKinder||""} onChange={function(e){ upd("wgKinder", e.target.value); }}>
             <option value="">– bitte wählen –</option>
@@ -1052,7 +1085,8 @@ function App() {
             {lbl("Kindergeld (€/Monat)")} {inp("wgKindergeld","z.B. 255","number")}
             {lbl("Kinder mit Namen & Geburtsdaten")} {inp("wgKinderAngaben","z.B. Max, 12.03.2015")}
           </>)}
-          {sec("📝","Anliegen & Anmerkungen")}
+          </> }
+          {zeigeAbschnitt("wg_anliegen") && <>{sec("📝","Anliegen & Anmerkungen")}
           {lbl("Mein Anliegen")}
           {["Erstantrag","Widerspruch","Neuberechnung","Sonstiges"].map(function(a) {
             var selected = (d.wgAnliegen||[]).includes(a);
@@ -1066,6 +1100,7 @@ function App() {
             );
           })}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical", marginTop:"10px" })} placeholder="Weitere Anmerkungen..." value={d.wgNotizen||""} onChange={function(e){ upd("wgNotizen", e.target.value); }} />
+          </> }
           <button onClick={absenden}
             style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"24px" }}>
             ✅ Angaben übermitteln

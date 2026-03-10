@@ -8192,7 +8192,7 @@ function App() {
                   bg_bedarfe:   "Besondere Bedarfe & Schulden",
                   bg_verfahren: "Jobcenter / Bescheid / Widerspruch",
                   bg_anliegen:  "Anliegen & Anmerkungen"
-                } : {
+                } : fTyp === "tbg" ? {
                   tbg_antragsteller: "Persönliche Daten",
                   tbg_adresse: "Adresse",
                   tbg_betreuungsmodell: "Betreuungsmodell",
@@ -8201,12 +8201,51 @@ function App() {
                   tbg_kalender: "Kalender (Tage pro Monat)",
                   tbg_kindergeld: "Kindergeld",
                   tbg_einkommen_kind: "Einkommen des Kindes"
-                };
+                } : fTyp === "wohngeld_fb" ? {
+                  wg_person:    "Persönliche Daten & Kontakt",
+                  wg_adresse:   "Adresse & Mietstufe",
+                  wg_haushalt:  "Haushaltsgröße",
+                  wg_wohnen:    "Mietkosten",
+                  wg_einkommen: "Einkommen",
+                  wg_kinder:    "Kinder & Unterhalt",
+                  wg_anliegen:  "Anliegen"
+                } : fTyp === "fr_kindesunterhalt" ? {
+                  ku_person:    "Ihre Person & Rolle",
+                  ku_einkommen: "Ihr Einkommen",
+                  ku_kinder:    "Kinder",
+                  ku_unterhalt: "Bisheriger Unterhalt / Titel",
+                  ku_anliegen:  "Anliegen"
+                } : fTyp === "fr_wechselmodell" ? {
+                  wm_person:    "Ihre Person",
+                  wm_kind:      "Kind",
+                  wm_modell:    "Betreuungsaufteilung",
+                  wm_einkommen: "Einkommen & Kindergeld",
+                  wm_anliegen:  "Anmerkungen"
+                } : fTyp === "fr_umgang" ? {
+                  um_person:    "Antragsteller*in",
+                  um_anderer:   "Anderer Elternteil",
+                  um_kind:      "Kind",
+                  um_umgang:    "Gewünschte Umgangsregelung",
+                  um_anliegen:  "Anmerkungen"
+                } : fTyp === "fr_trennungsvereinbarung" ? {
+                  tv_person:    "Persönliche Daten",
+                  tv_ehe:       "Ehe & Trennungsdatum",
+                  tv_wohnen:    "Wohnung & Eigentum",
+                  tv_einkommen: "Einkommen & Unterhalt",
+                  tv_kinder:    "Kinder & Sorge",
+                  tv_vermoegen: "Vermögen & Schulden",
+                  tv_anliegen:  "Anliegen"
+                } : {};
                 var aktiveFeldIds = (versandFelder !== null && versandFelder.length > 0) ? versandFelder : Object.keys(alleFeldLabels);
                 var detailFragen = fTyp==="stammdaten" ? { titel:["Titel (Dr., Prof. etc.)"], vorname_name:["Vorname","Nachname"], tel:["Telefonnummer"], mail:["E-Mail-Adresse"], adresse:["Strasse & Hausnummer","PLZ","Ort"], familienstand:["Familienstand (ledig/getrennt/geschieden/verheiratet)","Getrennt seit (Datum)"], gegenseite:["Vorname & Name Gegenseite","Adresse","Einkommen (EUR/Monat)"], beschaeftigung:["Beschaeftigungsart","Arbeitgeber","Wochenstunden"], einkommen:["Nettoeinkommen (EUR/Monat)","Bruttoeinkommen (EUR/Monat)","Steuerklasse"], wohnen:["Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)","Mietstufe (1-6)"], kinder:["Vorname & Nachname je Kind","Geburtsdatum","Wohnort (Antragsteller*in / and. Elternteil / wechselnd)","UVG bezogen? (ja/nein)","Kindergeld-Empfaenger"], notizen:["Anmerkungen"], anwalt:["Name Anwalt/Anwältin","Kanzlei/Adresse","Telefon Kanzlei","E-Mail Kanzlei"]
                 } : fTyp==="buergergeld" ? { bg_person:["Vorname","Nachname","Geburtsdatum","Staatsangehoerigkeit","E-Mail","Telefon","Strasse","PLZ","Ort","Familienstand"], bg_haushalt:["Wohnsituation (allein/mit Partner/WG)","Anzahl Personen in der BG"], bg_kinder:["Kinder vorhanden? (ja/nein)","Je Kind: Name, Geburtsdatum, Wohnort, Kindergeld, UVG bezogen?"], bg_einkommen:["Erwerbsstatus","Arbeitgeber","Nettoeinkommen (EUR/Monat)","ALG-I (EUR/Monat)","Weitere Einkuenfte","Vermoegen (EUR)"], bg_wohnen:["Mietverhaeltnis","Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)"], bg_bedarfe:["Schwerbehinderung? (ja/nein)","GdB & Merkzeichen","Schulden? (ja/nein)","Schulden-Betrag & Rate (EUR)"], bg_verfahren:["Antrag beim Jobcenter? (ja/nein)","Antragsdatum","Name Jobcenter","Bescheid erhalten?","Art des Bescheids","Widerspruch eingelegt?"], bg_anliegen:["Anliegen: Erstantrag / Widerspruch / Sanktionen / Mehrbedarf / Jobcenter-Probleme / Sonstiges","Anmerkungen"]
-                } : { tbg_antragsteller:["Vorname","Nachname","Geburtsdatum","E-Mail","Telefon"], tbg_adresse:["Strasse & Hausnummer","PLZ","Ort"], tbg_betreuungsmodell:["Betreuungsmodell (paritaetisch/asymmetrisch/Residenz)","Anteil Betreuung in %"], tbg_kind_name:["Vorname Kind","Nachname Kind","Geburtsdatum Kind"], tbg_anderer_et:["Vorname & Nachname anderer Elternteil","Adresse anderer Elternteil"], tbg_kalender:["Tage/Monat beim Antragsteller (Jan-Dez)","Tage/Monat beim anderen Elternteil (Jan-Dez)"], tbg_kindergeld:["Wer bezieht Kindergeld?","Kindergeldbetrag (EUR/Monat)"], tbg_einkommen_kind:["Eigenes Einkommen des Kindes (EUR/Monat)"]
-                };
+                } : fTyp === "tbg" ? { tbg_antragsteller:["Vorname","Nachname","Geburtsdatum","E-Mail","Telefon"], tbg_adresse:["Strasse & Hausnummer","PLZ","Ort"], tbg_betreuungsmodell:["Betreuungsmodell (paritaetisch/asymmetrisch/Residenz)","Anteil Betreuung in %"], tbg_kind_name:["Vorname Kind","Nachname Kind","Geburtsdatum Kind"], tbg_anderer_et:["Vorname & Nachname anderer Elternteil","Adresse anderer Elternteil"], tbg_kalender:["Tage/Monat beim Antragsteller (Jan-Dez)","Tage/Monat beim anderen Elternteil (Jan-Dez)"], tbg_kindergeld:["Wer bezieht Kindergeld?","Kindergeldbetrag (EUR/Monat)"], tbg_einkommen_kind:["Eigenes Einkommen des Kindes (EUR/Monat)"]
+                } : fTyp === "wohngeld_fb" ? { wg_person:["Vorname","Nachname","Telefon","E-Mail"], wg_adresse:["Strasse & Hausnummer","PLZ","Ort","Mietstufe (1-6)"], wg_haushalt:["Anzahl Personen im Haushalt"], wg_wohnen:["Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)"], wg_einkommen:["Nettoeinkommen (EUR/Monat)","Weitere Einkuenfte"], wg_kinder:["Kinder: Name, Geburt, Unterhalt"], wg_anliegen:["Anliegen & Anmerkungen"]
+                } : fTyp === "fr_kindesunterhalt" ? { ku_person:["Vorname","Nachname","Rolle (Unterhaltspflichtiger/Berechtigter)"], ku_einkommen:["Nettoeinkommen (EUR/Monat)","Weitere Einkuenfte"], ku_kinder:["Name Kind","Geburtsdatum","Wohnort"], ku_unterhalt:["Bisheriger Unterhaltsbetrag (EUR/Monat)","Titel vorhanden?"], ku_anliegen:["Anliegen & Anmerkungen"]
+                } : fTyp === "fr_wechselmodell" ? { wm_person:["Vorname","Nachname","Wohnort"], wm_kind:["Name Kind","Geburtsdatum"], wm_modell:["Betreuungsaufteilung in % (z.B. 50/50)","Entfernung zwischen den Haushalten (km)"], wm_einkommen:["Nettoeinkommen (EUR/Monat)","Kindergeld-Bezug"], wm_anliegen:["Anmerkungen"]
+                } : fTyp === "fr_umgang" ? { um_person:["Vorname","Nachname","Adresse"], um_anderer:["Name","Adresse anderer Elternteil"], um_kind:["Name Kind","Geburtsdatum"], um_umgang:["Gewuenschte Umgangsregelung (Wochentage, Zeiten, Ferien)"], um_anliegen:["Anmerkungen"]
+                } : fTyp === "fr_trennungsvereinbarung" ? { tv_person:["Vorname","Nachname","Adresse"], tv_ehe:["Heiratsdatum","Trennungsdatum"], tv_wohnen:["Wohnung: Miete oder Eigentum?","Monatliche Kosten (EUR)"], tv_einkommen:["Nettoeinkommen (EUR/Monat)","Unterhalt bereits gezahlt?"], tv_kinder:["Kinder: Name, Alter, Wohnort, Sorgerecht"], tv_vermoegen:["Gemeinsames Vermoegen","Schulden (EUR)"], tv_anliegen:["Anliegen & Anmerkungen"]
+                } : {};
                 var feldListeText = "\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { var fragen=detailFragen[id]||[]; return "\n" + (alleFeldLabels[id]||id) + ":\n" + fragen.map(function(f){ return "    > "+f; }).join("\n"); }).join("\n");
 
                 var linkText = "Guten Tag" + (m ? " " + m.vorname + " " + m.name : "") + ",\n\n" +
