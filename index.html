@@ -8246,7 +8246,23 @@ function App() {
                 } : fTyp === "fr_umgang" ? { um_person:["Vorname","Nachname","Adresse"], um_anderer:["Name","Adresse anderer Elternteil"], um_kind:["Name Kind","Geburtsdatum"], um_umgang:["Gewuenschte Umgangsregelung (Wochentage, Zeiten, Ferien)"], um_anliegen:["Anmerkungen"]
                 } : fTyp === "fr_trennungsvereinbarung" ? { tv_person:["Vorname","Nachname","Adresse"], tv_ehe:["Heiratsdatum","Trennungsdatum"], tv_wohnen:["Wohnung: Miete oder Eigentum?","Monatliche Kosten (EUR)"], tv_einkommen:["Nettoeinkommen (EUR/Monat)","Unterhalt bereits gezahlt?"], tv_kinder:["Kinder: Name, Alter, Wohnort, Sorgerecht"], tv_vermoegen:["Gemeinsames Vermoegen","Schulden (EUR)"], tv_anliegen:["Anliegen & Anmerkungen"]
                 } : {};
-                var feldListeText = "\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { var fragen=detailFragen[id]||[]; return "\n" + (alleFeldLabels[id]||id) + ":\n" + fragen.map(function(f){ return "    > "+f; }).join("\n"); }).join("\n");
+                // Felder die bereits in der Akte bekannt sind, nicht einzeln abfragen
+                var ext2 = m ? (memberExtras[m.id] || {}) : {};
+                var hatDatenFuerFeld = function(id) {
+                  if (id==="titel"||id==="vorname_name"||id==="tel"||id==="mail"||id==="adresse"||id==="bg_person"||id==="wg_person"||id==="ku_person"||id==="wm_person"||id==="um_person"||id==="tv_person"||id==="tbg_antragsteller") return !!(m && m.vorname);
+                  if (id==="familienstand"||id==="tv_ehe") return !!(ext2.familienstand||ext2.trennungSeit);
+                  if (id==="einkommen"||id==="bg_einkommen"||id==="wg_einkommen"||id==="ku_einkommen"||id==="wm_einkommen"||id==="tv_einkommen") return !!(ext2.einkommenNetto);
+                  if (id==="wohnen"||id==="bg_wohnen"||id==="wg_wohnen"||id==="tv_wohnen"||id==="tbg_adresse"||id==="wg_adresse"||id==="um_person"||id==="adresse") return !!(m && m.strasse)||!!(ext2.mieteKalt);
+                  if (id==="kinder"||id==="bg_kinder"||id==="wg_kinder"||id==="ku_kinder"||id==="wm_kind"||id==="um_kind"||id==="tv_kinder"||id==="tbg_kind_name") return !!(ext2.kinder && ext2.kinder.length>0);
+                  if (id==="tbg_betreuungsmodell") return !!(ext2.betreuungsmodell);
+                  return false;
+                };
+                var feldListeText = aktiveFeldIds.length === 0 ? "" : ("\n\nBitte folgende Angaben ausfuellen:" + aktiveFeldIds.map(function(id) {
+                  var label = alleFeldLabels[id]||id;
+                  if (hatDatenFuerFeld(id)) return "\n✓ " + label + " (bereits bekannt – bitte prüfen/ergänzen)";
+                  var fragen = detailFragen[id]||[];
+                  return "\n" + label + ":\n" + fragen.map(function(f){ return "    > "+f; }).join("\n");
+                }).join("\n"));
 
                 var linkText = "Guten Tag" + (m ? " " + m.vorname + " " + m.name : "") + ",\n\n" +
                   "der ISUV Anspruchslotse hat fuer Sie ein Formular bereitgestellt:\n" +

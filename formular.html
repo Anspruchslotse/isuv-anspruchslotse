@@ -149,9 +149,12 @@ function App() {
         if (!mapped.tbgStrasse && str) mapped.tbgStrasse = str;
         if (!mapped.tbgPlz && plz) mapped.tbgPlz = plz;
         if (!mapped.tbgOrt && ort) mapped.tbgOrt = ort;
-        if (!mapped.tbgKindVorname && kindVn) mapped.tbgKindVorname = kindVn;
-        if (!mapped.tbgKindName && kindNn) mapped.tbgKindName = kindNn;
-        if (!mapped.tbgKindGeburt && kindGeb) mapped.tbgKindGeburt = kindGeb;
+        // Alle Kinder als Array übertragen
+        if (!mapped.tbgKinder && kinder.length > 0) {
+          mapped.tbgKinder = kinder.map(function(k) {
+            return { vorname: k.vorname||"", nachname: k.nachname||"", geburt: k.geburt||"", kalender: Array(12).fill(""), kindergeldEmpfaenger:"", kindergeld:"", einkommen:"" };
+          });
+        }
       } else if (typ === "wohngeld_fb") {
         if (!mapped.wgVorname && vn) mapped.wgVorname = vn;
         if (!mapped.wgName && nn) mapped.wgName = nn;
@@ -758,38 +761,78 @@ function App() {
             <option>Residenzmodell mit erweitertem Umgang</option>
           </select>
           {lbl("Anteil Betreuung in %")} {inp("tbgBetreuungsanteil","z.B. 40","number")}</>)}
-          {zeigeAbschnitt("tbg_kind_name") && (<>{sec("👶","Kind")}
-          <div style={{ display:"flex", gap:"6px" }}>
-            <div style={{ flex:1 }}>{lbl("Vorname Kind")} {inp("tbgKindVorname","Vorname")}</div>
-            <div style={{ flex:1 }}>{lbl("Nachname Kind")} {inp("tbgKindName","Nachname")}</div>
-          </div>
-          {lbl("Geburtsdatum Kind")} {inp("tbgKindGeburt","TT.MM.JJJJ","date")}</>)}
-          {zeigeAbschnitt("tbg_anderer_et") && (<>{sec("👨‍👩‍👧","Andere*r Erziehungsberechtigte*r")}
-          {lbl("Vollständiger Name")} {inp("tbgAndererElternteil","Vorname Nachname")}
-          {lbl("Adresse")} {inp("tbgAndererAdresse","Straße, PLZ Ort")}</>)}
-          {zeigeAbschnitt("tbg_kalender") && (<>{sec("📅","Betreuungskalender (Tage beim Antragsteller/bei der Antragstellerin)")}
-          <div style={{ fontSize:"11px", color:"#666", marginBottom:"8px" }}>Bitte für jeden Monat die Anzahl der Tage angeben, an denen das Kind bei Ihnen ist:</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px" }}>
-            {MONATE.map(function(m, i) {
-              return (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                  <span style={{ fontSize:"11px", color:"#555", width:"36px", flexShrink:0 }}>{m}:</span>
-                  <input type="number" style={{ ...styles.input, marginBottom:0, flex:1 }} placeholder="0"
-                    value={d["tbgTage_"+i]||""}
-                    onChange={function(e){ upd("tbgTage_"+i, e.target.value); }} />
-                </div>
-              );
-            })}
-          </div></>)}
-          {zeigeAbschnitt("tbg_kindergeld") && (<>{sec("💰","Kindergeld")}
-          {lbl("Wer bezieht das Kindergeld?")}
-          <select style={styles.input} value={d.tbgKindergeldEmpfaenger||""} onChange={function(e){ upd("tbgKindergeldEmpfaenger", e.target.value); }}>
-            <option value="">– bitte wählen –</option>
-            <option>Ich</option><option>Andere*r Elternteil</option>
-          </select>
-          {lbl("Kindergeldbetrag (€/Monat)")} {inp("tbgKindergeld","z.B. 255","number")}</>)}
-          {zeigeAbschnitt("tbg_einkommen_kind") && (<>{sec("💶","Einkommen des Kindes")}
-          {lbl("Eigenes Einkommen des Kindes (€/Monat, z.B. UVG)")} {inp("tbgKindEinkommen","z.B. 272","number")}</>)}
+          {(function() {
+            // Kinder aus Vorausfüllung oder Initialwert
+            var tbgKinder = d.tbgKinder || [{ vorname:"", nachname:"", geburt:"", kalender:Array(12).fill(""), kindergeldEmpfaenger:"", kindergeld:"", einkommen:"" }];
+            var updKind = function(idx, feld, wert) {
+              var arr = tbgKinder.slice();
+              arr[idx] = Object.assign({}, arr[idx], {[feld]: wert});
+              upd("tbgKinder", arr);
+            };
+            var updKal = function(kidIdx, monatIdx, wert) {
+              var arr = tbgKinder.slice();
+              var kal = (arr[kidIdx].kalender||Array(12).fill("")).slice();
+              kal[monatIdx] = wert;
+              arr[kidIdx] = Object.assign({}, arr[kidIdx], { kalender: kal });
+              upd("tbgKinder", arr);
+            };
+            var addKind = function() { upd("tbgKinder", tbgKinder.concat([{ vorname:"", nachname:"", geburt:"", kalender:Array(12).fill(""), kindergeldEmpfaenger:"", kindergeld:"", einkommen:"" }])); };
+            var delKind = function(idx) { if(tbgKinder.length > 1) upd("tbgKinder", tbgKinder.filter(function(_,i){ return i!==idx; })); };
+            return (
+              <>
+                {zeigeAbschnitt("tbg_kind_name") && tbgKinder.map(function(kind, kidIdx) {
+                  return (
+                    <div key={kidIdx} style={{ border:"1px solid #d0d8e8", borderRadius:"8px", padding:"10px", marginBottom:"10px", backgroundColor:"#f8faff" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                        <div style={{ fontSize:"11px", fontWeight:"bold", color:"#003366" }}>👶 Kind {kidIdx+1}</div>
+                        {tbgKinder.length > 1 && <button onClick={function(){ delKind(kidIdx); }} style={{ background:"none", border:"none", color:"#e53935", cursor:"pointer", fontSize:"16px", lineHeight:1 }}>×</button>}
+                      </div>
+                      <div style={{ display:"flex", gap:"6px" }}>
+                        <div style={{ flex:1 }}>{lbl("Vorname")} <input style={styles.input} value={kind.vorname||""} onChange={function(e){ updKind(kidIdx,"vorname",e.target.value); }} /></div>
+                        <div style={{ flex:1 }}>{lbl("Nachname")} <input style={styles.input} value={kind.nachname||""} onChange={function(e){ updKind(kidIdx,"nachname",e.target.value); }} /></div>
+                      </div>
+                      {lbl("Geburtsdatum")} <input style={styles.input} type="date" value={kind.geburt||""} onChange={function(e){ updKind(kidIdx,"geburt",e.target.value); }} />
+                      {zeigeAbschnitt("tbg_kalender") && (<>
+                        <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"4px 8px", margin:"8px 0", letterSpacing:"0.5px" }}>📅 Tage/Monat bei mir</div>
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px" }}>
+                          {MONATE.map(function(mn, mi) {
+                            return (
+                              <div key={mi} style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                                <span style={{ fontSize:"11px", color:"#555", width:"32px", flexShrink:0 }}>{mn}:</span>
+                                <input type="number" style={{ ...styles.input, marginBottom:0, flex:1 }} placeholder="0"
+                                  value={(kind.kalender||[])[mi]||""} onChange={function(e){ updKal(kidIdx, mi, e.target.value); }} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>)}
+                      {zeigeAbschnitt("tbg_kindergeld") && (<>
+                        <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"4px 8px", margin:"8px 0", letterSpacing:"0.5px" }}>💰 Kindergeld</div>
+                        {lbl("Wer bezieht das Kindergeld?")}
+                        <select style={styles.input} value={kind.kindergeldEmpfaenger||""} onChange={function(e){ updKind(kidIdx,"kindergeldEmpfaenger",e.target.value); }}>
+                          <option value="">– bitte wählen –</option>
+                          <option>Ich</option><option>Andere*r Elternteil</option>
+                        </select>
+                        {lbl("Kindergeldbetrag (€/Monat)")} <input style={styles.input} type="number" placeholder="z.B. 255" value={kind.kindergeld||""} onChange={function(e){ updKind(kidIdx,"kindergeld",e.target.value); }} />
+                      </>)}
+                      {zeigeAbschnitt("tbg_einkommen_kind") && (<>
+                        <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"4px 8px", margin:"8px 0", letterSpacing:"0.5px" }}>💶 Einkommen des Kindes</div>
+                        {lbl("Eigenes Einkommen (€/Monat, z.B. UVG)")} <input style={styles.input} type="number" placeholder="z.B. 272" value={kind.einkommen||""} onChange={function(e){ updKind(kidIdx,"einkommen",e.target.value); }} />
+                      </>)}
+                    </div>
+                  );
+                })}
+                {zeigeAbschnitt("tbg_kind_name") && (
+                  <button onClick={addKind} style={{ width:"100%", padding:"8px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px dashed #90caf9", borderRadius:"8px", cursor:"pointer", fontSize:"12px", marginBottom:"10px" }}>
+                    + Weiteres Kind hinzufügen
+                  </button>
+                )}
+                {zeigeAbschnitt("tbg_anderer_et") && (<>{sec("👨‍👩‍👧","Andere*r Erziehungsberechtigte*r")}
+                  {lbl("Vollständiger Name")} {inp("tbgAndererElternteil","Vorname Nachname")}
+                  {lbl("Adresse")} {inp("tbgAndererAdresse","Straße, PLZ Ort")}</>)}
+              </>
+            );
+          })()}
           {sec("📝","Anmerkungen")}
           <textarea style={Object.assign({}, styles.input, { minHeight:"80px", resize:"vertical" })} placeholder="Weitere Informationen..." value={d.tbgNotizen||""} onChange={function(e){ upd("tbgNotizen", e.target.value); }} />
           <button onClick={absenden}
