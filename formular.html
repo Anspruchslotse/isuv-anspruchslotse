@@ -19,7 +19,11 @@
 <script type="text/babel" data-presets="react">
 const { useState, useEffect } = React;
 
-const ISUV_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80'%3E%3Crect width='200' height='80' fill='%23003366'/%3E%3Ctext x='100' y='52' font-family='Arial' font-weight='bold' font-size='36' fill='white' text-anchor='middle'%3EISUV%3C/text%3E%3C/svg%3E";
+const ISUV_LOGO_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80'%3E%3Crect width='200' height='80' fill='%23003366'/%3E%3Ctext x='100' y='52' font-family='Arial' font-weight='bold' font-size='36' fill='white' text-anchor='middle'%3EISUV%3C/text%3E%3C/svg%3E";
+const ISUV_LOGO = "isuv-logo.png";
+function LogoImg(props) {
+  return <img src={ISUV_LOGO} alt="ISUV" onError={function(e){ e.target.onerror=null; e.target.src=ISUV_LOGO_SVG; }} style={props.style||{}} />;
+}
 
 const styles = {
   input: { width:"100%", padding:"10px 12px", border:"1px solid #ccc", borderRadius:"8px", fontSize:"13px", marginBottom:"10px", display:"block" },
@@ -122,8 +126,84 @@ function App() {
       }
       var vorausgefuellt = {};
       try { vorausgefuellt = JSON.parse(row.vorausgefuellt || "{}"); } catch(e) {}
-      setFormTyp(row.typ || "stammdaten");
-      setDaten(vorausgefuellt);
+      var typ = row.typ || "stammdaten";
+      // Mappe generische Felder auf formulartyp-spezifische Feldnamen
+      var mapped = Object.assign({}, vorausgefuellt);
+      var vn = vorausgefuellt.vorname || "";
+      var nn = vorausgefuellt.name || "";
+      var tel = vorausgefuellt.tel || "";
+      var mail = vorausgefuellt.mail || "";
+      var str = vorausgefuellt.strasse || "";
+      var plz = vorausgefuellt.plz || "";
+      var ort = vorausgefuellt.ort || "";
+      var netto = vorausgefuellt.einkommenNetto || "";
+      var kinder = vorausgefuellt.kinder || [];
+      var kindVn = kinder.length > 0 ? (kinder[0].vorname || "") : "";
+      var kindNn = kinder.length > 0 ? (kinder[0].nachname || "") : "";
+      var kindGeb = kinder.length > 0 ? (kinder[0].geburt || "") : "";
+      if (typ === "tbg") {
+        if (!mapped.tbgVorname && vn) mapped.tbgVorname = vn;
+        if (!mapped.tbgName && nn) mapped.tbgName = nn;
+        if (!mapped.tbgMail && mail) mapped.tbgMail = mail;
+        if (!mapped.tbgTel && tel) mapped.tbgTel = tel;
+        if (!mapped.tbgStrasse && str) mapped.tbgStrasse = str;
+        if (!mapped.tbgPlz && plz) mapped.tbgPlz = plz;
+        if (!mapped.tbgOrt && ort) mapped.tbgOrt = ort;
+        if (!mapped.tbgKindVorname && kindVn) mapped.tbgKindVorname = kindVn;
+        if (!mapped.tbgKindName && kindNn) mapped.tbgKindName = kindNn;
+        if (!mapped.tbgKindGeburt && kindGeb) mapped.tbgKindGeburt = kindGeb;
+      } else if (typ === "wohngeld_fb") {
+        if (!mapped.wgVorname && vn) mapped.wgVorname = vn;
+        if (!mapped.wgName && nn) mapped.wgName = nn;
+        if (!mapped.wgMail && mail) mapped.wgMail = mail;
+        if (!mapped.wgTel && tel) mapped.wgTel = tel;
+        if (!mapped.wgStrasse && str) mapped.wgStrasse = str;
+        if (!mapped.wgPlz && plz) mapped.wgPlz = plz;
+        if (!mapped.wgOrt && ort) mapped.wgOrt = ort;
+        if (!mapped.wgEinkommen && netto) mapped.wgEinkommen = netto;
+        if (!mapped.wgMieteKalt && vorausgefuellt.mieteKalt) mapped.wgMieteKalt = String(vorausgefuellt.mieteKalt);
+        if (!mapped.wgHeizkosten && vorausgefuellt.heizkosten) mapped.wgHeizkosten = String(vorausgefuellt.heizkosten);
+      } else if (typ === "fr_kindesunterhalt") {
+        if (!mapped.kuVorname && vn) mapped.kuVorname = vn;
+        if (!mapped.kuName && nn) mapped.kuName = nn;
+        if (!mapped.kuMail && mail) mapped.kuMail = mail;
+        if (!mapped.kuTel && tel) mapped.kuTel = tel;
+        if (!mapped.kuEinkommen && netto) mapped.kuEinkommen = netto;
+        if (kinder.length > 0 && !mapped.kuKindName) mapped.kuKindName = (kindVn + " " + kindNn).trim();
+        if (kinder.length > 0 && !mapped.kuKindGeburt) mapped.kuKindGeburt = kindGeb;
+      } else if (typ === "fr_wechselmodell") {
+        if (!mapped.wmVorname && vn) mapped.wmVorname = vn;
+        if (!mapped.wmName && nn) mapped.wmName = nn;
+        if (!mapped.wmEinkommen && netto) mapped.wmEinkommen = netto;
+        if (kinder.length > 0 && !mapped.wmKindName) mapped.wmKindName = (kindVn + " " + kindNn).trim();
+        if (kinder.length > 0 && !mapped.wmKindGeburt) mapped.wmKindGeburt = kindGeb;
+      } else if (typ === "fr_umgang") {
+        if (!mapped.umVorname && vn) mapped.umVorname = vn;
+        if (!mapped.umName && nn) mapped.umName = nn;
+        if (!mapped.umStrasse && str) mapped.umStrasse = str;
+        if (!mapped.umPlz && plz) mapped.umPlz = plz;
+        if (!mapped.umOrt && ort) mapped.umOrt = ort;
+        if (kinder.length > 0 && !mapped.umKindName) mapped.umKindName = (kindVn + " " + kindNn).trim();
+        if (kinder.length > 0 && !mapped.umKindGeburt) mapped.umKindGeburt = kindGeb;
+      } else if (typ === "fr_trennungsvereinbarung") {
+        if (!mapped.tvVorname && vn) mapped.tvVorname = vn;
+        if (!mapped.tvName && nn) mapped.tvName = nn;
+        if (!mapped.tvEinkommen && netto) mapped.tvEinkommen = netto;
+        if (!mapped.tvTrennungDatum && vorausgefuellt.trennungSeit) mapped.tvTrennungDatum = vorausgefuellt.trennungSeit;
+      } else if (typ === "buergergeld") {
+        if (!mapped.bgVorname && vn) mapped.bgVorname = vn;
+        if (!mapped.bgName && nn) mapped.bgName = nn;
+        if (!mapped.bgMail && mail) mapped.bgMail = mail;
+        if (!mapped.bgTel && tel) mapped.bgTel = tel;
+        if (!mapped.bgStrasse && str) mapped.bgStrasse = str;
+        if (!mapped.bgPlz && plz) mapped.bgPlz = plz;
+        if (!mapped.bgOrt && ort) mapped.bgOrt = ort;
+        if (!mapped.bgEinkommen && netto) mapped.bgEinkommen = netto;
+        if (!mapped.bgMieteKalt && vorausgefuellt.mieteKalt) mapped.bgMieteKalt = String(vorausgefuellt.mieteKalt);
+        if (!mapped.bgHeizkosten && vorausgefuellt.heizkosten) mapped.bgHeizkosten = String(vorausgefuellt.heizkosten);
+      }
+      setFormTyp(typ);
+      setDaten(mapped);
       setStatus("formular");
     })
     .catch(function(e) {
@@ -190,7 +270,7 @@ function App() {
   if (status === "laden") {
     return (
       <div style={{ textAlign:"center", padding:"60px 20px", color:"#003366" }}>
-        <img src={ISUV_LOGO} alt="ISUV" style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
+        <LogoImg style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
         <div style={{ fontSize:"14px" }}>⏳ Formular wird geladen...</div>
       </div>
     );
@@ -199,7 +279,7 @@ function App() {
   if (status === "fehler") {
     return (
       <div style={{ textAlign:"center", padding:"60px 20px" }}>
-        <img src={ISUV_LOGO} alt="ISUV" style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
+        <LogoImg style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
         <div style={{ backgroundColor:"#fff3f3", border:"1px solid #f5c6cb", borderRadius:"10px", padding:"20px", maxWidth:"400px", margin:"0 auto" }}>
           <div style={{ fontSize:"20px", marginBottom:"8px" }}>⚠️</div>
           <div style={{ fontWeight:"bold", marginBottom:"8px", color:"#721c24" }}>Formular nicht verfügbar</div>
@@ -281,7 +361,7 @@ function App() {
   if (status === "gesendet") {
     return (
       <div style={{ padding:"40px 20px", textAlign:"center" }}>
-        <img src={ISUV_LOGO} alt="ISUV" style={{ width:"120px", height:"auto", marginBottom:"16px" }} /><br/>
+        <LogoImg style={{ width:"120px", height:"auto", marginBottom:"16px" }} /><br/>
         <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"10px", padding:"20px", maxWidth:"420px", margin:"0 auto 20px" }}>
           <div style={{ fontSize:"28px", marginBottom:"6px" }}>✅</div>
           <div style={{ fontWeight:"bold", fontSize:"15px", marginBottom:"6px", color:"#2e7d32" }}>Angaben übermittelt</div>
@@ -316,7 +396,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"24px 16px 16px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"140px", height:"auto", marginBottom:"10px" }} />
+          <LogoImg style={{ width:"140px", height:"auto", marginBottom:"10px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>ISUV Anspruchslotse</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Antrag Gemeinsames Sorgerecht (§ 1626a Abs. 2 BGB)</div>
         </div>
@@ -419,7 +499,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <LogoImg style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Stammdaten-Fragebogen</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Bitte füllen Sie alle Felder so vollständig wie möglich aus.</div>
         </div>
@@ -529,7 +609,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <LogoImg style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Bürgergeld-Fragebogen</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Bedarfsgemeinschaft & Leistungsberechnung</div>
         </div>
@@ -650,7 +730,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <LogoImg style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Anlage TBG – Temporäre Bedarfsgemeinschaft</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 7 Abs. 3 Nr. 4 SGB II</div>
         </div>
@@ -734,7 +814,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <LogoImg style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Kindesunterhalt – Fragebogen</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Düsseldorfer Tabelle · § 1601 ff. BGB</div>
         </div>
@@ -824,7 +904,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <LogoImg style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Wechselmodell – Fragebogen</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Betreuungsaufteilung · Fahrtkosten · Unterhalt</div>
         </div>
@@ -895,7 +975,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <LogoImg style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Angaben Umgangsregelung</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 1684 BGB – Musterantrag</div>
         </div>
@@ -950,7 +1030,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <LogoImg style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Trennungs- und Scheidungsfragebogen</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Vermögen · Unterhalt · Kinder · Wohnen</div>
         </div>
@@ -1037,7 +1117,7 @@ function App() {
     return (
       <div style={styles.formPage}>
         <div style={{ textAlign:"center", padding:"20px 16px 12px", borderBottom:"1px solid #eee", marginBottom:"8px" }}>
-          <img src={ISUV_LOGO} alt="ISUV" style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
+          <LogoImg style={{ width:"130px", height:"auto", marginBottom:"8px" }} />
           <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>Wohngeld – Fragebogen</div>
           <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>§ 16 WoGG – Wohngeldbehörde</div>
         </div>
@@ -1113,7 +1193,7 @@ function App() {
   // ── Fallback: unbekannter Formulartyp ────────────────────
   return (
     <div style={{ textAlign:"center", padding:"60px 20px" }}>
-      <img src={ISUV_LOGO} alt="ISUV" style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
+      <LogoImg style={{ width:"120px", height:"auto", marginBottom:"20px" }} /><br/>
       <div style={{ fontSize:"13px", color:"#555" }}>Unbekannter Formulartyp: <strong>{formTyp}</strong></div>
     </div>
   );
