@@ -4741,11 +4741,17 @@ function App() {
                   onChange={function(e) {
                     var txt = e.target.value;
                     setEditMemberDaten(function(p){
-                      var upd = {geburtAnzeige: txt};
-                      var m = txt.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-                      if(m) upd.geburt = m[3]+"-"+m[2]+"-"+m[1];
-                      else if(txt==="") upd.geburt = "";
-                      return Object.assign({},p,upd);
+                      var m = txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+                      var iso = m ? (m[3]+"-"+(m[2].length<2?"0":"")+m[2]+"-"+(m[1].length<2?"0":"")+m[1]) : p.geburt;
+                      return Object.assign({},p,{geburtAnzeige:txt, geburt: txt===""?"":iso});
+                    });
+                  }}
+                  onBlur={function(e){
+                    var txt = e.target.value;
+                    // Beim Verlassen: falls gültiges Datum, normalisiere Anzeige
+                    var m = txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+                    if(m) setEditMemberDaten(function(p){
+                      return Object.assign({},p,{geburtAnzeige:(m[1].length<2?"0":"")+m[1]+"."+(m[2].length<2?"0":"")+m[2]+"."+m[3]});
                     });
                   }} />
                 <label style={styles.label}>Telefon</label>
@@ -4813,7 +4819,26 @@ function App() {
                         <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={(kind.name||"").split(", ")[0]||kind.nachname||""} onChange={function(e){ var v=e.target.value; var vor=(kind.name||"").split(", ")[1]||""; updK("name",v+", "+vor); }} /></div>
                       </div>
                       <label style={styles.label}>Geburtsdatum</label>
-                      <input type="date" style={styles.input} value={kind.geburt||""} onChange={function(e){ updK("geburt",e.target.value); }} />
+                      <input style={styles.input} placeholder="TT.MM.JJJJ"
+                        value={kind.geburtAnzeige !== undefined ? kind.geburtAnzeige : (kind.geburt ? (function(d){ var p=d.split("-"); return p.length===3?p[2]+"."+p[1]+"."+p[0]:d; })(kind.geburt) : "")}
+                        onChange={function(e){
+                          var txt=e.target.value;
+                          var m=txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+                          var iso=m?(m[3]+"-"+(m[2].length<2?"0":"")+m[2]+"-"+(m[1].length<2?"0":"")+m[1]):kind.geburt;
+                          updK("geburtAnzeige",txt); if(m||txt==="") updK("geburt",txt===""?"":iso);
+                        }}
+                        onBlur={function(e){
+                          var txt=e.target.value, m=txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+                          if(m) updK("geburtAnzeige",(m[1].length<2?"0":"")+m[1]+"."+(m[2].length<2?"0":"")+m[2]+"."+m[3]);
+                        }} />
+                      <label style={styles.label}>Wohnort des Kindes</label>
+                      <select style={styles.input} value={kind.wohnort||""} onChange={function(e){ updK("wohnort",e.target.value); }}>
+                        <option value="">– wählen –</option>
+                        <option value="bei Antragsteller">Bei mir</option>
+                        <option value="beim anderen Elternteil">Beim anderen Elternteil</option>
+                        <option value="Wechselmodell">Wechselmodell</option>
+                        <option value="bei Dritten">Bei Dritten / Pflegefamilie</option>
+                      </select>
                       <label style={styles.label}>Unterhaltstitel für dieses Kind</label>
                       <div style={{ display:"flex", gap:"6px", marginBottom:"8px" }}>
                         {["ja","nein","Titel beantragt"].map(function(v){
