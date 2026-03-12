@@ -555,6 +555,9 @@ function TemporaereBedarfsgemeinschaft() {
       {modell && (
         <>
           <label style={u.sectionLabel}>Schritt 2 – Kalender: Tage pro Monat (Übernachtungen):</label>
+          <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"6px", padding:"8px 10px", marginBottom:"8px", fontSize:"11px", color:"#2e7d32" }}>
+            ℹ️ Ein Tag zählt als TBG-Tag, wenn das Kind <strong>mindestens 12 Stunden</strong> in diesem Haushalt verbringt (§ 7 Abs. 3a SGB II). Bei geteiltem Tag zählt der Haushalt, in dem das Kind übernachtet.
+          </div>
           <div style={{ backgroundColor: "#f0f4f7", borderRadius: "8px", padding: "10px", marginBottom: "12px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: "4px", marginBottom: "6px" }}>
               <span style={{ fontSize: "10px", fontWeight: "bold" }}>Monat</span>
@@ -7352,6 +7355,7 @@ function App() {
                   { id:"tbg_einkommen_kind",label:"Einkommen des Kindes (UVG etc.)",    hatDaten: !!(ext.uvgBetrag) },
                 ];
 
+                // Startzustand: alle Felder aktiv, Felder mit Akte-Daten grün markiert aber trotzdem angehakt
                 var aktiveFelder = versandFelder !== null ? versandFelder : alleFelder.map(function(f){ return f.id; });
                 var alleAktiv = aktiveFelder.length === alleFelder.length;
                 var hatDatenCount = alleFelder.filter(function(f){ return f.hatDaten; }).length;
@@ -7416,8 +7420,42 @@ function App() {
 
               {formularVersandDialogNeu.formTyp && (function() {
                 var m = formularVersandDialogNeu.member;
+                var ext = m ? (memberExtras[m.id] || {}) : {};
                 var fTyp = formularVersandDialogNeu.formTyp;
                 var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : "Anlage TBG";
+                // alleFelder (gleiche Definition wie im Checkbox-Block) für hatDaten-Auswahl
+                var alleFelder2 = fTyp === "stammdaten" ? [
+                  { id:"titel",             hatDaten: !!(ext.titel) },
+                  { id:"vorname_name",       hatDaten: !!(m && m.vorname && m.name) },
+                  { id:"tel",                hatDaten: !!(m && m.tel) },
+                  { id:"mail",               hatDaten: !!(m && m.mail) },
+                  { id:"adresse",            hatDaten: !!(m && m.strasse) },
+                  { id:"familienstand",      hatDaten: !!(ext.familienstand) },
+                  { id:"gegenseite",         hatDaten: !!(ext.gegenseiteVorname || ext.gegenseiteName) },
+                  { id:"beschaeftigung",     hatDaten: !!(ext.beschaeftigungsart || ext.einkommenArt) },
+                  { id:"einkommen",          hatDaten: !!(ext.einkommenNetto) },
+                  { id:"wohnen",             hatDaten: !!(ext.mieteWarm) },
+                  { id:"kinder",             hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"notizen",            hatDaten: !!(ext.notizen) },
+                ] : fTyp === "buergergeld" ? [
+                  { id:"bg_person",          hatDaten: !!(m && m.vorname) },
+                  { id:"bg_haushalt",        hatDaten: false },
+                  { id:"bg_kinder",          hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"bg_einkommen",       hatDaten: !!(ext.einkommenNetto || ext.einkommenArt) },
+                  { id:"bg_wohnen",          hatDaten: !!(ext.mieteWarm || ext.mieteKalt) },
+                  { id:"bg_bedarfe",         hatDaten: false },
+                  { id:"bg_verfahren",       hatDaten: false },
+                  { id:"bg_anliegen",        hatDaten: false },
+                ] : [
+                  { id:"tbg_antragsteller",  hatDaten: !!(m && m.vorname) },
+                  { id:"tbg_adresse",        hatDaten: !!(m && m.strasse) },
+                  { id:"tbg_betreuungsmodell", hatDaten: !!(ext.betreuungsmodell) },
+                  { id:"tbg_kind_name",      hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
+                  { id:"tbg_anderer_et",     hatDaten: false },
+                  { id:"tbg_kalender",       hatDaten: false },
+                  { id:"tbg_kindergeld",     hatDaten: !!(ext.kindergeldBetrag) },
+                  { id:"tbg_einkommen_kind", hatDaten: !!(ext.uvgBetrag) },
+                ];
 
                 // Feldlabels für den Mail-Text
                 var alleFeldLabels = fTyp === "stammdaten" ? {
@@ -7452,12 +7490,18 @@ function App() {
                   tbg_kindergeld: "Kindergeld",
                   tbg_einkommen_kind: "Einkommen des Kindes"
                 };
-                var aktiveFeldIds = (versandFelder !== null && versandFelder.length > 0) ? versandFelder : Object.keys(alleFeldLabels);
+                // Gleiche Logik wie Checkbox-Auswahl oben:
+                // Im Versandtext nur Felder die aktiv UND nicht aus Akte bekannt
+                // (Felder mit Akte-Daten werden vorausgefüllt, müssen nicht abgefragt werden)
+                var hatDatenIds2 = alleFelder2.filter(function(f){ return f.hatDaten; }).map(function(f){ return f.id; });
+                var aktiveFeldIds = (versandFelder !== null ? versandFelder : alleFelder2.map(function(f){ return f.id; }))
+                  .filter(function(id){ return !hatDatenIds2.includes(id); });
                 var detailFragen = fTyp==="stammdaten" ? { titel:["Titel (Dr., Prof. etc.)"], vorname_name:["Vorname","Nachname"], tel:["Telefonnummer"], mail:["E-Mail-Adresse"], adresse:["Strasse & Hausnummer","PLZ","Ort"], familienstand:["Familienstand (ledig/getrennt/geschieden/verheiratet)","Getrennt seit (Datum)"], gegenseite:["Vorname & Name Gegenseite","Adresse","Einkommen (EUR/Monat)"], beschaeftigung:["Beschaeftigungsart","Arbeitgeber","Wochenstunden"], einkommen:["Nettoeinkommen (EUR/Monat)","Bruttoeinkommen (EUR/Monat)","Steuerklasse"], wohnen:["Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)","Mietstufe (1-6)"], kinder:["Vorname & Nachname je Kind","Geburtsdatum","Wohnort (Antragsteller*in / and. Elternteil / wechselnd)","UVG bezogen? (ja/nein)","Kindergeld-Empfaenger"], notizen:["Anmerkungen"]
                 } : fTyp==="buergergeld" ? { bg_person:["Vorname","Nachname","Geburtsdatum","Staatsangehoerigkeit","E-Mail","Telefon","Strasse","PLZ","Ort","Familienstand"], bg_haushalt:["Wohnsituation (allein/mit Partner/WG)","Anzahl Personen in der BG"], bg_kinder:["Kinder vorhanden? (ja/nein)","Je Kind: Name, Geburtsdatum, Wohnort, Kindergeld, UVG bezogen?"], bg_einkommen:["Erwerbsstatus","Arbeitgeber","Nettoeinkommen (EUR/Monat)","ALG-I (EUR/Monat)","Weitere Einkuenfte","Vermoegen (EUR)"], bg_wohnen:["Mietverhaeltnis","Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)"], bg_bedarfe:["Schwerbehinderung? (ja/nein)","GdB & Merkzeichen","Schulden? (ja/nein)","Schulden-Betrag & Rate (EUR)"], bg_verfahren:["Antrag beim Jobcenter? (ja/nein)","Antragsdatum","Name Jobcenter","Bescheid erhalten?","Art des Bescheids","Widerspruch eingelegt?"], bg_anliegen:["Anliegen: Erstantrag / Widerspruch / Sanktionen / Mehrbedarf / Jobcenter-Probleme / Sonstiges","Anmerkungen"]
                 } : { tbg_antragsteller:["Vorname","Nachname","Geburtsdatum","E-Mail","Telefon"], tbg_adresse:["Strasse & Hausnummer","PLZ","Ort"], tbg_betreuungsmodell:["Betreuungsmodell (paritaetisch/asymmetrisch/Residenz)","Anteil Betreuung in %"], tbg_kind_name:["Vorname Kind","Nachname Kind","Geburtsdatum Kind"], tbg_anderer_et:["Vorname & Nachname anderer Elternteil","Adresse anderer Elternteil"], tbg_kalender:["Tage/Monat beim Antragsteller (Jan-Dez)","Tage/Monat beim anderen Elternteil (Jan-Dez)"], tbg_kindergeld:["Wer bezieht Kindergeld?","Kindergeldbetrag (EUR/Monat)"], tbg_einkommen_kind:["Eigenes Einkommen des Kindes (EUR/Monat)"]
                 };
-                var feldListeText = "\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { var fragen=detailFragen[id]||[]; return "\n" + (alleFeldLabels[id]||id) + ":\n" + fragen.map(function(f){ return "    > "+f; }).join("\n"); }).join("\n");
+                // Nur ausgewählte Felder im Mailtext – fehlende Felder werden weggelassen
+                var feldListeText = aktiveFeldIds.length === 0 ? "" : ("\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { var fragen=detailFragen[id]||[]; return "\n" + (alleFeldLabels[id]||id) + ":\n" + fragen.map(function(f){ return "    > "+f; }).join("\n"); }).join("\n"));
 
                 var linkText = "Guten Tag" + (m ? " " + m.vorname + " " + m.name : "") + ",\n\n" +
                   "der ISUV Anspruchslotse hat fuer Sie ein Formular bereitgestellt:\n" +
