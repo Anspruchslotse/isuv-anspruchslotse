@@ -234,7 +234,11 @@ function App() {
   // Prüft ob ein Feld/Abschnitt angezeigt werden soll (basierend auf versandFelder aus Supabase)
   var zeigeAbschnitt = function(feldId) {
     var vf = daten.versandFelder;
-    if (!vf || !Array.isArray(vf) || vf.length === 0) return true; // kein Filter = alles anzeigen
+    // versandFelder nicht gesetzt → alles zeigen
+    if (!vf || !Array.isArray(vf)) return true;
+    // leeres Array → nichts zeigen
+    if (vf.length === 0) return false;
+    // sonst: nur wenn explizit in der Liste
     return vf.indexOf(feldId) >= 0;
   };
 
@@ -831,6 +835,9 @@ function App() {
                       }} />
                       {zeigeAbschnitt("tbg_kalender") && (<>
                         <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"4px 8px", margin:"8px 0", letterSpacing:"0.5px" }}>📅 Tage/Monat bei mir</div>
+                        <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"6px", padding:"7px 10px", marginBottom:"8px", fontSize:"11px", color:"#2e7d32" }}>
+                          ℹ️ Bitte eintragen an wie vielen Tagen das Kind <strong>mindestens 12 Stunden</strong> bei Ihnen ist (§ 7 Abs. 3a SGB II). Bei geteiltem Tag zählt der Haushalt, in dem das Kind übernachtet.
+                        </div>
                         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px" }}>
                           {MONATE.map(function(mn, mi) {
                             return (
