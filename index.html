@@ -87,7 +87,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script type="text/babel" data-presets="react">
 
 const { useState, useEffect, useRef } = React;
@@ -309,24 +309,8 @@ function FahrtkostenUmgang({ ext, onSaveErgebnis, changedFields }) {
     setResult(res);
     if (onSaveErgebnis) onSaveErgebnis({
       typ: "Fahrtkosten Umgang (" + aktuelleBasis.label + ")",
-      rechtsbereich: "Sozialrecht",
       ergebnis: gesamt.toFixed(2) + " €/Monat",
-      details: kmGesamt.toFixed(0) + " km/Monat × " + satz.toFixed(2) + " €/km",
-      detailSchritte: [
-        {label:"Einfache Strecke", wert: kmZahl.toFixed(0)+" km"},
-        {label:"× 2 (Hin- und Rückfahrt)", wert: kmProFahrt.toFixed(0)+" km/Fahrt"},
-        {label:"× "+fahrten+" Fahrten/Monat", wert: kmGesamt.toFixed(0)+" km/Monat"},
-        {label:"× "+satz.toFixed(2)+" €/km ("+aktuelleBasis.label+")", wert: fahrtkostenMtl.toFixed(2)+" €"},
-        ...(uebMtl>0?[{label:"+ Übernachtungskosten", wert: uebMtl.toFixed(2)+" €"}]:[]),
-        ...(telMtl>0?[{label:"+ Telefonkosten", wert: telMtl.toFixed(2)+" €"}]:[]),
-        ...(sonsMtl>0?[{label:"+ Sonstige Kosten", wert: sonsMtl.toFixed(2)+" €"}]:[]),
-        {label:"Gesamtkosten/Monat", wert: gesamt.toFixed(2)+" €", bold:true},
-        {label:"────────────────────", wert:""},
-        {label:"Jahreswert Fahrtkosten", wert: jahrFahrt.toFixed(2)+" €"},
-        {label:"Jahreswert gesamt", wert: jahrGes.toFixed(2)+" €"},
-        {label:"Ggf. steuerl. abziehbar (§ 33 EStG)", wert: steuerWert>0?steuerWert.toFixed(2)+" €":"–"},
-      ],
-      rechtsgrundlagen: aktuelleBasis.hinweis
+      details: kmGesamt.toFixed(0) + " km/Monat × " + satz.toFixed(2) + " €/km"
     });
   }
 
@@ -555,9 +539,6 @@ function TemporaereBedarfsgemeinschaft() {
       {modell && (
         <>
           <label style={u.sectionLabel}>Schritt 2 – Kalender: Tage pro Monat (Übernachtungen):</label>
-          <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"6px", padding:"8px 10px", marginBottom:"8px", fontSize:"11px", color:"#2e7d32" }}>
-            ℹ️ Ein Tag zählt als TBG-Tag, wenn das Kind <strong>mindestens 12 Stunden</strong> in diesem Haushalt verbringt (§ 7 Abs. 3a SGB II). Bei geteiltem Tag zählt der Haushalt, in dem das Kind übernachtet.
-          </div>
           <div style={{ backgroundColor: "#f0f4f7", borderRadius: "8px", padding: "10px", marginBottom: "12px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: "4px", marginBottom: "6px" }}>
               <span style={{ fontSize: "10px", fontWeight: "bold" }}>Monat</span>
@@ -1841,11 +1822,8 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
     kind_geburt: ext && ext.kinder && ext.kinder[0] ? ext.kinder[0].geburt || "" : "",
     kind_wohnort: "",
     antragsteller_rolle: "vater",
-    beziehungsstatus: "getrennt",
-    gemeinsam_bisher: "nein",
     begruendung: "",
     wohl_begruendung: "",
-    kontakt_bestand: "",
     gericht: "", gericht_abteilung: "", gericht_strasse: "", gericht_plz: "", gericht_ort: "", ort: "",
     datum: new Date().toLocaleDateString("de-DE")
   });
@@ -1853,8 +1831,13 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
   var [gedruckt, setGedruckt] = React.useState(false);
 
   var drucken = function() {
-    var antragsteller = daten.antragsteller_rolle === "vater" ? (daten.vater_name||"_______________") : (daten.mutter_name||"_______________");
-    var antragsgegner = daten.antragsteller_rolle === "vater" ? (daten.mutter_name||"_______________") : (daten.vater_name||"_______________");
+    // Unterstützt beide Feldnamen-Varianten (alt: vater_name/mutter_name, neu: antragsteller_name/gegenseite_name)
+    var rolle = daten.antragsteller_rolle || "vater";
+    var antragstellerName = daten.antragsteller_name || (rolle==="vater" ? daten.vater_name : daten.mutter_name) || "_______________";
+    var antragstellerAnschrift = daten.antragsteller_strasse ? (daten.antragsteller_strasse + ", " + (daten.antragsteller_plz||"") + " " + (daten.antragsteller_ort||"")).trim() : (rolle==="vater" ? daten.vater_anschrift : daten.mutter_anschrift) || "___";
+    var gegenseiteName = daten.gegenseite_name || (rolle==="vater" ? daten.mutter_name : daten.vater_name) || "_______________";
+    var gegenseiteAnschrift = daten.gegenseite_strasse ? (daten.gegenseite_strasse + ", " + (daten.gegenseite_plz||"") + " " + (daten.gegenseite_ort||"")).trim() : (rolle==="vater" ? daten.mutter_anschrift : daten.vater_anschrift) || "___";
+    var kindAnschrift = daten.kind_strasse ? (daten.kind_strasse + ", " + (daten.kind_plz||"") + " " + (daten.kind_ort||"")).trim() : (daten.kind_wohnort||"_______________");
     var html = "<html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;font-size:12px;margin:40px;color:#111;line-height:1.6}"
       + "h1{font-size:16px;text-align:center}h2{font-size:13px;color:#003366;border-bottom:1px solid #003366;margin-top:20px}"
       + ".row{display:flex;gap:40px;margin-bottom:8px}.label{font-weight:bold;min-width:180px}.val{flex:1}"
@@ -1865,25 +1848,24 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
       + (daten.gericht_plz||daten.gericht_ort ? "<span style='font-size:11px'>" + (daten.gericht_plz||"") + " " + (daten.gericht_ort||"") + "</span>" : "")
       + "</div>"
       + "<h1>Antrag auf Begründung der gemeinsamen elterlichen Sorge</h1>"
-      + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1626a Abs. 1 Nr. 3 BGB</p>"
+      + "<p style='text-align:center;font-size:11px;color:#666'>gemäß § 1626a Abs. 2 BGB</p>"
       + "<h2>Antragsteller/in</h2>"
-      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragsteller + "</span></div>"
-      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?(daten.vater_anschrift||"___"):(daten.mutter_anschrift||"___")) + "</span></div>"
-      + "<div class='row'><span class='label'>Stellung:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?"Vater des Kindes":"Mutter des Kindes") + "</span></div>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragstellerName + "</span></div>"
+      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + antragstellerAnschrift + "</span></div>"
+      + "<div class='row'><span class='label'>Stellung:</span><span class='val'>" + (rolle==="vater"?"Vater des Kindes":"Mutter des Kindes") + "</span></div>"
       + "<h2>Antragsgegner/in</h2>"
-      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + antragsgegner + "</span></div>"
-      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + (daten.antragsteller_rolle==="vater"?(daten.mutter_anschrift||"___"):(daten.vater_anschrift||"___")) + "</span></div>"
+      + "<div class='row'><span class='label'>Name:</span><span class='val'>" + gegenseiteName + "</span></div>"
+      + "<div class='row'><span class='label'>Anschrift:</span><span class='val'>" + gegenseiteAnschrift + "</span></div>"
       + "<h2>Betroffenes Kind</h2>"
       + "<div class='row'><span class='label'>Name:</span><span class='val'>" + (daten.kind_name||"_______________") + "</span></div>"
       + "<div class='row'><span class='label'>Geburtsdatum:</span><span class='val'>" + (daten.kind_geburt||"_______________") + "</span></div>"
-      + "<div class='row'><span class='label'>Lebt hauptsächlich bei:</span><span class='val'>" + (daten.kind_wohnort||"_______________") + "</span></div>"
+      + "<div class='row'><span class='label'>Wohnanschrift:</span><span class='val'>" + kindAnschrift + "</span></div>"
       + "<h2>Antrag</h2>"
       + "<p>Der Antragsteller / die Antragstellerin beantragt,</p>"
-      + "<p style='margin-left:20px'>die <strong>gemeinsame elterliche Sorge</strong> für das oben genannte Kind gemäß § 1626a Abs. 1 Nr. 3 BGB zu begründen.</p>"
+      + "<p style='margin-left:20px'>die <strong>gemeinsame elterliche Sorge</strong> für das oben genannte Kind gemäß § 1626a Abs. 2 BGB zu begründen.</p>"
       + "<h2>Rechtliche Grundlage</h2>"
-      + "<p>Gemäß § 1626a Abs. 1 Nr. 3 BGB steht dem Antragsteller / der Antragstellerin ein <strong>Anspruch auf gemeinsame Sorge</strong> zu. Eine inhaltliche Begründung ist gesetzlich nicht erforderlich. Das Gericht überträgt die gemeinsame Sorge, sofern dies <strong>nicht dem Kindeswohl widerspricht</strong> (§ 1626a Abs. 2 BGB).</p>"
+      + "<p>Gemäß § 1626a Abs. 2 BGB (i.d.F. des NEheSorgeRG vom 19.05.2013) überträgt das Familiengericht auf Antrag die gemeinsame elterliche Sorge, wenn dies dem Kindeswohl nicht widerspricht. Eine inhaltliche Begründung ist gesetzlich nicht erforderlich. Trägt der andere Elternteil keine entgegenstehenden Gründe vor und sind solche auch sonst nicht ersichtlich, wird <strong>vermutet, dass die gemeinsame Sorge dem Kindeswohl nicht widerspricht</strong> (§ 1626a Abs. 2 Satz 2 BGB).</p>"
       + "<p>Das Bundesverfassungsgericht hat mit Beschluss vom 21.07.2010 (1 BvR 420/09) entschieden, dass dem nicht mit der Mutter verheirateten Vater der Zugang zur gemeinsamen Sorge ohne Begründungspflicht und ohne Zustimmung der Mutter zu ermöglichen ist.</p>"
-      + (daten.kontakt_bestand ? "<h2>Angaben zum Kontakt mit dem Kind</h2><p>" + daten.kontakt_bestand + "</p>" : "")
       + "<p style='font-size:11px;color:#555;margin-top:16px'><em>Rechtsgrundlagen: § 1626a BGB, § 1697a BGB (Kindeswohlprinzip), BVerfG 1 BvR 420/09 vom 21.07.2010</em></p>"
       + "<br><br><div style='display:flex;justify-content:space-between;margin-top:40px'>"
       + "<div>" + (daten.ort||"___________") + ", den " + (daten.datum||"___________") + "<br><br><div style='border-top:1px solid #000;width:200px;margin-top:40px;font-size:10px;text-align:center'>Unterschrift Antragsteller/in</div></div>"
@@ -1901,7 +1883,7 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
     <div>
       <div style={u.modHeader}><span style={u.modIcon}>👨‍👩‍👧</span><div><div style={u.modTitle}>Antrag Gemeinsames Sorgerecht (§ 1626a BGB)</div><div style={u.modSub}>Interaktiv ausfüllen → als PDF exportieren</div></div></div>
       <div style={{ backgroundColor:"#e8f0fb", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#003366" }}>
-        ℹ️ Dieser Antrag richtet sich an das Familiengericht. Voraussetzung: Ein Elternteil ist allein sorgeberechtigt. Der andere Elternteil beantragt die gemeinsame Sorge gem. § 1626a Abs. 1 Nr. 3 BGB.
+        ℹ️ Dieser Antrag richtet sich an das Familiengericht. Voraussetzung: Ein Elternteil ist allein sorgeberechtigt. Der andere Elternteil beantragt die gemeinsame Sorge gem. § 1626a Abs. 2 BGB (Reform 2013).
       </div>
 
       <div style={u.modSection}>Gericht</div>
@@ -1951,32 +1933,9 @@ function SorgerechtAntragFormular({ ext, onSaveErgebnis }) {
         <option value="beiden Elternteilen (Wechselmodell)">beiden Elternteilen (Wechselmodell)</option>
       </select>
 
-      <div style={u.modSection}>Beziehungsstatus der Eltern</div>
-      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
-        {[{v:"getrennt",l:"Getrennt lebend"},{v:"nie_zusammen",l:"Nie zusammen gelebt"}].map(function(o){
-          return <div key={o.v} onClick={function(){set("beziehungsstatus",o.v);}}
-            style={{ padding:"6px 12px", borderRadius:"8px", cursor:"pointer", fontSize:"12px",
-              backgroundColor:daten.beziehungsstatus===o.v?"#003366":"#eee",
-              color:daten.beziehungsstatus===o.v?"#fff":"#333" }}>{o.l}</div>;
-        })}
-      </div>
-      <label style={u.label}>Bestand bisher gemeinsames Sorgerecht / Sorgeerklärung?</label>
-      <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
-        {[{v:"ja",l:"Ja"},{v:"nein",l:"Nein"}].map(function(o){
-          return <div key={o.v} onClick={function(){set("gemeinsam_bisher",o.v);}}
-            style={{ padding:"6px 16px", borderRadius:"8px", cursor:"pointer", fontSize:"12px",
-              backgroundColor:daten.gemeinsam_bisher===o.v?"#003366":"#eee",
-              color:daten.gemeinsam_bisher===o.v?"#fff":"#333" }}>{o.l}</div>;
-        })}
-      </div>
-
       <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#2e7d32" }}>
-        ✅ <strong>Keine Begründungspflicht:</strong> Nach § 1626a Abs. 1 Nr. 3 BGB und BVerfG (1 BvR 420/09) besteht ein Anspruch auf gemeinsame Sorge ohne inhaltliche Begründung. Das Gericht überträgt die gemeinsame Sorge, sofern dies nicht dem Kindeswohl widerspricht – die Beweislast liegt beim ablehnenden Elternteil.
+        ✅ <strong>Keine Begründungspflicht:</strong> Nach § 1626a Abs. 2 BGB (i.d.F. seit 19.05.2013) und BVerfG (1 BvR 420/09) besteht ein Anspruch auf gemeinsame Sorge ohne inhaltliche Begründung. Das Gericht überträgt die gemeinsame Sorge, sofern dies nicht dem Kindeswohl widerspricht – die Beweislast liegt beim ablehnenden Elternteil.
       </div>
-
-      <div style={u.modSection}>Angaben zum Kontakt (optional)</div>
-      <label style={u.label}>Bestehender Kontakt / Umgang mit dem Kind</label>
-      <input style={u.input} placeholder="z.B. Regelmäßiger Umgang jedes 2. Wochenende, gemeinsame Aktivitäten" value={daten.kontakt_bestand} onChange={function(e){set("kontakt_bestand",e.target.value);}} />
 
       <div style={u.modSection}>Ort & Datum</div>
       <div style={{ display:"flex", gap:"8px" }}>
@@ -2384,14 +2343,9 @@ function FamilienrechtView({ view, activeMember, memberExtras, setView, setMembe
   var aend = ext && ext._letzteAenderung;
   function saveErg(ergebnis) {
     if(!activeMember) return;
-    var mid=activeMember.id;
-    var jetzt=new Date().toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    var mid=activeMember.id, jetzt=new Date().toLocaleDateString("de-DE");
     setMemberErgebnisse(function(prev){
-      var liste=(prev[mid]||[]);
-      // Gleichen Typ vom selben Tag ersetzen statt duplizieren
-      var heute=new Date().toLocaleDateString("de-DE");
-      var ohneAlten=liste.filter(function(x){ return !(x.typ===ergebnis.typ && x.datum && x.datum.startsWith(heute)); });
-      return Object.assign({},prev,{[mid]:ohneAlten.slice(-29).concat([Object.assign({datum:jetzt},ergebnis)])});
+      return Object.assign({},prev,{[mid]:(prev[mid]||[]).slice(-29).concat([Object.assign({datum:jetzt},ergebnis)])});
     });
   }
   return (
@@ -2407,9 +2361,9 @@ function FamilienrechtView({ view, activeMember, memberExtras, setView, setMembe
         {aend && <InfoBox typ="warnung" titel={"Akte geändert am "+aend.datum} kinder={<span>Felder: {(aend.felder||[]).join(", ")}</span>} />}
       </div>
       <div style={{ padding: window && window.innerWidth >= 600 ? "0 24px 32px" : "0 16px 24px" }}>
-        {view==="fr_kindesunterhalt" && <KindesunterhaltsRechnerNeu ext={ext} onSaveErgebnis={saveErg} />}
-        {view==="fr_ehegatten" && <EhegattenUnterhaltsRechner ext={ext} onSaveErgebnis={saveErg} />}
-        {view==="fr_wechselmodell" && <div><WechselmodellRechner ext={ext} onSaveErgebnis={saveErg} /><div style={{marginTop:"20px",borderTop:"2px solid #e8f0fb",paddingTop:"16px"}}><RechtsvergleichModul ext={ext} /></div></div>}
+        {view==="fr_kindesunterhalt" && <KindesunterhaltsRechnerNeu ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
+        {view==="fr_ehegatten" && <EhegattenUnterhaltsRechner ext={ext} onSaveErgebnis={activeMember?saveErg:null} />}
+        {view==="fr_wechselmodell" && <div><WechselmodellRechner ext={ext} onSaveErgebnis={activeMember?saveErg:null} /><div style={{marginTop:"20px",borderTop:"2px solid #e8f0fb",paddingTop:"16px"}}><RechtsvergleichModul ext={ext} /></div></div>}
         {view==="fr_rechtsvergleich" && <RechtsvergleichModul ext={ext} />}
         {view==="fr_dtTabelle" && <DuesseldorferTabelleNachschlag />}
         {view==="fr_fristen" && <FristenRechner />}
@@ -2598,31 +2552,7 @@ function BuergergeldRechnerCore({ ext, onSaveErgebnis, changedFields, changedDat
     var anzP=1+(hatPartner?1:0)+kinder.length,vFreig=anzP*15000,vB=parseFloat(vermoegen)||0;
     var res={rbH,rbP,rbK,rb,mb,mbD,kdu,bedarf,fb,einAnr,pAnr,a1,ren,we,kg,einGes,anspruch,kein:anspruch===0,vB,vFreig,vUeber:Math.max(0,vB-vFreig)};
     setResult(res);
-    if(onSaveErgebnis)onSaveErgebnis({
-      typ:"Bürgergeld (SGB II)",
-      rechtsbereich:"Sozialrecht",
-      ergebnis:anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" €/Monat",
-      details:anzP+" Personen, Bedarf "+bedarf.toFixed(2)+" €",
-      detailSchritte:[
-        {label:"Regelbedarf Hauptperson", wert:rbH.toFixed(2)+" €"},
-        ...(hatPartner?[{label:"Regelbedarf Partner", wert:rbP.toFixed(2)+" €"}]:[]),
-        ...(rbK>0?[{label:"Regelbedarf Kinder gesamt", wert:rbK.toFixed(2)+" €"}]:[]),
-        ...(mb>0?mbD.map(function(m){return{label:"+ "+m.l,wert:m.b.toFixed(2)+" €"};}): []),
-        {label:"Kosten der Unterkunft (KdU)", wert:kdu.toFixed(2)+" €"},
-        {label:"Gesamtbedarf", wert:bedarf.toFixed(2)+" €", bold:true},
-        {label:"────────────────────", wert:""},
-        {label:"Anrechenbares Einkommen", wert:einAnr.toFixed(2)+" €"},
-        ...(pAnr>0?[{label:"Einkommen Partner (anrechenbar)", wert:pAnr.toFixed(2)+" €"}]:[]),
-        ...(kg>0?[{label:"Kindergeld", wert:kg.toFixed(2)+" €"}]:[]),
-        ...(a1>0?[{label:"ALG I / Krankengeld", wert:a1.toFixed(2)+" €"}]:[]),
-        ...(ren>0?[{label:"Rente", wert:ren.toFixed(2)+" €"}]:[]),
-        ...(we>0?[{label:"Weiteres Einkommen", wert:we.toFixed(2)+" €"}]:[]),
-        {label:"Gesamteinkommen", wert:einGes.toFixed(2)+" €"},
-        {label:"────────────────────", wert:""},
-        {label:"Bürgergeld-Anspruch", wert:(anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" €/Monat"), bold:true},
-      ].filter(Boolean),
-      rechtsgrundlagen:"§§ 11, 20 ff. SGB II · § 22 SGB II (KdU) · Regelsätze 2024"
-    });
+    if(onSaveErgebnis)onSaveErgebnis({typ:"Buergergeld",ergebnis:anspruch===0?"Kein Anspruch":anspruch.toFixed(2)+" EUR/Monat",details:anzP+" Personen, Bedarf "+bedarf.toFixed(2)+" EUR"});
     setSchritt(4);
   }
   var inp={...u.input,marginBottom:"8px"};
@@ -3198,7 +3128,9 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis, 
 // PDF-EXPORT – Berechnungsergebnisse
 // =============================================
 function exportPDF(member, ergebnisse, beraterName) {
-  var doc = new window.jspdf.jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!jsPDF) { alert("PDF-Bibliothek nicht geladen. Bitte Seite neu laden."); return; }
+  var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
   var W = 210, H = 297;
   var margin = 16;
   var y = 0;
@@ -3566,46 +3498,60 @@ function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
 // BERECHNUNG MIT DATEN – Rechner vorausgefüllt
 // =============================================
 function MehrDatenView({ ext }) {
+  if (!ext) return null;
   const sh = { fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"6px", letterSpacing:"0.5px" };
   const kb = { backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"10px", marginBottom:"8px", borderLeft:"3px solid #00afad" };
   const kr = { display:"flex", justifyContent:"space-between", fontSize:"12px", paddingBottom:"3px", borderBottom:"1px solid #eee", marginBottom:"3px" };
   const dr = { display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid #f5f5f5", fontSize:"13px" };
+  const kinder = Array.isArray(ext.kinder) ? ext.kinder : [];
   return (
     <div style={{ marginTop:"12px" }}>
       <div style={sh}>👨‍👩‍👧 Familiensituation</div>
-      <div style={dr}><span>Familienstand:</span><strong>{ext.familienstand}</strong></div>
+      {ext.familienstand && <div style={dr}><span>Familienstand:</span><strong>{ext.familienstand}</strong></div>}
       <div style={dr}><span>Alleinerziehend:</span><strong>{ext.alleinerziehend ? "Ja" : "Nein"}</strong></div>
-      <div style={dr}><span>Betreuungsmodell:</span><strong style={{ fontSize:"12px" }}>{ext.betreuungsmodell}</strong></div>
+      {ext.betreuungsmodell && <div style={dr}><span>Betreuungsmodell:</span><strong style={{ fontSize:"12px" }}>{ext.betreuungsmodell}</strong></div>}
 
-      <div style={sh}>👶 Kinder</div>
-      {ext.kinder.map((k, i) => (
-        <div key={i} style={kb}>
-          <div style={{ fontWeight:"bold", fontSize:"13px", marginBottom:"4px" }}>Kind {i+1}: {k.name}</div>
-          <div style={kr}><span>Geburtsdatum:</span><span>{k.geburt}</span></div>
-          <div style={kr}><span>Altersgruppe:</span><span>{k.alter}</span></div>
-          <div style={kr}><span>Wohnort:</span><span>{k.wohnort}</span></div>
-          <div style={kr}><span>UVG:</span><span>{k.uvg ? "✅ Ja" : "❌ Nein"}</span></div>
-          <div style={kr}><span>Kindergeld:</span><span>{k.kg ? "✅ Ja" : "❌ Nein"}</span></div>
+      {kinder.length > 0 && (
+        <div>
+          <div style={sh}>👶 Kinder</div>
+          {kinder.map((k, i) => (
+            <div key={i} style={kb}>
+              <div style={{ fontWeight:"bold", fontSize:"13px", marginBottom:"4px" }}>Kind {i+1}: {k.name}</div>
+              {k.geburt && <div style={kr}><span>Geburtsdatum:</span><span>{k.geburt}</span></div>}
+              {k.alter && <div style={kr}><span>Altersgruppe:</span><span>{k.alter}</span></div>}
+              {k.wohnort && <div style={kr}><span>Wohnort:</span><span>{k.wohnort}</span></div>}
+              <div style={kr}><span>UVG:</span><span>{k.uvg ? "✅ Ja" : "❌ Nein"}</span></div>
+              <div style={kr}><span>Kindergeld:</span><span>{k.kg ? "✅ Ja" : "❌ Nein"}</span></div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
 
       <div style={sh}>💶 Einkommen & Leistungen</div>
-      <div style={dr}><span>Nettoeinkommen:</span><strong>{ext.einkommenNetto} EUR</strong></div>
+      {ext.einkommenNetto != null && <div style={dr}><span>Nettoeinkommen:</span><strong>{ext.einkommenNetto} EUR</strong></div>}
       {ext.einkommenGegenseite > 0 && <div style={dr}><span>Einkommen Gegenseite:</span><strong>{ext.einkommenGegenseite} EUR</strong></div>}
-      <div style={dr}><span>Art:</span><strong style={{ fontSize:"12px" }}>{ext.einkommenArt}</strong></div>
+      {ext.einkommenArt && <div style={dr}><span>Art:</span><strong style={{ fontSize:"12px" }}>{ext.einkommenArt}</strong></div>}
       {ext.uvgBetrag > 0 && <div style={dr}><span>Unterhaltsvorschuss:</span><strong>{ext.uvgBetrag} EUR/Monat</strong></div>}
-      <div style={dr}><span>Kindergeld:</span><strong>{ext.kindergeldBetrag} EUR/Monat</strong></div>
-      <div style={dr}><span>KG-Empfänger:</span><strong style={{ fontSize:"12px" }}>{ext.kindergeldEmpf}</strong></div>
+      {ext.kindergeldBetrag != null && <div style={dr}><span>Kindergeld:</span><strong>{ext.kindergeldBetrag} EUR/Monat</strong></div>}
+      {ext.kindergeldEmpf && <div style={dr}><span>KG-Empfänger:</span><strong style={{ fontSize:"12px" }}>{ext.kindergeldEmpf}</strong></div>}
 
-      <div style={sh}>⚖️ Unterhalt</div>
-      <div style={dr}><span>Unterhaltstitel:</span><strong>{ext.unterhaltsTitel ? "✅ Vorhanden" : "❌ Kein Titel"}</strong></div>
-      {ext.unterhaltBetrag > 0 && <div style={dr}><span>Betrag:</span><strong>{ext.unterhaltBetrag} EUR/Monat</strong></div>}
+      {(ext.unterhaltsTitel != null || ext.unterhaltBetrag > 0) && (
+        <div>
+          <div style={sh}>⚖️ Unterhalt</div>
+          <div style={dr}><span>Unterhaltstitel:</span><strong>{ext.unterhaltsTitel ? "✅ Vorhanden" : "❌ Kein Titel"}</strong></div>
+          {ext.unterhaltBetrag > 0 && <div style={dr}><span>Betrag:</span><strong>{ext.unterhaltBetrag} EUR/Monat</strong></div>}
+        </div>
+      )}
 
-      <div style={sh}>🏠 Wohnen</div>
-      {ext.wohnungGroesse && <div style={dr}><span>Wohnungsgröße:</span><strong>{ext.wohnungGroesse} m²</strong></div>}
-      {(ext.mieteWarm||ext.mieteKalt) && <div style={dr}><span>Miete warm / kalt:</span><strong>{ext.mieteWarm||"-"} / {ext.mieteKalt||"-"} €/Monat</strong></div>}
-      {ext.heizkosten && <div style={dr}><span>Heizkosten:</span><strong>{ext.heizkosten} €/Monat</strong></div>}
-      {ext.mietStufe && <div style={dr}><span>Mietenstufe:</span><strong>Stufe {ext.mietStufe}</strong></div>}
+      {(ext.wohnungGroesse || ext.mieteWarm || ext.mieteKalt || ext.heizkosten || ext.mietStufe) && (
+        <div>
+          <div style={sh}>🏠 Wohnen</div>
+          {ext.wohnungGroesse && <div style={dr}><span>Wohnungsgröße:</span><strong>{ext.wohnungGroesse} m²</strong></div>}
+          {(ext.mieteWarm||ext.mieteKalt) && <div style={dr}><span>Miete warm / kalt:</span><strong>{ext.mieteWarm||"-"} / {ext.mieteKalt||"-"} €/Monat</strong></div>}
+          {ext.heizkosten && <div style={dr}><span>Heizkosten:</span><strong>{ext.heizkosten} €/Monat</strong></div>}
+          {ext.mietStufe && <div style={dr}><span>Mietenstufe:</span><strong>Stufe {ext.mietStufe}</strong></div>}
+        </div>
+      )}
 
       {(ext.fahrtkostenKm || ext.fahrtkostenFahrtenProMonat) && (
         <div>
@@ -3618,11 +3564,10 @@ function MehrDatenView({ ext }) {
         </div>
       )}
 
-      {(ext.einkommenNetto||ext.einkommenBrutto||ext.arbeitsstatus) && (
+      {(ext.arbeitsstatus || ext.einkommenBrutto) && (
         <div>
-          <div style={sh}>💰 Einkommen</div>
+          <div style={sh}>💼 Beschäftigung</div>
           {ext.arbeitsstatus && <div style={dr}><span>Status:</span><strong>{ext.arbeitsstatus}</strong></div>}
-          {ext.einkommenNetto && <div style={dr}><span>Nettoeinkommen:</span><strong>{ext.einkommenNetto} €/Monat</strong></div>}
           {ext.einkommenBrutto && <div style={dr}><span>Bruttoeinkommen:</span><strong>{ext.einkommenBrutto} €/Monat</strong></div>}
         </div>
       )}
@@ -3641,6 +3586,57 @@ function MehrDatenView({ ext }) {
 // =============================================
 </script>
   <script type="text/babel" data-presets="react">
+
+// Safe jsPDF loader
+function getJsPDF() {
+  if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+  if (window.jsPDF) return window.jsPDF;
+  return null;
+}
+
+function SigPadModal({ onSave, onClose }) {
+  var canvasRef = React.useRef(null);
+  var drawing = React.useRef(false);
+  var lastPos = React.useRef(null);
+  var getPos = function(canvas, evt) {
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    var src = evt.touches ? evt.touches[0] : evt;
+    return { x: (src.clientX - rect.left)*scaleX, y: (src.clientY - rect.top)*scaleY };
+  };
+  var startDraw = function(e) { e.preventDefault(); drawing.current = true; var cv = canvasRef.current; if (cv) lastPos.current = getPos(cv, e.nativeEvent||e); };
+  var draw = function(e) {
+    e.preventDefault(); if (!drawing.current) return;
+    var cv = canvasRef.current; if (!cv) return;
+    var ctx = cv.getContext("2d");
+    var pos = getPos(cv, e.nativeEvent||e);
+    ctx.beginPath(); ctx.strokeStyle = "#003366"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    ctx.moveTo(lastPos.current.x, lastPos.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke();
+    lastPos.current = pos;
+  };
+  var stopDraw = function(e) { if (e) e.preventDefault(); drawing.current = false; };
+  var clear = function() { var cv = canvasRef.current; if (cv) cv.getContext("2d").clearRect(0,0,cv.width,cv.height); };
+  var save = function() { var cv = canvasRef.current; if (cv) onSave(cv.toDataURL("image/png")); };
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, backgroundColor:"rgba(0,0,0,0.6)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ backgroundColor:"#fff", borderRadius:"14px", padding:"20px", width:"100%", maxWidth:"420px" }}>
+        <div style={{ fontWeight:"bold", fontSize:"14px", color:"#003366", marginBottom:"6px" }}>✍️ Unterschrift des Antragstellers</div>
+        <div style={{ fontSize:"11px", color:"#666", marginBottom:"12px" }}>Mit Finger oder Maus im Feld unterschreiben:</div>
+        <canvas ref={canvasRef} width={560} height={160}
+          style={{ border:"2px solid #003366", borderRadius:"8px", width:"100%", height:"120px", touchAction:"none", backgroundColor:"#fafcff", display:"block" }}
+          onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+          onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
+        />
+        <div style={{ display:"flex", gap:"8px", marginTop:"12px" }}>
+          <button onClick={clear} style={{ flex:1, padding:"10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>🗑️ Löschen</button>
+          <button onClick={onClose} style={{ flex:1, padding:"10px", backgroundColor:"#eee", color:"#333", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>Abbrechen</button>
+          <button onClick={save} style={{ flex:2, padding:"10px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>✅ Übernehmen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -3786,6 +3782,10 @@ function App() {
   }, [eingangFormulare]);
   const [aktivesEingangFormular, setAktivesEingangFormular] = useState(null);
   const [formFelderDaten, setFormFelderDaten] = useState({});
+  const [gerichtSuche, setGerichtSuche] = useState(false);
+  const [gerichtFehler, setGerichtFehler] = useState("");
+  const [sorgerechtSigModal, setSorgerechtSigModal] = useState(false);
+  const [sorgerechtSigData, setSorgerechtSigData] = useState(null);
   const [ausgangFormulare, setAusgangFormulare] = useState(() => { try { return JSON.parse(localStorage.getItem("isuv_ausgang") || "[]"); } catch(e) { return []; } });
   useEffect(function() { try { localStorage.setItem("isuv_ausgang", JSON.stringify(ausgangFormulare)); } catch(e) {} }, [ausgangFormulare]);
   const [showAusgang, setShowAusgang] = useState(false);
@@ -4087,7 +4087,7 @@ function App() {
         </div>
       </header>
 
-      <main style={["formular_ausfuellen","tbg_form","buergergeld_form","eingang_detail"].includes(view) ? {...styles.main, padding:"0", maxWidth:"800px"} : styles.main} className="app-main">
+      <main style={["formular_ausfuellen","tbg_form","buergergeld_form","eingang_detail","sorgerecht_form"].includes(view) ? {...styles.main, padding:"0", maxWidth:"800px"} : styles.main} className="app-main">
         {view === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
 
@@ -4387,13 +4387,15 @@ function App() {
                                   if (felder.gegenseiteName) updates.gegenseiteName = felder.gegenseiteName;
                                   if (felder.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                                   if (felder.kinder && felder.kinder.length > 0) {
-                                    updates.alleinerziehend = true;
-                                    updates.kinder = felder.kinder.map(function(k) {
+                                    var kinderMapped1 = felder.kinder.map(function(k) {
                                       var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
                                       var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
                                       var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
                                       return { name:(k.nachname||f.name||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:true };
                                     });
+                                    updates.kinder = kinderMapped1;
+                                    // alleinerziehend nur wenn mind. ein Kind beim Antragsteller wohnt
+                                    updates.alleinerziehend = kinderMapped1.some(function(k){ return k.wohnort && (k.wohnort.toLowerCase().includes("antragstell") || k.wohnort.toLowerCase().includes("mir")); });
                                   }
 
                                   // Bürgergeld-Felder (bgXxx)
@@ -4414,13 +4416,14 @@ function App() {
                                   if (felder.bgAnliegen && felder.bgAnliegen.length > 0) updates.bgAnliegen = felder.bgAnliegen;
                                   if (felder.bgHatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                                   if (felder.bgKinder && felder.bgKinder.length > 0) {
-                                    updates.alleinerziehend = true;
-                                    updates.kinder = felder.bgKinder.map(function(k) {
+                                    var kinderMapped2 = felder.bgKinder.map(function(k) {
                                       var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
                                       var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
                                       var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
                                       return { name:(k.nachname||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:k.kindergeld==="ja" };
                                     });
+                                    updates.kinder = kinderMapped2;
+                                    updates.alleinerziehend = kinderMapped2.some(function(k){ return k.wohnort && (k.wohnort.toLowerCase().includes("antragstell") || k.wohnort.toLowerCase().includes("mir")); });
                                   }
 
                                   setMemberExtras(function(prev) { var next=Object.assign({},prev); next[passendesMitglied.id]=Object.assign({},prev[passendesMitglied.id]||{},updates); return next; });
@@ -4661,17 +4664,18 @@ function App() {
                 <button onClick={function() {
                     var ext2=memberExtras[activeMember.id]||{};
                     setEditMemberDaten({
-                      vorname:activeMember.vorname||"", name:activeMember.name||"", tel:activeMember.tel||"",
-                      mail:activeMember.mail||"", strasse:activeMember.strasse||"", plz:activeMember.plz||"", ort:activeMember.ort||"",
-                      geburt:ext2.geburt||activeMember.geburt||ext2.geburtsdatum||"",
+                      vorname:activeMember.vorname, name:activeMember.name, tel:activeMember.tel,
+                      mail:activeMember.mail, strasse:activeMember.strasse, plz:activeMember.plz, ort:activeMember.ort,
+                      geburt:activeMember.geburt||ext2.geburtsdatum||"",
                       familienstand:ext2.familienstand||"", betreuungsmodell:ext2.betreuungsmodell||"",
                       einkommenNetto:ext2.einkommenNetto||"", einkommenBrutto:ext2.einkommenBrutto||"",
                       arbeitsstatus:ext2.arbeitsstatus||"",
                       mieteKalt:ext2.mieteKalt||"", nebenkosten:ext2.nebenkosten||"", heizkosten:ext2.heizkosten||"",
                       fahrtkostenKm:ext2.fahrtkostenKm||"", fahrtkostenFahrtenProMonat:ext2.fahrtkostenFahrtenProMonat||"",
-                      kindergeldBezug:ext2.kindergeldBezug||"",
-                      alleinerziehend: ext2.alleinerziehend===true || ext2.alleinerziehend==="true" ? true : false,
-                      unterhaltsTitel: ext2.unterhaltsTitel===true || ext2.unterhaltsTitel==="true" ? true : false,
+                      anzahlKinder:ext2.anzahlKinder||"", kinderAlter:ext2.kinderAlter||"",
+                      kindergeldBezug:ext2.kindergeldBezug||"", kindGemeldetBei:ext2.kindGemeldetBei||"",
+                      alleinerziehend: ext2.alleinerziehend||false,
+                      unterhaltsTitel: ext2.unterhaltsTitel||false,
                       unterhaltBetrag: ext2.unterhaltBetrag||"",
                       kinder: (ext2.kinder||[]).map(function(k){ return Object.assign({},k); })
                     });
@@ -4686,7 +4690,6 @@ function App() {
                     var extrasFelder = ["familienstand","betreuungsmodell","einkommenNetto","einkommenBrutto","arbeitsstatus","mieteKalt","nebenkosten","heizkosten","fahrtkostenKm","fahrtkostenFahrtenProMonat","geburt","alleinerziehend","unterhaltsTitel","unterhaltBetrag","kinder","kindergeldBezug"];
                     var memberFelder = ["vorname","name","tel","mail","strasse","plz","ort"];
                     var memberUpd = {}; memberFelder.forEach(function(f){ if(editDaten[f]!==undefined) memberUpd[f]=editDaten[f]; });
-                    // geburtAnzeige ist nur Anzeigehilfe – nicht speichern
                     var extrasUpd = {}; extrasFelder.forEach(function(f){ if(editDaten[f]!==undefined) extrasUpd[f]=editDaten[f]; });
                     // Änderungshistorie – boolean-safe Vergleich
                     var geaendert = Object.keys(extrasUpd).filter(function(f){
@@ -4739,24 +4742,25 @@ function App() {
                   <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={editDaten.name||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{name:v}); }); }} /></div>
                 </div>
                 <label style={styles.label}>Geburtsdatum</label>
-                <input style={styles.input} placeholder="TT.MM.JJJJ"
-                  value={editDaten.geburtAnzeige !== undefined ? editDaten.geburtAnzeige : (editDaten.geburt ? (function(d){ var p=d.split("-"); return p.length===3?p[2]+"."+p[1]+"."+p[0]:d; })(editDaten.geburt) : "")}
-                  onChange={function(e) {
-                    var txt = e.target.value;
-                    setEditMemberDaten(function(p){
-                      var m = txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-                      var iso = m ? (m[3]+"-"+(m[2].length<2?"0":"")+m[2]+"-"+(m[1].length<2?"0":"")+m[1]) : p.geburt;
-                      return Object.assign({},p,{geburtAnzeige:txt, geburt: txt===""?"":iso});
-                    });
-                  }}
-                  onBlur={function(e){
-                    var txt = e.target.value;
-                    // Beim Verlassen: falls gültiges Datum, normalisiere Anzeige
-                    var m = txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-                    if(m) setEditMemberDaten(function(p){
-                      return Object.assign({},p,{geburtAnzeige:(m[1].length<2?"0":"")+m[1]+"."+(m[2].length<2?"0":"")+m[2]+"."+m[3]});
-                    });
-                  }} />
+                <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                  <input style={{ ...styles.input, flex:1 }} placeholder="TT.MM.JJJJ"
+                    value={editDaten.geburtText !== undefined ? editDaten.geburtText : (editDaten.geburt ? (function(d){ var p=d.split("-"); return p.length===3?p[2]+"."+p[1]+"."+p[0]:d; })(editDaten.geburt) : "")}
+                    onChange={function(e) {
+                      var txt = e.target.value;
+                      setEditMemberDaten(function(p){ var upd = {geburtText: txt};
+                        var m = txt.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+                        if(m) upd.geburt = m[3]+"-"+m[2]+"-"+m[1];
+                        return Object.assign({},p,upd);
+                      });
+                    }} />
+                  <input style={{ width:"40px", opacity:0, position:"absolute", pointerEvents:"none" }} type="date" id="geburtDatePicker"
+                    value={editDaten.geburt||""}
+                    onChange={function(e){ var v=e.target.value; var p=v.split("-"); setEditMemberDaten(function(prev){ return Object.assign({},prev,{geburt:v, geburtText:p.length===3?p[2]+"."+p[1]+"."+p[0]:""}); }); }} />
+                  <button type="button" onClick={function(){ document.getElementById("geburtDatePicker").showPicker && document.getElementById("geburtDatePicker").showPicker(); }}
+                    style={{ padding:"6px 10px", backgroundColor:"#e8f0fb", color:"#003366", border:"1px solid #003366", borderRadius:"6px", cursor:"pointer", fontSize:"13px", flexShrink:0 }}>
+                    📅
+                  </button>
+                </div>
                 <label style={styles.label}>Telefon</label>
                 <input style={styles.input} value={editDaten.tel||""} onChange={function(e) { var v=e.target.value; setEditMemberDaten(function(p){ return Object.assign({},p,{tel:v}); }); }} />
                 <label style={styles.label}>E-Mail</label>
@@ -4821,27 +4825,8 @@ function App() {
                         <div style={{ flex:1 }}><label style={styles.label}>Vorname</label><input style={styles.input} value={(kind.name||"").split(", ")[1]||kind.vorname||""} onChange={function(e){ var v=e.target.value; var nach=(kind.name||"").split(", ")[0]||""; updK("name",nach+", "+v); }} /></div>
                         <div style={{ flex:1 }}><label style={styles.label}>Nachname</label><input style={styles.input} value={(kind.name||"").split(", ")[0]||kind.nachname||""} onChange={function(e){ var v=e.target.value; var vor=(kind.name||"").split(", ")[1]||""; updK("name",v+", "+vor); }} /></div>
                       </div>
-                      <label style={styles.label}>Geburtsdatum</label>
-                      <input style={styles.input} placeholder="TT.MM.JJJJ"
-                        value={kind.geburtAnzeige !== undefined ? kind.geburtAnzeige : (kind.geburt ? (function(d){ var p=d.split("-"); return p.length===3?p[2]+"."+p[1]+"."+p[0]:d; })(kind.geburt) : "")}
-                        onChange={function(e){
-                          var txt=e.target.value;
-                          var m=txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-                          var iso=m?(m[3]+"-"+(m[2].length<2?"0":"")+m[2]+"-"+(m[1].length<2?"0":"")+m[1]):kind.geburt;
-                          updK("geburtAnzeige",txt); if(m||txt==="") updK("geburt",txt===""?"":iso);
-                        }}
-                        onBlur={function(e){
-                          var txt=e.target.value, m=txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-                          if(m) updK("geburtAnzeige",(m[1].length<2?"0":"")+m[1]+"."+(m[2].length<2?"0":"")+m[2]+"."+m[3]);
-                        }} />
-                      <label style={styles.label}>Wohnort des Kindes</label>
-                      <select style={styles.input} value={kind.wohnort||""} onChange={function(e){ updK("wohnort",e.target.value); }}>
-                        <option value="">– wählen –</option>
-                        <option value="bei Antragsteller">Bei mir</option>
-                        <option value="beim anderen Elternteil">Beim anderen Elternteil</option>
-                        <option value="Wechselmodell">Wechselmodell</option>
-                        <option value="bei Dritten">Bei Dritten / Pflegefamilie</option>
-                      </select>
+                      <label style={styles.label}>Geburtsdatum (TT.MM.JJJJ)</label>
+                      <input style={styles.input} placeholder="z.B. 15.03.2018" value={kind.geburt||""} onChange={function(e){ updK("geburt",e.target.value); }} />
                       <label style={styles.label}>Unterhaltstitel für dieses Kind</label>
                       <div style={{ display:"flex", gap:"6px", marginBottom:"8px" }}>
                         {["ja","nein","Titel beantragt"].map(function(v){
@@ -4857,6 +4842,17 @@ function App() {
                           <input type="number" style={styles.input} placeholder="z.B. 426" value={kind.unterhaltsTitelBetrag||""} onChange={function(e){ updK("unterhaltsTitelBetrag",e.target.value); }} />
                         </div>
                       )}
+                      <label style={styles.label}>Wohnort / Betreuung</label>
+                      <select style={styles.input} value={kind.wohnort||""} onChange={function(e){ updK("wohnort",e.target.value); }}>
+                        <option value="">– wählen –</option>
+                        {["bei Antragsteller","beim anderen Elternteil","Wechselmodell","Kein Umgang"].map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+                      </select>
+                      <label style={styles.label}>Straße & Hausnummer (Hauptwohnsitz)</label>
+                      <input style={styles.input} placeholder="Musterstraße 1" value={kind.strasse||""} onChange={function(e){ updK("strasse",e.target.value); }} />
+                      <div style={{ display:"flex", gap:"6px" }}>
+                        <div style={{ width:"80px" }}><label style={styles.label}>PLZ</label><input style={styles.input} placeholder="12345" value={kind.plz||""} onChange={function(e){ updK("plz",e.target.value); }} /></div>
+                        <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={kind.ort||""} onChange={function(e){ updK("ort",e.target.value); }} /></div>
+                      </div>
                     </div>
                   );
                 })}
@@ -4910,7 +4906,7 @@ function App() {
               style={{ width:"100%", marginTop:"14px", padding:"10px", backgroundColor: showMehrDaten ? "#003366" : "#f0f4f7", color: showMehrDaten ? "#fff" : "#003366", border:"1px solid #003366", borderRadius:"8px", cursor:"pointer", fontWeight:"bold", fontSize:"13px" }}>
               {showMehrDaten ? "▲ Mehr Daten ausblenden" : "▼ Mehr Daten"}
             </button>
-            {showMehrDaten && memberExtras[activeMember.id] && (
+            {showMehrDaten && activeMember && memberExtras[activeMember.id] && (
               <MehrDatenView ext={memberExtras[activeMember.id]} />
             )}
 
@@ -4973,11 +4969,9 @@ function App() {
                     {e.details && <div style={{ fontSize:"11px", color:"#666", marginTop:"3px" }}>{e.details}</div>}
                     {e.detailSchritte && e.detailSchritte.length > 0 && (
                       <details style={{ marginTop:"6px" }}>
-                        <summary style={{ fontSize:"10px", color:"#003366", cursor:"pointer", fontWeight:"bold", userSelect:"none" }}>▶ Rechenweg anzeigen</summary>
+                        <summary style={{ fontSize:"10px", color:"#003366", cursor:"pointer", fontWeight:"bold" }}>▶ Detailrechnung anzeigen</summary>
                         <div style={{ backgroundColor:"#fff", border:"1px solid #ddd", borderRadius:"6px", padding:"8px", marginTop:"6px" }}>
-                          {e.detailSchritte.map(function(s,si){ return s.label==="────────────────────" ? (
-                            <div key={si} style={{ borderBottom:"1px solid #ccc", margin:"4px 0" }} />
-                          ) : (
+                          {e.detailSchritte.map(function(s,si){ return (
                             <div key={si} style={{ display:"flex", justifyContent:"space-between", fontSize:"11px", borderBottom:"1px solid #f5f5f5", padding:"3px 0" }}>
                               <span style={{ color:"#555" }}>{s.label}</span>
                               <span style={{ fontWeight: s.bold?"bold":"normal", color: s.bold?"#003366":"#333" }}>{s.wert}</span>
@@ -4985,30 +4979,9 @@ function App() {
                           ); })}
                           {e.rechtsgrundlagen && (
                             <div style={{ marginTop:"6px", fontSize:"10px", color:"#888", borderTop:"1px solid #eee", paddingTop:"4px" }}>
-                              📖 {Array.isArray(e.rechtsgrundlagen) ? e.rechtsgrundlagen.join(" · ") : e.rechtsgrundlagen}
+                              📖 {e.rechtsgrundlagen}
                             </div>
                           )}
-                          <button onClick={function(){
-                            var m=activeMember;
-                            var zeilen=e.detailSchritte.filter(function(s){return s.label!=="────────────────────";}).map(function(s){
-                              return "<tr style='border-bottom:1px solid #f0f0f0'><td style='padding:4px 8px;color:#555;font-size:11px'>"+s.label+"</td><td style='padding:4px 8px;text-align:right;font-weight:"+(s.bold?"bold":"normal")+";color:"+(s.bold?"#003366":"#333")+";font-size:11px'>"+s.wert+"</td></tr>";
-                            }).join("");
-                            var rg=e.rechtsgrundlagen?(Array.isArray(e.rechtsgrundlagen)?e.rechtsgrundlagen.join(" · "):e.rechtsgrundlagen):"";
-                            var html="<html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;margin:32px;color:#111}h2{color:#003366;font-size:15px}h3{color:#003366;font-size:13px;border-bottom:1px solid #003366;padding-bottom:4px}table{width:100%;border-collapse:collapse}.result{background:#e8f0fb;padding:10px;border-radius:6px;margin:12px 0}.footer{font-size:10px;color:#999;margin-top:24px;border-top:1px solid #eee;padding-top:8px}</style></head><body>"
-                              +"<h2>🧮 ISUV Anspruchslotse – Berechnungsprotokoll</h2>"
-                              +"<p style='font-size:11px;color:#666'>Mitglied: <strong>"+(m.vorname||"")+" "+(m.name||"")+"</strong> &nbsp;|&nbsp; Berechnung vom: <strong>"+e.datum+"</strong></p>"
-                              +"<h3>"+e.typ+"</h3>"
-                              +"<div class='result'><span style='font-size:14px;font-weight:bold;color:#003366'>Ergebnis: "+e.ergebnis+"</span>"+(e.details?"<br><span style='font-size:11px;color:#555'>"+e.details+"</span>":"")+"</div>"
-                              +"<h3>Rechenweg</h3><table>"+zeilen+"</table>"
-                              +(rg?"<div style='margin-top:10px;font-size:10px;color:#888'>📖 "+rg+"</div>":"")
-                              +"<div class='footer'>Erstellt mit ISUV Anspruchslotse &nbsp;|&nbsp; Dies ist eine Orientierungsberechnung ohne Rechtsverbindlichkeit.</div>"
-                              +"<div style='margin-top:16px;text-align:center' class='noprint'><button onclick='window.print()' style='padding:10px 24px;background:#003366;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px'>🖨️ Drucken / Als PDF speichern</button></div>"
-                              +"</body></html>";
-                            var w=window.open("","_blank","width=750,height=850");
-                            w.document.write(html); w.document.close();
-                          }} style={{ marginTop:"8px", width:"100%", padding:"6px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"6px", cursor:"pointer", fontSize:"11px", fontWeight:"bold" }}>
-                            🖨️ Als PDF drucken
-                          </button>
                         </div>
                       </details>
                     )}
@@ -5283,13 +5256,11 @@ function App() {
               }}
               onSaveErgebnis={(ergebnis) => {
                 const mid = activeMember.id;
-                const jetzt = new Date().toLocaleString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
-                const heute = new Date().toLocaleDateString("de-DE");
-                setMemberErgebnisse(prev => {
-                  const liste = prev[mid] || [];
-                  const ohneAlten = liste.filter(x => !(x.typ === ergebnis.typ && x.datum && x.datum.startsWith(heute)));
-                  return { ...prev, [mid]: [...ohneAlten.slice(-29), { ...ergebnis, datum: jetzt }] };
-                });
+                const jetzt = new Date().toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+                setMemberErgebnisse(prev => ({
+                  ...prev,
+                  [mid]: [...(prev[mid] || []), { ...ergebnis, datum: jetzt }].slice(-5)
+                }));
               }}
             />
           </div>
@@ -5403,9 +5374,131 @@ function App() {
               <div style={{ fontSize:"11px", opacity:0.85, marginTop:"2px" }}>Von: {aktivesEingangFormular.name} · {aktivesEingangFormular.datum}</div>
             </div>
 
-            {/* Ausgefüllte Felder */}
+            {/* Sorgerecht: direkt Antrag anzeigen */}
+            {aktivesEingangFormular.typ === "Antrag Gemeinsames Sorgerecht" && (function() {
+              var d = aktivesEingangFormular.felder || {};
+              var erzeugeSorgerechtPDF = function(sig) {
+                var jsPDF = getJsPDF();
+                if (!jsPDF) { alert("PDF-Bibliothek nicht geladen. Bitte Seite neu laden."); return; }
+                var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+                var W=210, mL=25, mR=25, y=20, lineH=6;
+                var heute = new Date().toLocaleDateString("de-DE");
+                var absAnschrift = (d.antragsteller_strasse||"") + (d.antragsteller_plz ? ", "+d.antragsteller_plz : "") + (d.antragsteller_ort ? " "+d.antragsteller_ort : "");
+
+                // Absender oben links
+                doc.setFontSize(10); doc.setFont("helvetica","bold");
+                doc.text(d.antragsteller_name||"", mL, y);
+                doc.setFont("helvetica","normal");
+                if (d.antragsteller_strasse) { y+=5; doc.text(d.antragsteller_strasse, mL, y); }
+                if (d.antragsteller_plz||d.antragsteller_ort) { y+=5; doc.text((d.antragsteller_plz||"")+" "+(d.antragsteller_ort||""), mL, y); }
+
+                // Datum oben rechts
+                doc.text(d.antragsteller_ort ? d.antragsteller_ort+", "+heute : heute, W-mR, 20, {align:"right"});
+
+                // Empfänger (Gericht)
+                y+=12;
+                doc.text("An das", mL, y); y+=5;
+                doc.setFont("helvetica","bold");
+                doc.text(d.gericht||"Amtsgericht _______________", mL, y); y+=5;
+                doc.setFont("helvetica","normal");
+                doc.text("– Abteilung für Familiensachen –", mL, y); y+=14;
+
+                // Betreff
+                doc.setFontSize(12); doc.setFont("helvetica","bold");
+                doc.text("Antrag auf Übertragung der gemeinsamen elterlichen Sorge", mL, y); y+=6;
+                doc.setFontSize(9); doc.setFont("helvetica","normal");
+                doc.text("gemäß § 1626a Abs. 2 BGB i.d.F. des Gesetzes v. 19.05.2013 (BGBl. I S. 1084)", mL, y); y+=5;
+                doc.text("Betr.: Kind: "+(d.kind_name||"_______________")+(d.kind_geburt ? ", geb. "+d.kind_geburt : ""), mL, y); y+=10;
+
+                // Trennlinie
+                doc.setLineWidth(0.3); doc.line(mL, y, W-mR, y); y+=8;
+
+                var section = function(t){
+                  doc.setFontSize(11); doc.setFont("helvetica","bold");
+                  doc.text(t, mL, y); doc.setLineWidth(0.2);
+                  doc.line(mL, y+1.5, W-mR, y+1.5); y+=8;
+                  doc.setFont("helvetica","normal"); doc.setFontSize(10);
+                };
+                var row = function(label, val){
+                  doc.setFont("helvetica","bold"); doc.text(label+":", mL, y);
+                  doc.setFont("helvetica","normal");
+                  var lines = doc.splitTextToSize(val||"—", W-mL-mR-48);
+                  doc.text(lines, mL+48, y); y += Math.max(lineH, lines.length*lineH);
+                };
+
+                section("I. Beteiligte");
+                row("Antragsteller (Vater)", (d.antragsteller_name||"") + (absAnschrift ? ", "+absAnschrift : ""));
+                row("Antragsgegnerin (Mutter)", (d.gegenseite_name||"") + (d.gegenseite_strasse ? ", "+d.gegenseite_strasse+", "+(d.gegenseite_plz||"")+" "+(d.gegenseite_ort||"") : "")); y+=4;
+
+                section("II. Kind");
+                row("Name", d.kind_name||"");
+                row("Geburtsdatum", d.kind_geburt||"");
+                row("Hauptwohnsitz", d.kind_strasse ? d.kind_strasse+", "+(d.kind_plz||"")+" "+(d.kind_ort||"") : ""); y+=4;
+
+                section("III. Antrag");
+                var aText = "Der Antragsteller beantragt, ihm zusammen mit der Antragsgegnerin die gemeinsame elterliche Sorge für das oben genannte Kind gemäß § 1626a Abs. 2 BGB zu übertragen.";
+                var aLines = doc.splitTextToSize(aText, W-mL-mR);
+                doc.setFontSize(10); doc.text(aLines, mL, y); y+=aLines.length*lineH+4;
+
+                section("IV. Begründung");
+                var bText = "1. Gemäß § 1626a Abs. 2 Satz 1 BGB überträgt das Familiengericht auf Antrag des Vaters die elterliche Sorge oder einen Teil davon beiden Eltern gemeinsam, wenn die Übertragung dem Kindeswohl nicht widerspricht.\n\n2. Gemäß § 1626a Abs. 2 Satz 2 BGB wird widerleglich vermutet, dass die Übertragung dem Kindeswohl nicht widerspricht (Kindeswohlvermutung). Die Beweislast für einen dem Kindeswohl widersprechenden Umstand liegt beim ablehnenden Elternteil (BGH, Beschluss v. 15.06.2016 – XII ZB 419/15).\n\n3. Tatsächliche Anhaltspunkte, die der Übertragung der gemeinsamen Sorge entgegenstehen würden, sind nicht ersichtlich. Eine gemeinsame Ausübung der elterlichen Sorge liegt im wohlverstandenen Interesse des Kindes.";
+                var bParts = bText.split("\n\n");
+                doc.setFontSize(10);
+                bParts.forEach(function(part) {
+                  var lines = doc.splitTextToSize(part, W-mL-mR);
+                  doc.text(lines, mL, y); y+=lines.length*lineH+3;
+                });
+                y+=4;
+
+                // Unterschrift
+                doc.setLineWidth(0.3); doc.line(mL, y, W-mR, y); y+=8;
+                var ortDatum = (d.antragsteller_ort||"_____________")+", den "+heute;
+                doc.setFontSize(10); doc.text(ortDatum, mL, y); y+=14;
+                if (sig) {
+                  try { doc.addImage(sig,"PNG",mL,y,70,25); } catch(e){}
+                  y+=28;
+                } else {
+                  doc.line(mL, y+12, mL+70, y+12); y+=16;
+                }
+                doc.setFontSize(9); doc.text(d.antragsteller_name||"Antragsteller", mL, y);
+                doc.save("Sorgerechtsantrag_"+(d.antragsteller_name||"").replace(/ /g,"_")+".pdf");
+              };
+              return (
+                <div style={{ backgroundColor:"#f0faf0", border:"1px solid #a5d6a7", borderRadius:"10px", padding:"14px 16px", marginBottom:"14px" }}>
+                  <div style={{ fontWeight:"bold", fontSize:"13px", color:"#2e7d32", marginBottom:"10px" }}>📄 Sorgerechtsantrag</div>
+                  <div style={{ fontSize:"11px", color:"#444", marginBottom:"12px", lineHeight:"1.6" }}>
+                    <strong>Gericht:</strong> {d.gericht||"—"}<br/>
+                    <strong>Vater:</strong> {d.antragsteller_name||"—"}, {d.antragsteller_strasse||"—"}<br/>
+                    <strong>Mutter:</strong> {d.gegenseite_name||"—"}, {d.gegenseite_strasse||"—"}<br/>
+                    <strong>Kind:</strong> {d.kind_name||"—"}{d.kind_geburt ? ", geb. "+d.kind_geburt : ""}
+                  </div>
+                  {sorgerechtSigData ? (
+                    <div style={{ marginBottom:"10px" }}>
+                      <div style={{ fontSize:"11px", color:"#555", marginBottom:"4px" }}>Unterschrift hinterlegt:</div>
+                      <img src={sorgerechtSigData} style={{ border:"1px solid #ccc", borderRadius:"6px", width:"100%", maxHeight:"70px", objectFit:"contain", backgroundColor:"#fff" }} alt="Unterschrift" />
+                      <button onClick={function(){ setSorgerechtSigData(null); }} style={{ fontSize:"11px", color:"#e53935", background:"none", border:"none", cursor:"pointer", marginTop:"3px" }}>✕ Löschen</button>
+                    </div>
+                  ) : (
+                    <button onClick={function(){ setSorgerechtSigModal(true); }}
+                      style={{ width:"100%", padding:"10px", backgroundColor:"#fff", color:"#003366", border:"2px dashed #003366", borderRadius:"8px", fontWeight:"bold", fontSize:"12px", cursor:"pointer", marginBottom:"8px" }}>
+                      ✍️ Unterschrift hinzufügen (optional)
+                    </button>
+                  )}
+                  <button onClick={function(){ erzeugeSorgerechtPDF(sorgerechtSigData); }}
+                    style={{ width:"100%", padding:"12px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>
+                    📄 Antrag als PDF herunterladen
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Ausgefüllte Felder – nur für andere Formulartypen */}
+            {aktivesEingangFormular.typ !== "Antrag Gemeinsames Sorgerecht" && (
+            <div>
             <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>Ausgefüllte Felder</div>
-            {Object.entries(aktivesEingangFormular.felder || {}).map(function(entry) {
+            </div>
+            )}
+            {aktivesEingangFormular.typ !== "Antrag Gemeinsames Sorgerecht" && Object.entries(aktivesEingangFormular.felder || {}).map(function(entry) {
               var k = entry[0]; var v = entry[1];
               if (!v || v === "" || Array.isArray(v) || typeof v === "object") return null;
               if (["kinder","hatKinder","bgKinder","bgAnliegen"].indexOf(k) >= 0) return null;
@@ -5418,8 +5511,8 @@ function App() {
               );
             })}
 
-            {/* Kinder */}
-            {Array.isArray((aktivesEingangFormular.felder||{}).kinder) && aktivesEingangFormular.felder.kinder.length > 0 && (
+            {/* Kinder – nur für andere Formulartypen */}
+            {aktivesEingangFormular.typ !== "Antrag Gemeinsames Sorgerecht" && Array.isArray((aktivesEingangFormular.felder||{}).kinder) && aktivesEingangFormular.felder.kinder.length > 0 && (
               <div style={{ marginTop:"10px" }}>
                 <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"8px", letterSpacing:"0.5px" }}>Kinder ({aktivesEingangFormular.felder.kinder.length})</div>
                 {aktivesEingangFormular.felder.kinder.map(function(k, i) {
@@ -5484,13 +5577,14 @@ function App() {
                 if (fd.trennungSeit) updates.trennungSeit = fd.trennungSeit;
                 if (fd.hatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                 if (fd.kinder && fd.kinder.length > 0) {
-                  updates.alleinerziehend = true;
-                  updates.kinder = fd.kinder.map(function(k) {
+                  var km3 = fd.kinder.map(function(k) {
                     var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
                     var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
                     var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
                     return { name:(k.nachname||fd.name||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:true };
                   });
+                  updates.kinder = km3;
+                  updates.alleinerziehend = km3.some(function(k){ return k.wohnort && (k.wohnort.toLowerCase().includes("antragstell") || k.wohnort.toLowerCase().includes("mir")); });
                 }
 
                 // Bürgergeld-Felder (bgXxx)
@@ -5510,13 +5604,14 @@ function App() {
                 if (fd.bgAnliegen && fd.bgAnliegen.length > 0) updates.bgAnliegen = fd.bgAnliegen;
                 if (fd.bgHatKinder === "nein") { updates.alleinerziehend = false; updates.kinder = []; }
                 if (fd.bgKinder && fd.bgKinder.length > 0) {
-                  updates.alleinerziehend = true;
-                  updates.kinder = fd.bgKinder.map(function(k) {
+                  var km4 = fd.bgKinder.map(function(k) {
                     var heute = new Date(); var geb = k.geburt ? new Date(k.geburt) : null;
                     var alterJahre = geb ? Math.floor((heute-geb)/(365.25*24*3600*1000)) : 0;
                     var alterGruppe = alterJahre>=18?"18+ J.":alterJahre>=12?"12-17 J.":alterJahre>=6?"6-11 J.":"0-5 J.";
                     return { name:(k.nachname||"")+", "+(k.vorname||""), geburt:k.geburt||"", alter:alterGruppe, wohnort:k.wohnort||"bei Antragsteller", uvg:k.uvg==="ja", kg:k.kindergeld==="ja" };
                   });
+                  updates.kinder = km4;
+                  updates.alleinerziehend = km4.some(function(k){ return k.wohnort && (k.wohnort.toLowerCase().includes("antragstell") || k.wohnort.toLowerCase().includes("mir")); });
                 }
 
                 // Konflikterkennung
@@ -6058,6 +6153,234 @@ function App() {
         )}
 
         {/* ============================================= */}
+        {/* ANTRAG GEMEINSAMES SORGERECHT – Formular       */}
+        {/* ============================================= */}
+        {view === "sorgerecht_form" && (function() {
+          var sd = formFelderDaten;
+          var upd = function(f, v) { setFormFelderDaten(function(p) { return Object.assign({}, p, {[f]: v}); }); };
+
+          // Gericht per PLZ automatisch ermitteln
+
+          var ermittleGericht = function() {
+            var plz = (sd.kind_plz || "").trim();
+            if (!plz || plz.length < 5) { setGerichtFehler("Bitte zuerst PLZ des Kindes eingeben."); return; }
+            setGerichtSuche(true); setGerichtFehler("");
+            fetch("https://www.justiz.de/onlinedienste/gerichtsverzeichnis/index.php?plz=" + encodeURIComponent(plz) + "&gtyp=AG&land=")
+              .then(function(r) { return r.text(); })
+              .then(function(html) {
+                // Parse Amtsgericht name from result
+                var match = html.match(/Amtsgericht\s+([^<"\n,]+)/i);
+                var nameMatch = match ? ("Amtsgericht " + match[1].trim()) : null;
+                // Try alternate pattern
+                if (!nameMatch) {
+                  var m2 = html.match(/<td[^>]*>\s*(Amtsgericht[^<]+)<\/td>/i);
+                  nameMatch = m2 ? m2[1].trim() : null;
+                }
+                if (nameMatch) {
+                  upd("gericht", nameMatch);
+                  setGerichtFehler("✅ Gericht ermittelt.");
+                } else {
+                  setGerichtFehler("⚠️ Kein Ergebnis – bitte manuell eintragen.");
+                }
+                setGerichtSuche(false);
+              })
+              .catch(function() {
+                // Fallback: try zefixat or bundestag API
+                fetch("https://sg.geodatenzentrum.de/web_public/gdz/geoserver/vg/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&typeNames=vg:vg5000_gem&outputFormat=application%2Fjson&CQL_FILTER=nuts_id%20IS%20NOT%20NULL&count=1&SORTBY=nuts_id")
+                  .catch(function(){})
+                  .finally(function(){
+                    setGerichtFehler("⚠️ Automatische Ermittlung nicht möglich. Bitte manuell eintragen: amtsgericht-" + plz.substring(0,3).toLowerCase() + ".de oder justiz.de");
+                    setGerichtSuche(false);
+                  });
+              });
+          };
+
+          var absenden = function() {
+            var pflicht = [sd.antragsteller_name, sd.gegenseite_name, sd.kind_name];
+            if (pflicht.some(function(v) { return !v || !v.trim(); })) {
+              alert("Bitte alle Pflichtfelder (*) ausfüllen."); return;
+            }
+            var loginD = loginDaten || {};
+            var sbUrl = loginD.supabaseUrl || ""; var sbKey = loginD.supabaseKey || "";
+            if (!sbUrl || !sbKey) { alert("Supabase nicht konfiguriert."); return; }
+            var payload = {
+              status: "beantwortet",
+              label: "Antrag Gemeinsames Sorgerecht",
+              typ: "fr_sorgerecht",
+              mitglied_name: sd.antragsteller_name || "",
+              mitglied_mail: sd.mail || "",
+              antwort_daten: JSON.stringify(sd),
+              beantwortet_am: new Date().toISOString()
+            };
+            fetch(sbUrl + "/rest/v1/formulare", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "apikey": sbKey, "Authorization": "Bearer " + sbKey, "Prefer": "return=minimal" },
+              body: JSON.stringify(payload)
+            }).then(function(r) {
+              if (r.ok) { setView("dashboard"); setFormFelderDaten({}); alert("Angaben erfolgreich übermittelt."); }
+              else { alert("Fehler beim Senden. Bitte erneut versuchen."); }
+            }).catch(function() { alert("Netzwerkfehler. Bitte erneut versuchen."); });
+          };
+
+          
+
+          return (
+            <div style={styles.formPage}>
+              <div style={{ textAlign:"center", padding:"24px 16px 16px" }}>
+                <img src={window.ISUV_LOGO} alt="ISUV" style={{ width:"160px", height:"auto", marginBottom:"12px" }} />
+                <div style={{ fontSize:"13px", fontWeight:"bold", color:"#003366" }}>ISUV Anspruchslotse</div>
+                <div style={{ fontSize:"11px", color:"#666", marginTop:"2px" }}>Antrag Gemeinsames Sorgerecht (§ 1626a Abs. 2 BGB)</div>
+              </div>
+              <button onClick={function() { setView("dashboard"); setFormFelderDaten({}); }} style={{ background:"none", border:"none", color:"#003366", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"12px", padding:"0 16px", display:"block" }}>‹ Abbrechen</button>
+              <div style={{ padding:"0 16px" }}>
+
+                <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"8px", padding:"10px 12px", marginBottom:"14px", fontSize:"11px", color:"#2e7d32" }}>
+                  ✅ <strong>Keine Begründung erforderlich.</strong> Nach § 1626a Abs. 2 BGB (Reform 2013) wird die gemeinsame Sorge übertragen, sofern sie dem Kindeswohl nicht widerspricht. Die Beweislast liegt beim ablehnenden Elternteil.
+                </div>
+
+                {/* Antragsteller */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>Vater (Antragsteller)</div>
+                <label style={styles.label}>Vollständiger Name *</label>
+                <input style={styles.input} placeholder="Vorname Nachname" value={sd.antragsteller_name||""} onChange={function(e){ upd("antragsteller_name", e.target.value); }} />
+                <label style={styles.label}>Straße & Hausnummer</label>
+                <input style={styles.input} placeholder="Musterstraße 1" value={sd.antragsteller_strasse||""} onChange={function(e){ upd("antragsteller_strasse", e.target.value); }} />
+                <div style={{ display:"flex", gap:"6px" }}>
+                  <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} placeholder="12345" value={sd.antragsteller_plz||""} onChange={function(e){ upd("antragsteller_plz", e.target.value); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={sd.antragsteller_ort||""} onChange={function(e){ upd("antragsteller_ort", e.target.value); }} /></div>
+                </div>
+
+                {/* Gegenseite */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>Mutter (Antragsgegnerin)</div>
+                <label style={styles.label}>Vollständiger Name *</label>
+                <input style={styles.input} placeholder="Vorname Nachname" value={sd.gegenseite_name||""} onChange={function(e){ upd("gegenseite_name", e.target.value); }} />
+                <label style={styles.label}>Straße & Hausnummer</label>
+                <input style={styles.input} placeholder="Musterstraße 1" value={sd.gegenseite_strasse||""} onChange={function(e){ upd("gegenseite_strasse", e.target.value); }} />
+                <div style={{ display:"flex", gap:"6px" }}>
+                  <div style={{ width:"90px" }}><label style={styles.label}>PLZ</label><input style={styles.input} placeholder="12345" value={sd.gegenseite_plz||""} onChange={function(e){ upd("gegenseite_plz", e.target.value); }} /></div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={sd.gegenseite_ort||""} onChange={function(e){ upd("gegenseite_ort", e.target.value); }} /></div>
+                </div>
+
+                {/* Kind */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>Kind</div>
+                <label style={styles.label}>Vollständiger Name *</label>
+                <input style={styles.input} placeholder="Vorname Nachname" value={sd.kind_name||""} onChange={function(e){ upd("kind_name", e.target.value); }} />
+                <label style={styles.label}>Geburtsdatum</label>
+                <input style={styles.input} type="date" value={sd.kind_geburt||""} onChange={function(e){ upd("kind_geburt", e.target.value); }} />
+                <label style={styles.label}>Straße & Hausnummer (Hauptwohnsitz)</label>
+                <input style={styles.input} placeholder="Musterstraße 1" value={sd.kind_strasse||""} onChange={function(e){ upd("kind_strasse", e.target.value); }} />
+                <div style={{ display:"flex", gap:"6px" }}>
+                  <div style={{ width:"90px" }}>
+                    <label style={styles.label}>PLZ</label>
+                    <input style={styles.input} placeholder="12345" value={sd.kind_plz||""} onChange={function(e){ upd("kind_plz", e.target.value); setGerichtFehler(""); }} />
+                  </div>
+                  <div style={{ flex:1 }}><label style={styles.label}>Ort</label><input style={styles.input} placeholder="Stadt" value={sd.kind_ort||""} onChange={function(e){ upd("kind_ort", e.target.value); }} /></div>
+                </div>
+
+                {/* Gericht automatisch ermitteln */}
+                <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"10px", letterSpacing:"0.5px" }}>Zuständiges Gericht</div>
+                <div style={{ display:"flex", gap:"8px", marginBottom:"8px", alignItems:"flex-end" }}>
+                  <div style={{ flex:1 }}>
+                    <label style={styles.label}>Amtsgericht</label>
+                    <input style={styles.input} placeholder="Wird automatisch ermittelt oder manuell eintragen" value={sd.gericht||""} onChange={function(e){ upd("gericht", e.target.value); }} />
+                  </div>
+                  <button onClick={ermittleGericht} disabled={gerichtSuche}
+                    style={{ padding:"10px 12px", backgroundColor: gerichtSuche ? "#aaa" : "#1565c0", color:"#fff", border:"none", borderRadius:"6px", cursor: gerichtSuche ? "not-allowed" : "pointer", fontWeight:"bold", fontSize:"11px", whiteSpace:"nowrap", marginBottom:"10px" }}>
+                    {gerichtSuche ? "⏳ Suche..." : "🔍 Per PLZ ermitteln"}
+                  </button>
+                </div>
+                {gerichtFehler && (
+                  <div style={{ fontSize:"11px", color: gerichtFehler.startsWith("✅") ? "#2e7d32" : "#856404", backgroundColor: gerichtFehler.startsWith("✅") ? "#e8f5e9" : "#fff9e6", borderRadius:"6px", padding:"6px 10px", marginBottom:"8px" }}>
+                    {gerichtFehler}
+                  </div>
+                )}
+                <div style={{ fontSize:"10px", color:"#888", marginBottom:"8px" }}>ℹ️ Zuständig ist das Amtsgericht am <strong>Hauptwohnsitz des Kindes</strong> (§ 152 FamFG).</div>
+
+                {/* Unterschrift + PDF */}
+                <div style={{ marginTop:"20px", marginBottom:"16px" }}>
+                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginBottom:"10px", letterSpacing:"0.5px" }}>✍️ Unterschrift</div>
+                  {sorgerechtSigData ? (
+                    <div style={{ marginBottom:"10px" }}>
+                      <img src={sorgerechtSigData} style={{ border:"1px solid #ccc", borderRadius:"6px", width:"100%", maxHeight:"80px", objectFit:"contain", backgroundColor:"#fff" }} alt="Unterschrift" />
+                      <button onClick={function(){ setSorgerechtSigData(null); }} style={{ fontSize:"11px", color:"#e53935", background:"none", border:"none", cursor:"pointer", marginTop:"4px" }}>✕ Unterschrift löschen</button>
+                    </div>
+                  ) : (
+                    <button onClick={function(){ setSorgerechtSigModal(true); }}
+                      style={{ width:"100%", padding:"12px", backgroundColor:"#fff", color:"#003366", border:"2px dashed #003366", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"10px" }}>
+                      ✍️ Hier unterschreiben (mit Finger oder Maus)
+                    </button>
+                  )}
+                  <button onClick={function(){
+                    var pflicht = [sd.antragsteller_name, sd.gegenseite_name, sd.kind_name];
+                    if (pflicht.some(function(v){ return !v||!v.trim(); })) { alert("Bitte alle Pflichtfelder (*) ausfüllen."); return; }
+                    var jsPDF = window.jspdf && window.jspdf.jsPDF;
+                    if (!jsPDF) { alert("PDF-Bibliothek nicht geladen."); return; }
+                    var d = sd;
+                    var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+                    var W=210, mL=25, mR=25, y=20, lineH=6;
+                    var heute = new Date().toLocaleDateString("de-DE");
+                    var absAnschrift = (d.antragsteller_strasse||"") + (d.antragsteller_plz ? ", "+d.antragsteller_plz : "") + (d.antragsteller_ort ? " "+d.antragsteller_ort : "");
+                    // Absender oben links
+                    doc.setFontSize(10); doc.setFont("helvetica","bold");
+                    doc.text(d.antragsteller_name||"", mL, y);
+                    doc.setFont("helvetica","normal");
+                    if (d.antragsteller_strasse) { y+=5; doc.text(d.antragsteller_strasse, mL, y); }
+                    if (d.antragsteller_plz||d.antragsteller_ort) { y+=5; doc.text((d.antragsteller_plz||"")+" "+(d.antragsteller_ort||""), mL, y); }
+                    // Datum oben rechts
+                    doc.text(d.antragsteller_ort ? d.antragsteller_ort+", "+heute : heute, W-mR, 20, {align:"right"});
+                    // Empfänger (Gericht)
+                    y+=12;
+                    doc.text("An das", mL, y); y+=5;
+                    doc.setFont("helvetica","bold");
+                    doc.text(d.gericht||"Amtsgericht _______________", mL, y); y+=5;
+                    doc.setFont("helvetica","normal");
+                    doc.text("– Abteilung für Familiensachen –", mL, y); y+=14;
+                    // Betreff
+                    doc.setFontSize(12); doc.setFont("helvetica","bold");
+                    doc.text("Antrag auf Übertragung der gemeinsamen elterlichen Sorge", mL, y); y+=6;
+                    doc.setFontSize(9); doc.setFont("helvetica","normal");
+                    doc.text("gemäß § 1626a Abs. 2 BGB i.d.F. des Gesetzes v. 19.05.2013 (BGBl. I S. 1084)", mL, y); y+=5;
+                    doc.text("Betr.: Kind: "+(d.kind_name||"_______________")+(d.kind_geburt ? ", geb. "+d.kind_geburt : ""), mL, y); y+=10;
+                    doc.setLineWidth(0.3); doc.line(mL, y, W-mR, y); y+=8;
+                    // Beteiligte
+                    var section = function(t){ doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text(t,mL,y); doc.setLineWidth(0.2); doc.line(mL,y+1.5,W-mR,y+1.5); y+=8; doc.setFont("helvetica","normal"); doc.setFontSize(10); };
+                    var row = function(label,val){ doc.setFont("helvetica","bold"); doc.text(label+":",mL,y); doc.setFont("helvetica","normal"); var lines=doc.splitTextToSize(val||"—",W-mL-mR-48); doc.text(lines,mL+48,y); y+=Math.max(lineH,lines.length*lineH); };
+                    section("I. Beteiligte");
+                    row("Antragsteller (Vater)", (d.antragsteller_name||"")+(absAnschrift ? ", "+absAnschrift : ""));
+                    row("Antragsgegnerin (Mutter)", (d.gegenseite_name||"")+(d.gegenseite_strasse ? ", "+d.gegenseite_strasse+", "+(d.gegenseite_plz||"")+" "+(d.gegenseite_ort||"") : "")); y+=4;
+                    section("II. Kind");
+                    row("Name", d.kind_name||"");
+                    row("Geburtsdatum", d.kind_geburt||"");
+                    row("Hauptwohnsitz", d.kind_strasse ? d.kind_strasse+", "+(d.kind_plz||"")+" "+(d.kind_ort||"") : ""); y+=4;
+                    section("III. Antrag");
+                    var aLines = doc.splitTextToSize("Der Antragsteller beantragt, ihm zusammen mit der Antragsgegnerin die gemeinsame elterliche Sorge für das oben genannte Kind gemäß § 1626a Abs. 2 BGB zu übertragen.", W-mL-mR);
+                    doc.setFontSize(10); doc.text(aLines, mL, y); y+=aLines.length*lineH+4;
+                    section("IV. Begründung");
+                    var bParts = [
+                      "1. Gemäß § 1626a Abs. 2 Satz 1 BGB überträgt das Familiengericht auf Antrag des Vaters die elterliche Sorge oder einen Teil davon beiden Eltern gemeinsam, wenn die Übertragung dem Kindeswohl nicht widerspricht.",
+                      "2. Gemäß § 1626a Abs. 2 Satz 2 BGB wird widerleglich vermutet, dass die Übertragung dem Kindeswohl nicht widerspricht (Kindeswohlvermutung). Die Beweislast für einen dem Kindeswohl widersprechenden Umstand liegt beim ablehnenden Elternteil (BGH, Beschluss v. 15.06.2016 – XII ZB 419/15).",
+                      "3. Tatsächliche Anhaltspunkte, die der Übertragung der gemeinsamen Sorge entgegenstehen würden, sind nicht ersichtlich. Eine gemeinsame Ausübung der elterlichen Sorge liegt im wohlverstandenen Interesse des Kindes."
+                    ];
+                    doc.setFontSize(10);
+                    bParts.forEach(function(part){ var lines=doc.splitTextToSize(part,W-mL-mR); doc.text(lines,mL,y); y+=lines.length*lineH+3; }); y+=4;
+                    // Unterschrift
+                    doc.setLineWidth(0.3); doc.line(mL,y,W-mR,y); y+=8;
+                    doc.text((d.antragsteller_ort||"_____________")+", den "+heute, mL, y); y+=14;
+                    if (sorgerechtSigData) { try { doc.addImage(sorgerechtSigData,"PNG",mL,y,70,25); } catch(e){} y+=28; } else { doc.line(mL,y+12,mL+70,y+12); y+=16; }
+                    doc.setFontSize(9); doc.text(d.antragsteller_name||"Antragsteller", mL, y);
+                    doc.save("Sorgerechtsantrag_"+(d.antragsteller_name||"").replace(/ /g,"_")+".pdf");
+                  }} style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer" }}>
+                    📄 Als PDF speichern
+                  </button>
+                  <button onClick={absenden} style={{ width:"100%", padding:"10px", backgroundColor:"#555", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"12px", cursor:"pointer", marginTop:"8px" }}>
+                    ✅ Nur übermitteln (kein PDF)
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ============================================= */}
         {/* ANLAGE TBG – vollständig überarbeitet          */}
         {/* ============================================= */}
         {view === "tbg_form" && (function() {
@@ -6157,8 +6480,8 @@ function App() {
             if(!fd.sigAntragsteller) { alert("Bitte zuerst unterschreiben."); return; }
             // Dynamisch laden wenn noch nicht vorhanden
             var doExport = function() {
-              var jsPDF = window.jspdf ? window.jspdf.jsPDF : null;
-              if(!jsPDF) { alert("PDF-Bibliothek lädt noch... Bitte in 2 Sekunden erneut versuchen."); return; }
+              var jsPDF = getJsPDF();
+              if(!jsPDF) { alert("PDF-Bibliothek nicht geladen. Bitte Seite neu laden."); return; }
               var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
               var pw = 210, margin = 15, cw = pw - margin*2;
               var y = 15;
@@ -7317,9 +7640,12 @@ function App() {
                 var ext = m ? (memberExtras[m.id] || {}) : {};
                 var fTyp = formularVersandDialogNeu.formTyp;
 
+                // Sorgerecht braucht keine Feldauswahl
+                if (fTyp === "fr_sorgerecht") return null;
+
                 // Warnung: bereits offenes Formular?
                 var memberName = m ? m.vorname + " " + m.name : null;
-                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : "Anlage TBG";
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : "Anlage TBG";
                 var offenes = memberName ? ausgangFormulare.find(function(af) { return af.mitglied === memberName && af.typ === fLabel && af.status !== "beantwortet"; }) : null;
 
                 var alleFelder = fTyp === "stammdaten" ? [
@@ -7355,7 +7681,6 @@ function App() {
                   { id:"tbg_einkommen_kind",label:"Einkommen des Kindes (UVG etc.)",    hatDaten: !!(ext.uvgBetrag) },
                 ];
 
-                // Startzustand: alle Felder aktiv, Felder mit Akte-Daten grün markiert aber trotzdem angehakt
                 var aktiveFelder = versandFelder !== null ? versandFelder : alleFelder.map(function(f){ return f.id; });
                 var alleAktiv = aktiveFelder.length === alleFelder.length;
                 var hatDatenCount = alleFelder.filter(function(f){ return f.hatDaten; }).length;
@@ -7420,42 +7745,8 @@ function App() {
 
               {formularVersandDialogNeu.formTyp && (function() {
                 var m = formularVersandDialogNeu.member;
-                var ext = m ? (memberExtras[m.id] || {}) : {};
                 var fTyp = formularVersandDialogNeu.formTyp;
-                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : "Anlage TBG";
-                // alleFelder (gleiche Definition wie im Checkbox-Block) für hatDaten-Auswahl
-                var alleFelder2 = fTyp === "stammdaten" ? [
-                  { id:"titel",             hatDaten: !!(ext.titel) },
-                  { id:"vorname_name",       hatDaten: !!(m && m.vorname && m.name) },
-                  { id:"tel",                hatDaten: !!(m && m.tel) },
-                  { id:"mail",               hatDaten: !!(m && m.mail) },
-                  { id:"adresse",            hatDaten: !!(m && m.strasse) },
-                  { id:"familienstand",      hatDaten: !!(ext.familienstand) },
-                  { id:"gegenseite",         hatDaten: !!(ext.gegenseiteVorname || ext.gegenseiteName) },
-                  { id:"beschaeftigung",     hatDaten: !!(ext.beschaeftigungsart || ext.einkommenArt) },
-                  { id:"einkommen",          hatDaten: !!(ext.einkommenNetto) },
-                  { id:"wohnen",             hatDaten: !!(ext.mieteWarm) },
-                  { id:"kinder",             hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
-                  { id:"notizen",            hatDaten: !!(ext.notizen) },
-                ] : fTyp === "buergergeld" ? [
-                  { id:"bg_person",          hatDaten: !!(m && m.vorname) },
-                  { id:"bg_haushalt",        hatDaten: false },
-                  { id:"bg_kinder",          hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
-                  { id:"bg_einkommen",       hatDaten: !!(ext.einkommenNetto || ext.einkommenArt) },
-                  { id:"bg_wohnen",          hatDaten: !!(ext.mieteWarm || ext.mieteKalt) },
-                  { id:"bg_bedarfe",         hatDaten: false },
-                  { id:"bg_verfahren",       hatDaten: false },
-                  { id:"bg_anliegen",        hatDaten: false },
-                ] : [
-                  { id:"tbg_antragsteller",  hatDaten: !!(m && m.vorname) },
-                  { id:"tbg_adresse",        hatDaten: !!(m && m.strasse) },
-                  { id:"tbg_betreuungsmodell", hatDaten: !!(ext.betreuungsmodell) },
-                  { id:"tbg_kind_name",      hatDaten: !!(ext.kinder && ext.kinder.length > 0) },
-                  { id:"tbg_anderer_et",     hatDaten: false },
-                  { id:"tbg_kalender",       hatDaten: false },
-                  { id:"tbg_kindergeld",     hatDaten: !!(ext.kindergeldBetrag) },
-                  { id:"tbg_einkommen_kind", hatDaten: !!(ext.uvgBetrag) },
-                ];
+                var fLabel = fTyp === "stammdaten" ? "Stammdaten-Fragebogen" : fTyp === "buergergeld" ? "Bürgergeld-Fragebogen" : fTyp === "fr_sorgerecht" ? "Antrag Gemeinsames Sorgerecht" : "Anlage TBG";
 
                 // Feldlabels für den Mail-Text
                 var alleFeldLabels = fTyp === "stammdaten" ? {
@@ -7490,18 +7781,12 @@ function App() {
                   tbg_kindergeld: "Kindergeld",
                   tbg_einkommen_kind: "Einkommen des Kindes"
                 };
-                // Gleiche Logik wie Checkbox-Auswahl oben:
-                // Im Versandtext nur Felder die aktiv UND nicht aus Akte bekannt
-                // (Felder mit Akte-Daten werden vorausgefüllt, müssen nicht abgefragt werden)
-                var hatDatenIds2 = alleFelder2.filter(function(f){ return f.hatDaten; }).map(function(f){ return f.id; });
-                var aktiveFeldIds = (versandFelder !== null ? versandFelder : alleFelder2.map(function(f){ return f.id; }))
-                  .filter(function(id){ return !hatDatenIds2.includes(id); });
+                var aktiveFeldIds = (versandFelder !== null && versandFelder.length > 0) ? versandFelder : Object.keys(alleFeldLabels);
                 var detailFragen = fTyp==="stammdaten" ? { titel:["Titel (Dr., Prof. etc.)"], vorname_name:["Vorname","Nachname"], tel:["Telefonnummer"], mail:["E-Mail-Adresse"], adresse:["Strasse & Hausnummer","PLZ","Ort"], familienstand:["Familienstand (ledig/getrennt/geschieden/verheiratet)","Getrennt seit (Datum)"], gegenseite:["Vorname & Name Gegenseite","Adresse","Einkommen (EUR/Monat)"], beschaeftigung:["Beschaeftigungsart","Arbeitgeber","Wochenstunden"], einkommen:["Nettoeinkommen (EUR/Monat)","Bruttoeinkommen (EUR/Monat)","Steuerklasse"], wohnen:["Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)","Mietstufe (1-6)"], kinder:["Vorname & Nachname je Kind","Geburtsdatum","Wohnort (Antragsteller*in / and. Elternteil / wechselnd)","UVG bezogen? (ja/nein)","Kindergeld-Empfaenger"], notizen:["Anmerkungen"]
                 } : fTyp==="buergergeld" ? { bg_person:["Vorname","Nachname","Geburtsdatum","Staatsangehoerigkeit","E-Mail","Telefon","Strasse","PLZ","Ort","Familienstand"], bg_haushalt:["Wohnsituation (allein/mit Partner/WG)","Anzahl Personen in der BG"], bg_kinder:["Kinder vorhanden? (ja/nein)","Je Kind: Name, Geburtsdatum, Wohnort, Kindergeld, UVG bezogen?"], bg_einkommen:["Erwerbsstatus","Arbeitgeber","Nettoeinkommen (EUR/Monat)","ALG-I (EUR/Monat)","Weitere Einkuenfte","Vermoegen (EUR)"], bg_wohnen:["Mietverhaeltnis","Kaltmiete (EUR/Monat)","Nebenkosten (EUR/Monat)","Heizkosten (EUR/Monat)","Wohnflaeche (m2)"], bg_bedarfe:["Schwerbehinderung? (ja/nein)","GdB & Merkzeichen","Schulden? (ja/nein)","Schulden-Betrag & Rate (EUR)"], bg_verfahren:["Antrag beim Jobcenter? (ja/nein)","Antragsdatum","Name Jobcenter","Bescheid erhalten?","Art des Bescheids","Widerspruch eingelegt?"], bg_anliegen:["Anliegen: Erstantrag / Widerspruch / Sanktionen / Mehrbedarf / Jobcenter-Probleme / Sonstiges","Anmerkungen"]
                 } : { tbg_antragsteller:["Vorname","Nachname","Geburtsdatum","E-Mail","Telefon"], tbg_adresse:["Strasse & Hausnummer","PLZ","Ort"], tbg_betreuungsmodell:["Betreuungsmodell (paritaetisch/asymmetrisch/Residenz)","Anteil Betreuung in %"], tbg_kind_name:["Vorname Kind","Nachname Kind","Geburtsdatum Kind"], tbg_anderer_et:["Vorname & Nachname anderer Elternteil","Adresse anderer Elternteil"], tbg_kalender:["Tage/Monat beim Antragsteller (Jan-Dez)","Tage/Monat beim anderen Elternteil (Jan-Dez)"], tbg_kindergeld:["Wer bezieht Kindergeld?","Kindergeldbetrag (EUR/Monat)"], tbg_einkommen_kind:["Eigenes Einkommen des Kindes (EUR/Monat)"]
                 };
-                // Nur ausgewählte Felder im Mailtext – fehlende Felder werden weggelassen
-                var feldListeText = aktiveFeldIds.length === 0 ? "" : ("\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { var fragen=detailFragen[id]||[]; return "\n" + (alleFeldLabels[id]||id) + ":\n" + fragen.map(function(f){ return "    > "+f; }).join("\n"); }).join("\n"));
+                var feldListeText = "\n\nBitte folgende Angaben ausfuellen:\n" + aktiveFeldIds.map(function(id) { var fragen=detailFragen[id]||[]; return "\n" + (alleFeldLabels[id]||id) + ":\n" + fragen.map(function(f){ return "    > "+f; }).join("\n"); }).join("\n");
 
                 var linkText = "Guten Tag" + (m ? " " + m.vorname + " " + m.name : "") + ",\n\n" +
                   "der ISUV Anspruchslotse hat fuer Sie ein Formular bereitgestellt:\n" +
@@ -7522,6 +7807,190 @@ function App() {
 
                 return (
                   <div>
+                    {/* Sorgerecht: Versand per Link wie andere Formulare, ODER direkt lokal ausfüllen */}
+                    {fTyp === "fr_sorgerecht" && (
+                      <div>
+                        <div style={{ backgroundColor:"#e8f0fb", border:"1px solid #90caf9", borderRadius:"8px", padding:"10px 12px", marginBottom:"12px", fontSize:"11px", color:"#003366" }}>
+                          <strong>Aus der Akte bekannte Felder werden vorausgefüllt.</strong> Fehlende Angaben (z.B. Wohnanschrift Kind, Adresse des anderen Elternteils) füllt das Mitglied online aus.
+                        </div>
+                        {(function() {
+                          var ext_m = m ? (memberExtras[m.id] || {}) : {};
+                          var kind0 = ext_m.kinder && ext_m.kinder[0] ? ext_m.kinder[0] : null;
+                          var kindName = kind0 ? (kind0.name || "") : "";
+                          var kindGeburt = kind0 ? (kind0.geburt || "") : "";
+                          var mitgliedName = m ? (m.vorname + " " + m.name) : "";
+                          var vorausgefuellt = {
+                            _formTyp: "fr_sorgerecht",
+                            antragsteller_rolle: "vater",
+                            antragsteller_name: mitgliedName,
+                            antragsteller_strasse: m ? m.strasse || "" : "",
+                            antragsteller_plz: m ? m.plz || "" : "",
+                            antragsteller_ort: m ? m.ort || "" : "",
+                            kind_name: kindName,
+                            kind_geburt: kindGeburt,
+                            kind_strasse: kind0 ? (kind0.strasse || "") : "",
+                            kind_plz: kind0 ? (kind0.plz || "") : "",
+                            kind_ort: kind0 ? (kind0.ort || "") : "",
+                            mail: m ? m.mail || "" : ""
+                          };
+                          var fehlendeFelder = [];
+                          if (!vorausgefuellt.antragsteller_strasse) fehlendeFelder.push("Eigene Anschrift");
+                          if (!vorausgefuellt.kind_name) fehlendeFelder.push("Name des Kindes");
+                          if (!vorausgefuellt.kind_geburt) fehlendeFelder.push("Geburtsdatum Kind");
+                          fehlendeFelder.push("Anschrift des Kindes");
+                          fehlendeFelder.push("Name & Anschrift Mutter");
+                          return (
+                            <div>
+                              {fehlendeFelder.length > 0 && (
+                                <div style={{ backgroundColor:"#fff9e6", border:"1px solid #ffc107", borderRadius:"6px", padding:"8px 10px", marginBottom:"10px", fontSize:"11px" }}>
+                                  <strong>⚠️ Noch nicht bekannt:</strong> {fehlendeFelder.join(", ")}
+                                </div>
+                              )}
+                              <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                                <button onClick={function() {
+                                  setFormFelderDaten(vorausgefuellt);
+                                  setFormularVersandDialogNeu(null);
+                                  setView("sorgerecht_form");
+                                }} style={{ width:"100%", padding:"10px", backgroundColor:"#1565c0", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                                  ✏️ Jetzt direkt ausfüllen & drucken
+                                </button>
+                                {sbReady() && m && m.mail && (
+                                  <button onClick={async function() {
+                                    var sbResult = await sbSaveFormular("fr_sorgerecht", "Antrag Gemeinsames Sorgerecht", m, vorausgefuellt);
+                                    if (!sbResult) { alert("Supabase Fehler."); return; }
+                                    var betreff = "ISUV Anspruchslotse – Angaben für Sorgerechtsantrag";
+                                    var body = "Guten Tag " + (m.vorname||"") + ",\n\nbitte ergänzen Sie die fehlenden Angaben für den Antrag auf gemeinsames Sorgerecht (§ 1626a Abs. 2 BGB):\n\n🔗 " + sbResult.url + "\n\nBenötigt werden:\n" + fehlendeFelder.map(function(f){ return "  • " + f; }).join("\n") + "\n\nBei Fragen: " + (loginDaten.email||"") + "\n\n" + (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
+                                    window.open("mailto:" + encodeURIComponent(m.mail) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(body));
+                                    var jetzt = new Date();
+                                    var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
+                                    setAusgangFormulare(function(prev) { return prev.concat([{ id: sbResult.id, typ:"Antrag Gemeinsames Sorgerecht", empfaenger: m.mail, mitglied: m.vorname + " " + m.name, datum: ds, status:"unbeantwortet", kanal:"✉️ E-Mail", formLink: sbResult.url }]); });
+                                    setFormularVersandDialogNeu(null); setShowAusgang(true);
+                                  }} style={{ width:"100%", padding:"10px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                                    ✉️ Per E-Mail senden (fehlende Angaben anfordern)
+                                  </button>
+                                )}
+                                {sbReady() && m && m.tel && (
+                                  <button onClick={async function() {
+                                    var sbResult = await sbSaveFormular("fr_sorgerecht", "Antrag Gemeinsames Sorgerecht", m, vorausgefuellt);
+                                    if (!sbResult) { alert("Supabase Fehler."); return; }
+                                    var empfTel = m.tel.replace(/[^0-9]/g,"").replace(/^0/,"49");
+                                    var msg = "Hallo " + (m.vorname||"") + ",\n\nbitte ergänzen Sie die fehlenden Angaben für den Sorgerechtsantrag:\n\n" + fehlendeFelder.map(function(f){ return "• " + f; }).join("\n") + "\n\n🔗 " + sbResult.url + "\n\n" + (loginDaten.leiter||"ISUV");
+                                    window.open("https://wa.me/" + empfTel + "?text=" + encodeURIComponent(msg));
+                                    var jetzt = new Date();
+                                    var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
+                                    setAusgangFormulare(function(prev) { return prev.concat([{ id: sbResult.id, typ:"Antrag Gemeinsames Sorgerecht", empfaenger: m.tel, mitglied: m.vorname + " " + m.name, datum: ds, status:"unbeantwortet", kanal:"📱 WhatsApp", formLink: sbResult.url }]); });
+                                    setFormularVersandDialogNeu(null); setShowAusgang(true);
+                                  }} style={{ width:"100%", padding:"10px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                                    📱 Per WhatsApp senden (fehlende Angaben anfordern)
+                                  </button>
+                                )}
+                                {!sbReady() && (
+                                  <div style={{ fontSize:"10px", color:"#856404", backgroundColor:"#fff9e6", borderRadius:"6px", padding:"6px 10px" }}>
+                                    ⚠️ Für Versand per Link: Supabase im Profil einrichten.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    {/* ── TBG: Direkt ausfüllen ODER per Link senden ── */}
+                    {fTyp === "tbg" && (
+                      <div style={{ display:"flex", flexDirection:"column", gap:"8px", marginBottom:"4px" }}>
+                        <div style={{ backgroundColor:"#e8f0fb", border:"1px solid #90caf9", borderRadius:"8px", padding:"10px 12px", fontSize:"11px", color:"#003366" }}>
+                          <strong>Anlage TBG</strong> – kann direkt hier ausgefüllt werden (mit Akte-Vorausfüllung) oder als personalisierter Link an das Mitglied verschickt werden.
+                        </div>
+                        {/* Direktweg */}
+                        <button onClick={function() {
+                          var ext_tbg = m ? (memberExtras[m.id] || {}) : {};
+                          var vorausgefuellt_tbg = {
+                            antNachname: m ? m.name || "" : "",
+                            antVorname: m ? m.vorname || "" : "",
+                            antStrasse: m ? m.strasse || "" : "",
+                            antPlz: m ? m.plz || "" : "",
+                            antOrt: m ? m.ort || "" : "",
+                            antTel: m ? m.tel || "" : "",
+                            antMail: m ? m.mail || "" : "",
+                            kinder: (Array.isArray(ext_tbg.kinder) && ext_tbg.kinder.length > 0) ? ext_tbg.kinder.map(function(k) {
+                              var parts = (k.name||"").split(", ");
+                              return {
+                                kNachname: parts[0]||"", kVorname: parts[1]||"", kGeburt: k.geburt||"",
+                                epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"",
+                                aufteilungsWunsch: (ext_tbg.betreuungsmodell||"").toLowerCase().includes("parit") ? "paritaetisch" : (ext_tbg.betreuungsmodell||"").toLowerCase().includes("asymm") ? "asymmetrisch" : "",
+                                kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") },
+                                kalenderjahr: String(new Date().getFullYear()),
+                                kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", sonstigeAngaben:""
+                              };
+                            }) : [{ kNachname:"", kVorname:"", kGeburt:"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", sonstigeAngaben:"" }]
+                          };
+                          setTbgFormDaten(vorausgefuellt_tbg);
+                          setFormularVersandDialogNeu(null);
+                          setView("tbg_form");
+                        }} style={{ width:"100%", padding:"10px", backgroundColor:"#1565c0", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                          ✏️ Jetzt direkt ausfüllen (in App)
+                        </button>
+                        {/* Per Link senden – E-Mail */}
+                        {sbReady() && m && m.mail && (
+                          <button onClick={async function() {
+                            var ext_tbg2 = m ? (memberExtras[m.id] || {}) : {};
+                            var vf_tbg = {
+                              antNachname: m.name||"", antVorname: m.vorname||"",
+                              antStrasse: m.strasse||"", antPlz: m.plz||"", antOrt: m.ort||"",
+                              antTel: m.tel||"", antMail: m.mail||"",
+                              kinder: (Array.isArray(ext_tbg2.kinder) && ext_tbg2.kinder.length > 0) ? ext_tbg2.kinder.map(function(k) {
+                                var parts = (k.name||"").split(", ");
+                                return { kNachname:parts[0]||"", kVorname:parts[1]||"", kGeburt:k.geburt||"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", sonstigeAngaben:"" };
+                              }) : []
+                            };
+                            var sbResult = await sbSaveFormular("tbg", "Anlage TBG", m, vf_tbg);
+                            if (!sbResult) { alert("Supabase Fehler."); return; }
+                            var betreff = "ISUV Anspruchslotse – Anlage TBG";
+                            var body = "Guten Tag " + (m.vorname||"") + ",\n\nbitte füllen Sie die Anlage TBG (Temporäre Bedarfsgemeinschaft) für Ihren Bürgergeldantrag aus:\n\n🔗 " + sbResult.url + "\n\nBei Fragen: " + (loginDaten.email||"") + "\n\n" + (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
+                            window.open("mailto:" + encodeURIComponent(m.mail) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(body));
+                            var jetzt = new Date();
+                            var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
+                            setAusgangFormulare(function(prev){ return prev.concat([{ id:sbResult.id, typ:"Anlage TBG", empfaenger:m.mail, mitglied:m.vorname+" "+m.name, datum:ds, status:"unbeantwortet", kanal:"✉️ E-Mail", formLink:sbResult.url }]); });
+                            setFormularVersandDialogNeu(null); setShowAusgang(true);
+                          }} style={{ width:"100%", padding:"10px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                            ✉️ Link per E-Mail senden
+                          </button>
+                        )}
+                        {/* Per Link senden – WhatsApp */}
+                        {sbReady() && m && m.tel && loginDaten.whatsapp && (
+                          <button onClick={async function() {
+                            var ext_tbg3 = m ? (memberExtras[m.id] || {}) : {};
+                            var vf_tbg2 = {
+                              antNachname: m.name||"", antVorname: m.vorname||"",
+                              antStrasse: m.strasse||"", antPlz: m.plz||"", antOrt: m.ort||"",
+                              antTel: m.tel||"", antMail: m.mail||"",
+                              kinder: (Array.isArray(ext_tbg3.kinder) && ext_tbg3.kinder.length > 0) ? ext_tbg3.kinder.map(function(k) {
+                                var parts = (k.name||"").split(", ");
+                                return { kNachname:parts[0]||"", kVorname:parts[1]||"", kGeburt:k.geburt||"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", sonstigeAngaben:"" };
+                              }) : []
+                            };
+                            var sbResult = await sbSaveFormular("tbg", "Anlage TBG", m, vf_tbg2);
+                            if (!sbResult) { alert("Supabase Fehler."); return; }
+                            var empfTel = m.tel.replace(/[^0-9]/g,"").replace(/^0/,"49");
+                            var msg = "Hallo " + (m.vorname||"") + ",\n\nbitte füllen Sie die Anlage TBG für Ihren Bürgergeldantrag aus:\n\n🔗 " + sbResult.url + "\n\n" + (loginDaten.leiter||"ISUV");
+                            window.open("https://wa.me/" + empfTel + "?text=" + encodeURIComponent(msg));
+                            var jetzt = new Date();
+                            var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
+                            setAusgangFormulare(function(prev){ return prev.concat([{ id:sbResult.id, typ:"Anlage TBG", empfaenger:m.tel, mitglied:m.vorname+" "+m.name, datum:ds, status:"unbeantwortet", kanal:"📱 WhatsApp", formLink:sbResult.url }]); });
+                            setFormularVersandDialogNeu(null); setShowAusgang(true);
+                          }} style={{ width:"100%", padding:"10px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", cursor:"pointer", fontWeight:"bold", fontSize:"12px" }}>
+                            📱 Link per WhatsApp senden
+                          </button>
+                        )}
+                        {!sbReady() && (
+                          <div style={{ fontSize:"10px", color:"#856404", backgroundColor:"#fff9e6", borderRadius:"6px", padding:"6px 10px" }}>
+                            ⚠️ Für Link-Versand: Supabase im Profil einrichten.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {fTyp !== "fr_sorgerecht" && fTyp !== "tbg" && (
+                    <div>
                     {/* Versand-Vorschau */}
                     {(function() {
                       var aktiveFelder2 = versandFelder !== null ? versandFelder : null;
@@ -7694,6 +8163,8 @@ function App() {
                         </div>
                       )}
                     </div>
+                    </div>
+                    )}
                   </div>
                 );
               })()}
@@ -7702,6 +8173,14 @@ function App() {
         )}
 
       </main>
+
+      {/* ── Unterschrift-Modal Sorgerecht ── */}
+      {sorgerechtSigModal && (
+        <SigPadModal
+          onSave={function(dataUrl){ setSorgerechtSigData(dataUrl); setSorgerechtSigModal(false); }}
+          onClose={function(){ setSorgerechtSigModal(false); }}
+        />
+      )}
     </div>
   );
 }
