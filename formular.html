@@ -1102,56 +1102,72 @@ function App() {
             {/* ── Abschnitt: An anderen Elternteil senden ── */}
             {(function(){
               var ep0 = kinder[0] || {};
-              if(!ep0.epMail && !ep0.epTel) return null;
               var kindName = ((ep0.kVorname||"")+" "+(ep0.kNachname||"")).trim() || "Kind";
-              var epName = ((ep0.epVorname||"")+" "+(ep0.epNachname||"")).trim() || "Anderer Elternteil";
-              // Baut URL mit vorausgefüllten Daten als Hash-Parameter
+              var epName   = ((ep0.epVorname||"")+" "+(ep0.epNachname||"")).trim() || "Anderer Elternteil";
+
               var baueSendURL = function(modus) {
                 var payload = {};
                 if(modus === "ausgefuellt") {
-                  payload = Object.assign({}, d, { sigAntragsteller:"", sigAndererElternteil:"" }); // Sigs nicht übertragen
+                  payload = Object.assign({}, d, { sigAntragsteller:"", sigAndererElternteil:"" });
                 } else if(modus === "teilausgefuellt") {
-                  // Nur Kind-Daten und EP-Adresse, kein Kalender
                   payload = {
                     antNachname: d.antNachname||"", antVorname: d.antVorname||"",
-                    kinder: kinder.map(function(k){ return Object.assign({},k,{ kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, sigAntragsteller:"", sigAndererElternteil:"" }); })
+                    kinder: kinder.map(function(k){ return Object.assign({},k,{ kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") } }); })
                   };
                 }
-                // Kodiere als Base64 im URL-Fragment (#tbg=...)
                 try {
                   return window.location.href.split("#")[0] + "#tbg=" + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
                 } catch(e) { return window.location.href; }
               };
+
+              var sende = function(kanal, modus) {
+                var kontakt = kanal === "mail" ? ep0.epMail : ep0.epTel;
+                if (!kontakt) { alert("Bitte zuerst die " + (kanal==="mail" ? "E-Mail-Adresse" : "Telefonnummer") + " des anderen Elternteils unter ② eintragen."); return; }
+                var sendURL = baueSendURL(modus);
+                var betreff = "Anlage TBG – "+kindName+" – bitte prüfen und unterschreiben";
+                if (kanal === "mail") {
+                  var body = "Hallo "+(ep0.epVorname||"")+",\n\nbitte öffne den Link, prüfe die Umgangsvereinbarung (Anlage TBG) für "+kindName+" und unterschreibe direkt am Gerät:\n\n"+sendURL+"\n\nDas Dokument gilt mit beiden Unterschriften als Umgangsvereinbarung nach § 7 SGB II.\n\nViele Grüße,\n"+(d.antVorname||"")+" "+(d.antNachname||"");
+                  window.open("mailto:"+encodeURIComponent(kontakt)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
+                } else {
+                  var tel = kontakt.replace(/[^0-9+]/g,"").replace(/^0/,"49");
+                  var msg = "Hallo "+(ep0.epVorname||"")+",\n\nbitte prüfe und unterschreibe die Anlage TBG für "+kindName+":\n\n"+sendURL+"\n\nViele Grüße, "+(d.antVorname||"")+" "+(d.antNachname||"");
+                  window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
+                }
+              };
+
+              var modusOptionen = [
+                { v:"leer",           icon:"📋", label:"Leer",           desc:"Anderer ET füllt alles selbst aus" },
+                { v:"teilausgefuellt",icon:"🔢", label:"Teilausgefüllt", desc:"Kinder-/Adressdaten drin, Kalender leer" },
+                { v:"ausgefuellt",    icon:"📝", label:"Ausgefüllt",     desc:"Alle Felder drin, nur Unterschrift fehlt" }
+              ];
+
               return (
-                <div style={{ marginTop:"4px", marginBottom:"6px" }}>
-                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#6a1b9a", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"6px" }}>📨 An {epName} senden</div>
-                  {["leer","ausgefuellt","teilausgefuellt"].map(function(modus){
-                    var label = modus==="leer" ? "📋 Leer senden (Antragsteller-Daten vorhanden)" : modus==="ausgefuellt" ? "📝 Ausgefüllt senden (alles außer Unterschriften)" : "🔢 Teilausgefüllt senden (nur Kinder-/EP-Daten, kein Kalender)";
-                    var sendURL = baueSendURL(modus);
+                <div style={{ marginTop:"4px", marginBottom:"6px", border:"1px solid #ce93d8", borderRadius:"10px", padding:"12px", backgroundColor:"#fdf6ff" }}>
+                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#6a1b9a", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"10px" }}>📨 An anderen Elternteil senden – {epName}</div>
+
+                  {modusOptionen.map(function(opt){
                     return (
-                      <div key={modus} style={{ display:"flex", gap:"6px", marginBottom:"5px" }}>
-                        {ep0.epMail && (
-                          <button onClick={function(){
-                            var betreff = "Anlage TBG – "+kindName+" – bitte prüfen und unterschreiben";
-                            var body = "Hallo "+(ep0.epVorname||"")+",\n\nbitte öffne den Link, prüfe die Umgangsvereinbarung (Anlage TBG) für "+kindName+" und unterschreibe:\n\n"+sendURL+"\n\nDas Dokument gilt mit beiden Unterschriften als Umgangsvereinbarung nach § 7 SGB II.\n\nViele Grüße,\n"+(d.antVorname||"")+" "+(d.antNachname||"");
-                            window.open("mailto:"+encodeURIComponent(ep0.epMail)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
-                          }} style={{ flex:1, padding:"9px 6px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"11px", cursor:"pointer", textAlign:"center" }}>
-                            ✉️ {label.split(" ").slice(0,2).join(" ")} per Mail
+                      <div key={opt.v} style={{ marginBottom:"8px" }}>
+                        <div style={{ fontSize:"11px", fontWeight:"bold", color:"#4a148c", marginBottom:"4px" }}>{opt.icon} {opt.label} <span style={{ fontWeight:"normal", color:"#888" }}>– {opt.desc}</span></div>
+                        <div style={{ display:"flex", gap:"6px" }}>
+                          <button onClick={function(){ sende("mail", opt.v); }}
+                            style={{ flex:1, padding:"9px 6px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"11px", cursor:"pointer" }}>
+                            ✉️ Per E-Mail
                           </button>
-                        )}
-                        {ep0.epTel && (
-                          <button onClick={function(){
-                            var tel = ep0.epTel.replace(/[^0-9+]/g,"").replace(/^0/,"49");
-                            var msg = "Hallo "+(ep0.epVorname||"")+",\n\nbitte prüfe und unterschreibe die Anlage TBG für "+kindName+":\n\n"+sendURL+"\n\nViele Grüße, "+(d.antVorname||"")+" "+(d.antNachname||"");
-                            window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
-                          }} style={{ flex:1, padding:"9px 6px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"11px", cursor:"pointer", textAlign:"center" }}>
-                            📱 {label.split(" ").slice(0,2).join(" ")} WA
+                          <button onClick={function(){ sende("wa", opt.v); }}
+                            style={{ flex:1, padding:"9px 6px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"11px", cursor:"pointer" }}>
+                            📱 Per WhatsApp
                           </button>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
-                  <div style={{ fontSize:"10px", color:"#888", marginTop:"2px" }}>💡 Leer = nur Link; Ausgefüllt = alle Felder vorausgefüllt; Teilausgefüllt = Kinder-Daten ohne Kalender</div>
+
+                  {(!ep0.epMail && !ep0.epTel) && (
+                    <div style={{ fontSize:"11px", color:"#e65100", backgroundColor:"#fff3e0", borderRadius:"6px", padding:"7px 10px", marginTop:"6px" }}>
+                      ⚠️ Noch keine Kontaktdaten des anderen Elternteils eingetragen. Bitte unter <strong>② Kind & anderer Elternteil</strong> E-Mail oder Telefonnummer ergänzen.
+                    </div>
+                  )}
                 </div>
               );
             })()}
