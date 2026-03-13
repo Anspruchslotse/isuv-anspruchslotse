@@ -3497,7 +3497,7 @@ function KinderzuschlagRechner({ ext, onSaveErgebnis }) {
 // =============================================
 // BERECHNUNG MIT DATEN – Rechner vorausgefüllt
 // =============================================
-function MehrDatenView({ ext }) {
+function MehrDatenView({ ext, onUpdate }) {
   if (!ext) return null;
   const sh = { fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", backgroundColor:"#e8f0fb", borderRadius:"5px", padding:"5px 8px", marginTop:"14px", marginBottom:"6px", letterSpacing:"0.5px" };
   const kb = { backgroundColor:"#f9f9f9", borderRadius:"8px", padding:"10px", marginBottom:"8px", borderLeft:"3px solid #00afad" };
@@ -3533,7 +3533,21 @@ function MehrDatenView({ ext }) {
       {ext.einkommenArt && <div style={dr}><span>Art:</span><strong style={{ fontSize:"12px" }}>{ext.einkommenArt}</strong></div>}
       {ext.uvgBetrag > 0 && <div style={dr}><span>Unterhaltsvorschuss:</span><strong>{ext.uvgBetrag} EUR/Monat</strong></div>}
       {ext.kindergeldBetrag != null && <div style={dr}><span>Kindergeld:</span><strong>{ext.kindergeldBetrag} EUR/Monat</strong></div>}
-      {ext.kindergeldEmpf && <div style={dr}><span>KG-Empfänger:</span><strong style={{ fontSize:"12px" }}>{ext.kindergeldEmpf}</strong></div>}
+      {(ext.kindergeldEmpf != null) && (
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid #f5f5f5" }}>
+          <span style={{ fontSize:"13px" }}>KG-Empfänger:</span>
+          {onUpdate ? (
+            <input
+              style={{ fontSize:"12px", padding:"3px 7px", border:"1px solid #ccc", borderRadius:"5px", width:"60%", textAlign:"right" }}
+              value={ext.kindergeldEmpf||""}
+              onChange={function(e){ onUpdate({ kindergeldEmpf: e.target.value }); }}
+              placeholder="Wer bezieht Kindergeld?"
+            />
+          ) : (
+            <strong style={{ fontSize:"12px" }}>{ext.kindergeldEmpf}</strong>
+          )}
+        </div>
+      )}
 
       {(ext.unterhaltsTitel != null || ext.unterhaltBetrag > 0) && (
         <div>
@@ -3745,7 +3759,28 @@ function App() {
   const [memberExtras, setMemberExtras] = useState(() => {
     try {
       const saved = localStorage.getItem("isuv_extras");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Veraltete Demowerte korrigieren: wenn der gespeicherte Wert vom korrekten Default abweicht,
+        // bestimmte Schlüsselfelder aus defaultMemberExtras übernehmen (nur für bekannte Falschdaten)
+        const SYNC_FELDER = ["kindergeldEmpf", "betreuungsmodell", "notizen"];
+        var merged = Object.assign({}, parsed);
+        Object.keys(defaultMemberExtras).forEach(function(mid) {
+          if (!parsed[mid]) return;
+          SYNC_FELDER.forEach(function(feld) {
+            var gespeichert = parsed[mid] && parsed[mid][feld];
+            var korrekt = defaultMemberExtras[mid] && defaultMemberExtras[mid][feld];
+            // Nur überschreiben wenn der gespeicherte Wert ein bekannter alter Demowert ist
+            // (enthält "überwiegend betreuend" aber Default sagt anderer ET bezieht KG)
+            if (feld === "kindergeldEmpf" && gespeichert && korrekt &&
+                gespeichert !== korrekt &&
+                (gespeichert.toLowerCase().includes("antragstell") && korrekt.toLowerCase().includes("anderer"))) {
+              merged[mid] = Object.assign({}, merged[mid], { [feld]: korrekt });
+            }
+          });
+        });
+        return merged;
+      }
     } catch(e) {}
     return defaultMemberExtras;
   });
@@ -4907,7 +4942,10 @@ function App() {
               {showMehrDaten ? "▲ Mehr Daten ausblenden" : "▼ Mehr Daten"}
             </button>
             {showMehrDaten && activeMember && memberExtras[activeMember.id] && (
-              <MehrDatenView ext={memberExtras[activeMember.id]} />
+              <MehrDatenView ext={memberExtras[activeMember.id]} onUpdate={(felder) => {
+                const mid = activeMember.id;
+                setMemberExtras(prev => ({ ...prev, [mid]: { ...(prev[mid]||{}), ...felder } }));
+              }} />
             )}
 
             {/* Formular-Status */}
