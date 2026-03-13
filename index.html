@@ -2814,7 +2814,7 @@ function BerechnungMitDaten({ rechner, member, ext, onSaveData, onSaveErgebnis, 
   const [tbgTageA, setTbgTageA] = useState("15");
   const [tbgTageB, setTbgTageB] = useState("15");
   const [tbgKgEmpf, setTbgKgEmpf] = useState(ext && ext.kindergeldEmpf ? (ext.kindergeldEmpf.toLowerCase().includes("antrag") ? "antragsteller" : "anderer") : "");
-  const [tbgKgBetrag, setTbgKgBetrag] = useState(ext ? String(ext.kindergeldBetrag || "250") : "250");
+  const [tbgKgBetrag, setTbgKgBetrag] = useState(ext ? String(ext.kindergeldBetrag || "259") : "250");
   const [tbgResult, setTbgResult] = useState(null);
 
   const berechneTBG = () => {
@@ -3532,7 +3532,17 @@ function MehrDatenView({ ext, onUpdate }) {
       {ext.einkommenGegenseite > 0 && <div style={dr}><span>Einkommen Gegenseite:</span><strong>{ext.einkommenGegenseite} EUR</strong></div>}
       {ext.einkommenArt && <div style={dr}><span>Art:</span><strong style={{ fontSize:"12px" }}>{ext.einkommenArt}</strong></div>}
       {ext.uvgBetrag > 0 && <div style={dr}><span>Unterhaltsvorschuss:</span><strong>{ext.uvgBetrag} EUR/Monat</strong></div>}
-      {ext.kindergeldBetrag != null && <div style={dr}><span>Kindergeld:</span><strong>{ext.kindergeldBetrag} EUR/Monat</strong></div>}
+      {ext.kindergeldBetrag != null && (function(){
+        var empfAntragsteller = !ext.kindergeldEmpf || ext.kindergeldEmpf.toLowerCase().includes("antragstell");
+        if (empfAntragsteller) {
+          return <div style={dr}><span>Kindergeld (eigenes Einkommen):</span><strong>{ext.kindergeldBetrag} EUR/Monat</strong></div>;
+        } else {
+          return <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid #f5f5f5", fontSize:"13px", color:"#888" }}>
+            <span>Kindergeld:</span>
+            <span style={{ fontSize:"12px", textAlign:"right" }}>bezieht <strong style={{ color:"#555" }}>{ext.kindergeldEmpf}</strong><br/><span style={{ fontSize:"10px" }}>nicht Einkommen des Antragstellers</span></span>
+          </div>;
+        }
+      })()}
       {(ext.kindergeldEmpf != null) && (
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid #f5f5f5" }}>
           <span style={{ fontSize:"13px" }}>KG-Empfänger:</span>
@@ -3713,7 +3723,7 @@ function App() {
         { name: "Landgraf, Lena", geburt: "05.09.2019", alter: "0-5 J.", wohnort: "bei Antragsteller*in", uvg: true, kg: true }
       ],
       einkommenNetto: 1300, einkommenArt: "Arbeitseinkommen (Teilzeit)",
-      uvgBetrag: 357, kindergeldBetrag: 500, kindergeldEmpf: "Antragstellerin",
+      uvgBetrag: 357, kindergeldBetrag: 518, kindergeldEmpf: "Antragstellerin",
       wohnungGroesse: 100, mieteWarm: 1100, mieteKalt: 850, heizkosten: 250, mietStufe: "3",
       unterhaltsTitel: false, unterhaltBetrag: 0,
       notizen: "Unterhaltsverpflichteter zahlt nicht. UVG läuft. Beide Kinder bei Sabine gemeldet."
@@ -3725,7 +3735,7 @@ function App() {
         { name: "Siedler, Max", geburt: "22.07.2016", alter: "6-11 J.", wohnort: "bei Mutter (anderer Elternteil)", uvg: false, kg: false }
       ],
       einkommenNetto: 2100, einkommenArt: "Arbeitseinkommen (Vollzeit)",
-      uvgBetrag: 0, kindergeldBetrag: 250, kindergeldEmpf: "Mutter (anderer Elternteil, Kind dort gemeldet)",
+      uvgBetrag: 0, kindergeldBetrag: 259, kindergeldEmpf: "Mutter (anderer Elternteil, Kind dort gemeldet)",
       wohnungGroesse: 65, mieteWarm: 780, mieteKalt: 630, heizkosten: 150, mietStufe: "3",
       unterhaltsTitel: true, unterhaltBetrag: 426,
       notizen: "Markus ist Umgangsberechtigter mit ca. 10 Umgangstagen/Monat (>25% Betreuungsanteil → TBG-Antrag möglich). Kind bei Mutter gemeldet und wohnhaft, Kindergeld bei Mutter. Unterhalt tituliert per Jugendamtsurkunde, wird regelmaessig gezahlt."
@@ -3738,7 +3748,7 @@ function App() {
         { name: "Wechsel, Tim", geburt: "30.11.2018", alter: "0-5 J.", wohnort: "Wechselmodell 50:50", uvg: false, kg: false }
       ],
       einkommenNetto: 1750, einkommenArt: "Arbeitseinkommen (Vollzeit)",
-      uvgBetrag: 0, kindergeldBetrag: 500, kindergeldEmpf: "Beide je 250 EUR haelftig geteilt",
+      uvgBetrag: 0, kindergeldBetrag: 518, kindergeldEmpf: "Beide je 259 EUR haelftig geteilt",
       wohnungGroesse: 80, mieteWarm: 950, mieteKalt: 760, heizkosten: 190, mietStufe: "3",
       unterhaltsTitel: true, unterhaltBetrag: 0,
       notizen: "Kein Barunterhalt. Kindergeld haelftig geteilt. Beide gleich viel betreuend."
@@ -3750,7 +3760,7 @@ function App() {
         { name: "Vogel, Jana", geburt: "03.06.2014", alter: "12-17 J.", wohnort: "bei Antragsteller*in", uvg: false, kg: true }
       ],
       einkommenNetto: 1850, einkommenArt: "Arbeitseinkommen (Vollzeit)",
-      uvgBetrag: 0, kindergeldBetrag: 250, kindergeldEmpf: "Antragstellerin",
+      uvgBetrag: 0, kindergeldBetrag: 259, kindergeldEmpf: "Antragstellerin",
       wohnungGroesse: 72, mieteWarm: 1350, mieteKalt: 1080, heizkosten: 270, mietStufe: "5",
       unterhaltsTitel: true, unterhaltBetrag: 522,
       notizen: "Berlin Mietenstufe V. Unterhalt tituliert und regelmaessig gezahlt."
