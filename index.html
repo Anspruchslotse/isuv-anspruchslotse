@@ -3706,15 +3706,15 @@ function App() {
     },
     2: {
       familienstand: "getrennt lebend", alleinerziehend: false,
-      betreuungsmodell: "Asymmetrisches Wechselmodell (10 Tage and. Elternteil / 20 Tage Antragsteller*in)",
+      betreuungsmodell: "Residenzmodell – Kind wohnt bei Mutter (anderer Elternteil), Markus hat ca. 10 Umgangstage/Monat",
       kinder: [
-        { name: "Siedler, Max", geburt: "22.07.2016", alter: "6-11 J.", wohnort: "Wechselmodell", uvg: false, kg: false }
+        { name: "Siedler, Max", geburt: "22.07.2016", alter: "6-11 J.", wohnort: "bei Mutter (anderer Elternteil)", uvg: false, kg: false }
       ],
       einkommenNetto: 2100, einkommenArt: "Arbeitseinkommen (Vollzeit)",
-      uvgBetrag: 0, kindergeldBetrag: 250, kindergeldEmpf: "Antragsteller*in (überwiegend betreuend)",
+      uvgBetrag: 0, kindergeldBetrag: 250, kindergeldEmpf: "Mutter (anderer Elternteil, Kind dort gemeldet)",
       wohnungGroesse: 65, mieteWarm: 780, mieteKalt: 630, heizkosten: 150, mietStufe: "3",
       unterhaltsTitel: true, unterhaltBetrag: 426,
-      notizen: "Unterhalt tituliert per Jugendamtsurkunde. Zahlt regelmaessig. Kind 10 Tage beim anderen Elternteil."
+      notizen: "Markus ist Umgangsberechtigter mit ca. 10 Umgangstagen/Monat (>25% Betreuungsanteil → TBG-Antrag möglich). Kind bei Mutter gemeldet und wohnhaft, Kindergeld bei Mutter. Unterhalt tituliert per Jugendamtsurkunde, wird regelmaessig gezahlt."
     },
     3: {
       familienstand: "geschieden", alleinerziehend: false,
@@ -6452,7 +6452,7 @@ function App() {
                   aufteilungsWunsch: (ext.betreuungsmodell||"").toLowerCase().includes("parit") ? "paritaetisch" : (ext.betreuungsmodell||"").toLowerCase().includes("asymm") ? "asymmetrisch" : "",
                   kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") },
                   kalenderjahr: String(new Date().getFullYear()),
-                  kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", einkommenWeiterleitung:"", einkommenBetrag:"", sonstigeAngaben:""
+                  kgBerechtigt: ext.kindergeldEmpf||"", kgWeiterleitung:"", kgBetrag: ext.kindergeldBetrag ? String(ext.kindergeldBetrag) : "", einkommenWeiterleitung:"", einkommenBetrag:"", sonstigeAngaben:""
                 };
               });
             }
@@ -7922,7 +7922,7 @@ function App() {
                                 kalenderjahr: String(new Date().getFullYear()),
                                 kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", sonstigeAngaben:""
                               };
-                            }) : [{ kNachname:"", kVorname:"", kGeburt:"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", sonstigeAngaben:"" }]
+                            }) : [{ kNachname:"", kVorname:"", kGeburt:"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:ext_tbg.kindergeldEmpf||"", kgWeiterleitung:"", kgBetrag:ext_tbg.kindergeldBetrag ? String(ext_tbg.kindergeldBetrag) : "", sonstigeAngaben:"" }]
                           };
                           setTbgFormDaten(vorausgefuellt_tbg);
                           setFormularVersandDialogNeu(null);
@@ -7940,7 +7940,7 @@ function App() {
                               antTel: m.tel||"", antMail: m.mail||"",
                               kinder: (Array.isArray(ext_tbg2.kinder) && ext_tbg2.kinder.length > 0) ? ext_tbg2.kinder.map(function(k) {
                                 var parts = (k.name||"").split(", ");
-                                return { kNachname:parts[0]||"", kVorname:parts[1]||"", kGeburt:k.geburt||"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", sonstigeAngaben:"" };
+                                return { kNachname:parts[0]||"", kVorname:parts[1]||"", kGeburt:k.geburt||"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:ext_tbg2.kindergeldEmpf||"", kgWeiterleitung:"", kgBetrag:ext_tbg2.kindergeldBetrag ? String(ext_tbg2.kindergeldBetrag) : "", sonstigeAngaben:"" };
                               }) : []
                             };
                             var sbResult = await sbSaveFormular("tbg", "Anlage TBG", m, vf_tbg);
@@ -7966,7 +7966,7 @@ function App() {
                               antTel: m.tel||"", antMail: m.mail||"",
                               kinder: (Array.isArray(ext_tbg3.kinder) && ext_tbg3.kinder.length > 0) ? ext_tbg3.kinder.map(function(k) {
                                 var parts = (k.name||"").split(", ");
-                                return { kNachname:parts[0]||"", kVorname:parts[1]||"", kGeburt:k.geburt||"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:"", kgWeiterleitung:"", kgBetrag:"", sonstigeAngaben:"" };
+                                return { kNachname:parts[0]||"", kVorname:parts[1]||"", kGeburt:k.geburt||"", epNachname:"", epVorname:"", epStrasse:"", epPlz:"", epOrt:"", aufteilungsWunsch:"", kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, kalenderjahr:String(new Date().getFullYear()), kgBerechtigt:ext_tbg3.kindergeldEmpf||"", kgWeiterleitung:"", kgBetrag:ext_tbg3.kindergeldBetrag ? String(ext_tbg3.kindergeldBetrag) : "", sonstigeAngaben:"" };
                               }) : []
                             };
                             var sbResult = await sbSaveFormular("tbg", "Anlage TBG", m, vf_tbg2);
