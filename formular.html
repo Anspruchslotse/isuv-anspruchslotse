@@ -85,6 +85,24 @@ function App() {
   const [sigData, setSigData] = useState(null);
 
   useEffect(function() {
+    // ── Modus 1: Hash-basiert (#tbg=...) – kein Supabase nötig ──
+    var hash = window.location.hash;
+    if (hash && hash.startsWith("#tbg=")) {
+      try {
+        var encoded = hash.slice(5);
+        var decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+        setFormTyp("tbg");
+        setDaten(decoded);
+        setStatus("formular");
+        // kein Supabase – formularId bleibt leer → absenden merkt das
+      } catch(e) {
+        setFehler("Fehler beim Lesen der Formulardaten: " + e.message);
+        setStatus("fehler");
+      }
+      return;
+    }
+
+    // ── Modus 2: Supabase-basiert (?id=...&sb=...&key=...) ──
     var params = new URLSearchParams(window.location.search);
     var id = params.get("id");
     var sb = params.get("sb");
@@ -1174,32 +1192,84 @@ function App() {
 
             {/* ── Abschnitt: Zurücksenden an Berater ── */}
             <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"6px", marginTop:"8px" }}>📤 An Berater zurücksenden</div>
-            <button onClick={function(){
-              // Speichert vollständige Daten in Supabase (antwort_daten enthält alles für Akten-Übernahme)
-              var vollDaten = Object.assign({}, d, {
-                kinder: kinder,
-                _exportiert: new Date().toISOString(),
-                _formVersion: "tbg_v2"
-              });
-              var url = sbUrl.replace(/\/+$/, "") + "/rest/v1/formulare?formular_id=eq." + encodeURIComponent(formularId);
-              fetch(url, {
-                method: "PATCH",
-                headers: { "apikey": sbKey, "Authorization": "Bearer " + sbKey, "Content-Type": "application/json", "Prefer": "return=minimal" },
-                body: JSON.stringify({ status: "beantwortet", antwort_daten: JSON.stringify(vollDaten), beantwortet_am: new Date().toISOString() })
-              })
-              .then(function(r) {
-                if(r.ok) {
-                  setStatus("gesendet");
-                  // Automatisch PDF erzeugen nach dem Senden
-                  setTimeout(function(){ erzeugeTbgPDF(sigData); }, 400);
-                } else { r.text().then(function(t){ alert("Fehler: "+t.slice(0,200)); }); }
-              })
-              .catch(function(e){ alert("Netzwerkfehler: "+e.message); });
-            }}
-              style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginBottom:"6px" }}>
-              ✅ Ausgefüllt an Berater zurücksenden
-            </button>
-            <div style={{ fontSize:"10px", color:"#888", textAlign:"center" }}>Das Formular wird als PDF gespeichert und die Daten können in die Akte übernommen werden.</div>
+
+            {formularId ? (
+              // ── Modus A: Supabase vorhanden → direkt zurücksenden ──
+              <button onClick={function(){
+                var vollDaten = Object.assign({}, d, { kinder:kinder, _exportiert:new Date().toISOString(), _formVersion:"tbg_v2" });
+                var url = sbUrl.replace(/\/+$/, "") + "/rest/v1/formulare?formular_id=eq." + encodeURIComponent(formularId);
+                fetch(url, {
+                  method: "PATCH",
+                  headers: { "apikey":sbKey, "Authorization":"Bearer "+sbKey, "Content-Type":"application/json", "Prefer":"return=minimal" },
+                  body: JSON.stringify({ status:"beantwortet", antwort_daten:JSON.stringify(vollDaten), beantwortet_am:new Date().toISOString() })
+                })
+                .then(function(r) {
+                  if(r.ok) { setStatus("gesendet"); setTimeout(function(){ erzeugeTbgPDF(sigData); }, 400); }
+                  else { r.text().then(function(t){ alert("Fehler: "+t.slice(0,200)); }); }
+                })
+                .catch(function(e){ alert("Netzwerkfehler: "+e.message); });
+              }}
+                style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginBottom:"6px" }}>
+                ✅ Ausgefüllt an Berater zurücksenden
+              </button>
+            ) : (
+              // ── Modus B: Hash-Modus (kein Supabase) → PDF + E-Mail / WhatsApp ──
+              <div style={{ border:"1px solid #bbdefb", borderRadius:"10px", padding:"12px", backgroundColor:"#e3f2fd" }}>
+                <div style={{ fontSize:"12px", color:"#1565c0", marginBottom:"10px", lineHeight:"1.6" }}>
+                  <strong>So geht's:</strong> Speichere das Formular als PDF und schicke es direkt an den Berater zurück.
+                </div>
+                <button onClick={function(){ erzeugeTbgPDF(sigData); }}
+                  style={{ width:"100%", padding:"12px", backgroundColor:"#1565c0", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"8px" }}>
+                  📄 Schritt 1: PDF speichern (mit Unterschrift)
+                </button>
+                {(function(){
+                  // Berater-Kontakt aus den Formulardaten oder Kinder-Daten herauslesen
+                  var beraterMail = d.antMail || (kinder[0] && kinder[0].epMail) || "";
+                  var beraterTel  = d.antTel  || (kinder[0] && kinder[0].epTel)  || "";
+                  var antName = ((d.antVorname||"")+" "+(d.antNachname||"")).trim() || "Antragsteller*in";
+                  var ep0 = kinder[0] || {};
+                  var epEigenName = ((ep0.epVorname||"")+" "+(ep0.epNachname||"")).trim() || "Anderer Elternteil";
+                  var kindName = ((ep0.kVorname||"")+" "+(ep0.kNachname||"")).trim() || "Kind";
+                  var betreff = "Anlage TBG – "+kindName+" – unterschrieben zurück";
+                  var body = "Hallo,\n\nerbei sende ich die unterschriebene Anlage TBG für "+kindName+" zurück.\n\nBitte die PDF-Datei im Anhang in die Akte übernehmen.\n\nViele Grüße,\n"+epEigenName;
+                  return (
+                    <div>
+                      <div style={{ fontSize:"11px", color:"#1565c0", marginBottom:"6px", fontWeight:"bold" }}>Schritt 2: PDF per E-Mail oder WhatsApp an {antName} schicken:</div>
+                      <div style={{ display:"flex", gap:"6px" }}>
+                        {beraterMail ? (
+                          <button onClick={function(){
+                            window.open("mailto:"+encodeURIComponent(beraterMail)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
+                          }} style={{ flex:1, padding:"10px 6px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
+                            ✉️ Per E-Mail an {beraterMail}
+                          </button>
+                        ) : (
+                          <button onClick={function(){
+                            var empfaenger = window.prompt("E-Mail-Adresse des Beraters / Antragstellers:");
+                            if(empfaenger) window.open("mailto:"+encodeURIComponent(empfaenger)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
+                          }} style={{ flex:1, padding:"10px 6px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
+                            ✉️ Per E-Mail senden
+                          </button>
+                        )}
+                        {beraterTel && (
+                          <button onClick={function(){
+                            var tel = beraterTel.replace(/[^0-9+]/g,"").replace(/^0/,"49");
+                            var msg = "Hallo "+antName+",\n\nanlage TBG für "+kindName+" unterschrieben. PDF folgt per E-Mail.\n\nViele Grüße, "+epEigenName;
+                            window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
+                          }} style={{ flex:1, padding:"10px 6px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
+                            📱 WhatsApp
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ fontSize:"10px", color:"#1565c0", marginTop:"8px", lineHeight:"1.5" }}>
+                        💡 Das PDF bitte als Anhang zur E-Mail hinzufügen. Der Berater kann die Daten dann direkt in die Akte übernehmen.
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            <div style={{ fontSize:"10px", color:"#888", textAlign:"center", marginTop:"6px" }}>Das Formular wird als PDF gespeichert und die Daten können in die Akte übernommen werden.</div>
           </div>
 
           {sigModal && <SigModal onSave={function(dataUrl){setSigData(dataUrl);setSigModal(false);}} onClose={function(){setSigModal(false);}} />}
