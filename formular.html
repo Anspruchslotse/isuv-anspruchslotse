@@ -1022,90 +1022,24 @@ function App() {
             </button>
           )}
 
-          {/* PDF mit beiden Unterschriften */}
-          <button onClick={function(){
-            var jsPDF = window.jspdf && window.jspdf.jsPDF;
-            if(!jsPDF){ alert("PDF-Bibliothek nicht geladen."); return; }
-            var sigEpPdf = d.sigAndererElternteil || "";
-            var ep0 = kinder[0] || {};
-            var epN = ((ep0.epVorname||"")+" "+(ep0.epNachname||"")).trim()||"Anderer Elternteil";
-            var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-            var pw=210, margin=15, cw=pw-margin*2, y=15, heute=new Date().toLocaleDateString("de-DE");
-            doc.setFillColor(0,51,102); doc.rect(margin,y,cw,20,"F");
-            doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
-            doc.text("Anlage TBG – Temporäre Bedarfsgemeinschaft", margin+4, y+8);
-            doc.setFontSize(8); doc.setFont("helvetica","normal");
-            doc.text("Bürgergeldantrag · Umgangsvereinbarung § 7 SGB II · Erstellt: "+heute, margin+4, y+14);
-            y+=24; doc.setTextColor(0,0,0);
-            var zeile = function(label, wert) {
-              if(y>270){ doc.addPage(); y=15; }
-              doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.text(label+":", margin, y);
-              doc.setFont("helvetica","normal");
-              var lines = doc.splitTextToSize(String(wert||"–"), cw-54);
-              doc.text(lines, margin+54, y); y+=Math.max(6, lines.length*5);
-            };
-            doc.setFillColor(230,240,251); doc.rect(margin,y,cw,7,"F");
-            doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.text("(1) Antragsteller*in / Umgangsberechtigte*r", margin+3, y+5); y+=10;
-            zeile("Name", (d.antNachname||"")+(d.antVorname?", "+d.antVorname:"")); zeile("Anschrift", (d.antStrasse||"")+(d.antPlz?" · "+d.antPlz+" "+d.antOrt:""));
-            zeile("Geburtsdatum", d.antGeburt||""); zeile("BG-Nummer", d.antBGNr||""); zeile("Kontakt", (d.antTel||"")+(d.antMail?" · "+d.antMail:"")); y+=3;
-            kinder.forEach(function(k,ki){
-              if(y>255){ doc.addPage(); y=15; }
-              doc.setFillColor(0,175,173); doc.rect(margin,y,cw,7,"F"); doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(255,255,255);
-              doc.text("Kind #"+(ki+1)+": "+(k.kVorname||"")+" "+(k.kNachname||""), margin+3, y+5); doc.setTextColor(0,0,0); y+=10;
-              zeile("Geburtsdatum Kind", k.kGeburt||"");
-              var ri=berechneRegelKind(k.kGeburt);
-              if(ri){ zeile("Regelsatz 2025 (SGB II)", ri.betrag+" EUR/Monat ("+ri.alter+" J., Stufe "+ri.stufe+")"); }
-              zeile("Anderer Elternteil", (k.epVorname||"")+" "+(k.epNachname||"")); zeile("Anschrift and. ET", (k.epStrasse||"")+(k.epPlz?" · "+k.epPlz+" "+k.epOrt:""));
-              zeile("Betreuungsmodell", k.aufteilungsWunsch==="paritaetisch"?"Paritätisches Wechselmodell":k.aufteilungsWunsch==="asymmetrisch"?"Asymmetrisches Wechselmodell":k.aufteilungsWunsch==="keine"?"Kein Wechselmodell":k.aufteilungsWunsch||"–");
-              zeile("KG-Berechtigte/r", k.kgBerechtigt||""); zeile("Kindergeldbetrag", k.kgBetrag?k.kgBetrag+" EUR/Monat":"–");
-              if(k.kgWeiterleitung==="ja"){ zeile("Weiterleitung an and. ET", (k.kgWeiterleitungBetrag||"–")+" EUR/Monat"); }
-              if(k.sonstigeAngaben){ zeile("Sonstige Angaben", k.sonstigeAngaben); }
-              if(y>240){ doc.addPage(); y=15; }
-              doc.setFillColor(230,240,251); doc.rect(margin,y,cw,7,"F"); doc.setFont("helvetica","bold"); doc.setFontSize(9);
-              doc.text("Umgangstage "+k.kalenderjahr+" (§ 7 SGB II – Tage mit >12h Umgang)", margin+3, y+5); y+=9;
-              var colW=cw/3;
-              doc.setFillColor(220,230,241); doc.rect(margin,y,colW,6,"F"); doc.rect(margin+colW,y,colW,6,"F"); doc.rect(margin+colW*2,y,colW,6,"F");
-              doc.setFont("helvetica","bold"); doc.setFontSize(8);
-              doc.text("Monat",margin+2,y+4); doc.text("Umgangsber.",margin+colW+2,y+4); doc.text("Hauptbetr. ET",margin+colW*2+2,y+4); y+=7;
-              doc.setFont("helvetica","normal");
-              MONATE_TBG.forEach(function(m,mi){
-                if(y>275){ doc.addPage(); y=15; }
-                var bg=mi%2===0?[248,250,252]:[255,255,255]; doc.setFillColor(bg[0],bg[1],bg[2]); doc.rect(margin,y,cw,5.5,"F");
-                doc.text(m,margin+2,y+4); doc.text(String((k.kalender&&k.kalender.antragsteller&&k.kalender.antragsteller[mi])||"–"),margin+colW+2,y+4); doc.text(String((k.kalender&&k.kalender.anderer&&k.kalender.anderer[mi])||"–"),margin+colW*2+2,y+4); y+=5.5;
-              });
-              var sA=(k.kalender&&k.kalender.antragsteller||[]).reduce(function(s,x){return s+(parseInt(x)||0);},0);
-              var sB=(k.kalender&&k.kalender.anderer||[]).reduce(function(s,x){return s+(parseInt(x)||0);},0);
-              doc.setFillColor(0,51,102); doc.rect(margin,y,cw,6,"F"); doc.setTextColor(255,255,255); doc.setFont("helvetica","bold");
-              doc.text("Gesamt",margin+2,y+4); doc.text(String(sA),margin+colW+2,y+4); doc.text(String(sB),margin+colW*2+2,y+4); doc.setTextColor(0,0,0); y+=9;
-            });
-            if(y>210){ doc.addPage(); y=15; }
-            doc.setFillColor(106,27,154); doc.rect(margin,y,cw,7,"F"); doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(255,255,255);
-            doc.text("Unterschriften – Umgangsvereinbarung nach § 7 SGB II", margin+3, y+5); doc.setTextColor(0,0,0); y+=10;
-            doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.text("Ort / Datum: "+(d.ortDatum||"–"), margin, y); y+=10;
-            doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.text("Antragsteller*in (Umgangsberechtigte/r):", margin, y); doc.setFont("helvetica","normal"); y+=4;
-            if(sigData){ try{ doc.addImage(sigData,"PNG",margin,y,80,20); }catch(e){} }
-            doc.line(margin,y+21,margin+80,y+21); doc.setFontSize(7); doc.text((d.antVorname||"")+" "+(d.antNachname||""),margin,y+25); y+=32;
-            if(y>255){ doc.addPage(); y=15; }
-            doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.text("Anderer Elternteil ("+epN+", hauptbetreuend):", margin, y); doc.setFont("helvetica","normal"); y+=4;
-            if(sigEpPdf){ try{ doc.addImage(sigEpPdf,"PNG",margin,y,80,20); }catch(e){} }
-            doc.line(margin,y+21,margin+80,y+21); doc.setFontSize(7); doc.text(epN,margin,y+25); y+=32;
-            doc.setFontSize(7); doc.setTextColor(150,150,150); doc.text("Erstellt mit ISUV Anspruchslotse · "+heute, margin, 290);
-            doc.save("Anlage_TBG_Umgangsvereinbarung_"+(d.antNachname||"").replace(/ /g,"_")+"_"+(kinder[0]&&kinder[0].kalenderjahr||new Date().getFullYear())+".pdf");
-          }}
-            style={{ width:"100%", padding:"13px", backgroundColor:"#6a1b9a", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"8px", marginBottom:"8px" }}>
-            📄 Als PDF speichern (inkl. Unterschriften beider Elternteile)
-          </button>
-
-          {/* ── Aktionsleiste: Drucken / Speichern / Senden ── */}
+          {/* PDF-Erzeugung erfolgt über erzeugeTbgPDF() in der Aktionsleiste unten */}
+          {/* AKTIONSLEISTE                                      */}
+          {/* ══════════════════════════════════════════════════ */}
           <div style={{ marginTop:"8px", marginBottom:"20px" }}>
 
-            {/* PDF ausgefüllt – bestehender langer onClick bleibt unverändert oben, hier nur Label */}
-            <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"6px", marginTop:"4px" }}>📋 Dokument</div>
+            {/* ── Abschnitt: Speichern ── */}
+            <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"6px", marginTop:"4px" }}>💾 Speichern</div>
 
-            {/* Leeres Formular drucken */}
+            {/* Ausgefülltes Formular als PDF speichern */}
+            <button onClick={function(){ erzeugeTbgPDF(sigData); }}
+              style={{ width:"100%", padding:"11px", backgroundColor:"#e8f5e9", color:"#1b5e20", border:"1px solid #a5d6a7", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"6px" }}>
+              📄 Ausgefülltes Formular als PDF speichern
+            </button>
+
+            {/* Leerformular als PDF speichern */}
             <button onClick={function(){
               var jsPDF = window.jspdf && window.jspdf.jsPDF;
-              if(!jsPDF){ window.print(); return; }
+              if(!jsPDF){ alert("PDF-Bibliothek nicht geladen."); return; }
               var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
               var pw=210, margin=15, cw=pw-margin*2, y=15;
               doc.setFillColor(0,51,102); doc.rect(margin,y,cw,20,"F");
@@ -1117,7 +1051,7 @@ function App() {
               var linie = function(label, breite) {
                 if(y>272){ doc.addPage(); y=15; }
                 doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.text(label+":", margin, y);
-                doc.setFont("helvetica","normal"); doc.line(margin+40, y+1, margin+40+(breite||cw-40), y+1); y+=8;
+                doc.setFont("helvetica","normal"); doc.line(margin+50, y+1, margin+50+(breite||cw-50), y+1); y+=8;
               };
               var abschnitt = function(titel) {
                 if(y>265){ doc.addPage(); y=15; }
@@ -1126,96 +1060,130 @@ function App() {
                 doc.text(titel, margin+3, y+5); doc.setTextColor(0,0,0); y+=10;
               };
               abschnitt("(1) Antragsteller*in / Umgangsberechtigte*r");
-              linie("Name, Vorname", cw-40); linie("Straße, Hausnummer", cw-40);
-              linie("PLZ / Ort", cw-40); linie("Geburtsdatum (TT.MM.JJJJ)", 60); linie("BG-Nummer", 60);
-              linie("Telefon", 70); linie("E-Mail", cw-40);
+              linie("Name, Vorname"); linie("Straße, Hausnummer"); linie("PLZ / Ort");
+              linie("Geburtsdatum (TT.MM.JJJJ)", 60); linie("BG-Nummer", 60); linie("Telefon", 70); linie("E-Mail");
               abschnitt("(2) Kind & anderer Elternteil");
-              linie("Nachname Kind", 70); linie("Vorname Kind", 70); linie("Geburtsdatum Kind (TT.MM.JJJJ)", 60);
-              linie("Nachname anderer Elternteil", 70); linie("Vorname anderer Elternteil", 70);
-              linie("Straße / Hausnummer and. ET", cw-40); linie("PLZ / Ort and. ET", cw-40);
+              linie("Nachname Kind", 70); linie("Vorname Kind", 70); linie("Geb. Kind (TT.MM.JJJJ)", 60);
+              linie("Nachname and. ET", 70); linie("Vorname and. ET", 70); linie("Straße / Haus-Nr. and. ET"); linie("PLZ / Ort and. ET");
               abschnitt("(3) Betreuungsaufteilung");
-              ["Keine Aufteilung (Residenzmodell)", "Paritätisches Wechselmodell (~50:50)", "Asymmetrisches Wechselmodell"].forEach(function(opt) {
+              ["Keine Aufteilung (Residenzmodell – Kind lebt überwiegend beim and. ET)", "Paritätisches Wechselmodell (~50:50)", "Asymmetrisches Wechselmodell (2–12 Tage/Monat beim Antragsteller)"].forEach(function(opt) {
                 if(y>272){ doc.addPage(); y=15; }
-                doc.setFontSize(9); doc.setFont("helvetica","normal");
-                doc.rect(margin, y-3, 5, 5); doc.text(opt, margin+8, y+1); y+=8;
+                doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.rect(margin, y-3, 4, 4); doc.text(opt, margin+6, y+0.5); y+=7;
               });
-              y+=4;
-              abschnitt("(4) Umgangstage (§ 7 SGB II – nur Tage mit >12h Umgang zählen)");
-              doc.setFontSize(7); doc.setFont("helvetica","bold");
-              doc.setFillColor(220,230,241);
+              y+=3;
+              abschnitt("(4) Umgangstage (§ 7 SGB II – nur Tage mit >12h Umgang zählen; bei genau 12h entscheidet Übernachtung)");
               var colW=cw/3;
+              doc.setFontSize(7); doc.setFont("helvetica","bold"); doc.setFillColor(220,230,241);
               doc.rect(margin,y,colW,6,"F"); doc.rect(margin+colW,y,colW,6,"F"); doc.rect(margin+colW*2,y,colW,6,"F");
               doc.text("Monat",margin+2,y+4); doc.text("Antragsteller*in",margin+colW+2,y+4); doc.text("Anderer Elternteil",margin+colW*2+2,y+4); y+=6;
               doc.setFont("helvetica","normal");
               ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"].forEach(function(m,mi){
                 if(y>278){ doc.addPage(); y=15; }
                 var bg=mi%2===0?[248,250,252]:[255,255,255]; doc.setFillColor(bg[0],bg[1],bg[2]); doc.rect(margin,y,cw,5.5,"F");
-                doc.text(m,margin+2,y+4); doc.line(margin+colW+5,y+4,margin+colW+25,y+4); doc.line(margin+colW*2+5,y+4,margin+colW*2+25,y+4); y+=5.5;
+                doc.text(m,margin+2,y+4); doc.line(margin+colW+5,y+4,margin+colW+22,y+4); doc.line(margin+colW*2+5,y+4,margin+colW*2+22,y+4); y+=5.5;
               });
-              doc.setFillColor(0,51,102); doc.rect(margin,y,cw,6,"F"); doc.setTextColor(255,255,255); doc.setFont("helvetica","bold");
+              doc.setFillColor(0,51,102); doc.rect(margin,y,cw,6,"F"); doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(8);
               doc.text("Gesamt",margin+2,y+4); doc.setTextColor(0,0,0); y+=9;
               abschnitt("(5) Kindergeld");
-              linie("Kindergeldberechtigte Person", cw-40); linie("Kindergeldbetrag (EUR/Monat)", 40);
-              abschnitt("(6) Unterschriften – Umgangsvereinbarung");
-              linie("Ort, Datum", cw-40); y+=15;
-              doc.setFont("helvetica","bold"); doc.text("Antragsteller*in:", margin, y); y+=20;
+              linie("Kindergeldberechtigte Person"); linie("Kindergeldbetrag (EUR/Monat)", 40);
+              abschnitt("(6) Unterschriften – Umgangsvereinbarung nach § 7 SGB II");
+              linie("Ort, Datum"); y+=12;
+              doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.text("Antragsteller*in / Umgangsberechtigte*r:", margin, y); y+=18;
               doc.line(margin,y,margin+80,y); doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.text("Unterschrift", margin, y+4); y+=12;
-              doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.text("Anderer Elternteil:", margin, y); y+=20;
-              doc.line(margin,y,margin+80,y); doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.text("Unterschrift", margin, y+4); y+=12;
+              doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.text("Anderer Elternteil (hauptbetreuend):", margin, y); y+=18;
+              doc.line(margin,y,margin+80,y); doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.text("Unterschrift", margin, y+4);
               doc.setFontSize(7); doc.setTextColor(150,150,150); doc.text("Erstellt mit ISUV Anspruchslotse", margin, 290);
               doc.save("Anlage_TBG_Leerformular.pdf");
             }}
-              style={{ width:"100%", padding:"11px", backgroundColor:"#f0f4f7", color:"#003366", border:"1px solid #003366", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"6px" }}>
-              🖨️ Leerformular drucken / speichern
+              style={{ width:"100%", padding:"11px", backgroundColor:"#f0f4f7", color:"#003366", border:"1px solid #90a4ae", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"6px" }}>
+              🖨️ Leerformular als PDF speichern
             </button>
 
-            {/* Lokal als JSON speichern */}
-            <button onClick={function(){
-              var dateiname = "TBG_"+(d.antNachname||"Formular").replace(/ /g,"_")+"_"+(kinder[0]&&kinder[0].kalenderjahr||new Date().getFullYear())+".json";
-              var inhalt = JSON.stringify({ formTyp:"tbg", daten:d, kinder:kinder, exportiert:new Date().toISOString() }, null, 2);
-              var blob = new Blob([inhalt], { type:"application/json" });
-              var url = URL.createObjectURL(blob);
-              var a = document.createElement("a"); a.href=url; a.download=dateiname; a.click();
-              URL.revokeObjectURL(url);
-            }}
-              style={{ width:"100%", padding:"11px", backgroundColor:"#f0f4f7", color:"#003366", border:"1px solid #003366", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"6px" }}>
-              💾 Entwurf lokal speichern (JSON)
-            </button>
-
-            {/* Senden an anderen Elternteil */}
+            {/* ── Abschnitt: An anderen Elternteil senden ── */}
             {(function(){
               var ep0 = kinder[0] || {};
               if(!ep0.epMail && !ep0.epTel) return null;
+              var kindName = ((ep0.kVorname||"")+" "+(ep0.kNachname||"")).trim() || "Kind";
+              var epName = ((ep0.epVorname||"")+" "+(ep0.epNachname||"")).trim() || "Anderer Elternteil";
+              // Baut URL mit vorausgefüllten Daten als Hash-Parameter
+              var baueSendURL = function(modus) {
+                var payload = {};
+                if(modus === "ausgefuellt") {
+                  payload = Object.assign({}, d, { sigAntragsteller:"", sigAndererElternteil:"" }); // Sigs nicht übertragen
+                } else if(modus === "teilausgefuellt") {
+                  // Nur Kind-Daten und EP-Adresse, kein Kalender
+                  payload = {
+                    antNachname: d.antNachname||"", antVorname: d.antVorname||"",
+                    kinder: kinder.map(function(k){ return Object.assign({},k,{ kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }, sigAntragsteller:"", sigAndererElternteil:"" }); })
+                  };
+                }
+                // Kodiere als Base64 im URL-Fragment (#tbg=...)
+                try {
+                  return window.location.href.split("#")[0] + "#tbg=" + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+                } catch(e) { return window.location.href; }
+              };
               return (
-                <div style={{ display:"flex", flexDirection:"column", gap:"6px", marginBottom:"6px" }}>
-                  {ep0.epMail && (
-                    <button onClick={function(){
-                      var kindName=(ep0.kVorname||"")+" "+(ep0.kNachname||"");
-                      var betreff="Anlage TBG / Umgangsvereinbarung für "+kindName+" – bitte unterschreiben";
-                      var body="Hallo "+(ep0.epVorname||"")+",\n\nbitte öffne den Link, prüfe die Anlage TBG für "+kindName+" und unterschreibe direkt am Smartphone:\n\n"+window.location.href+"\n\nDas Dokument gilt mit beiden Unterschriften als Umgangsvereinbarung.\n\nViele Grüße, "+(d.antVorname||"")+" "+(d.antNachname||"");
-                      window.open("mailto:"+encodeURIComponent(ep0.epMail)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
-                    }} style={{ width:"100%", padding:"11px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>
-                      ✉️ An {ep0.epMail} senden
-                    </button>
-                  )}
-                  {ep0.epTel && (
-                    <button onClick={function(){
-                      var tel=ep0.epTel.replace(/[^0-9+]/g,"").replace(/^0/,"49");
-                      var kindName=(ep0.kVorname||"")+" "+(ep0.kNachname||"");
-                      var msg="Hallo "+(ep0.epVorname||"")+",\n\nbitte unterschreibe die Anlage TBG für "+kindName+" direkt am Handy:\n\n"+window.location.href+"\n\nViele Grüße, "+(d.antVorname||"")+" "+(d.antNachname||"");
-                      window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
-                    }} style={{ width:"100%", padding:"11px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>
-                      📱 Per WhatsApp an {ep0.epTel} senden
-                    </button>
-                  )}
+                <div style={{ marginTop:"4px", marginBottom:"6px" }}>
+                  <div style={{ fontSize:"10px", fontWeight:"bold", color:"#6a1b9a", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"6px" }}>📨 An {epName} senden</div>
+                  {["leer","ausgefuellt","teilausgefuellt"].map(function(modus){
+                    var label = modus==="leer" ? "📋 Leer senden (Antragsteller-Daten vorhanden)" : modus==="ausgefuellt" ? "📝 Ausgefüllt senden (alles außer Unterschriften)" : "🔢 Teilausgefüllt senden (nur Kinder-/EP-Daten, kein Kalender)";
+                    var sendURL = baueSendURL(modus);
+                    return (
+                      <div key={modus} style={{ display:"flex", gap:"6px", marginBottom:"5px" }}>
+                        {ep0.epMail && (
+                          <button onClick={function(){
+                            var betreff = "Anlage TBG – "+kindName+" – bitte prüfen und unterschreiben";
+                            var body = "Hallo "+(ep0.epVorname||"")+",\n\nbitte öffne den Link, prüfe die Umgangsvereinbarung (Anlage TBG) für "+kindName+" und unterschreibe:\n\n"+sendURL+"\n\nDas Dokument gilt mit beiden Unterschriften als Umgangsvereinbarung nach § 7 SGB II.\n\nViele Grüße,\n"+(d.antVorname||"")+" "+(d.antNachname||"");
+                            window.open("mailto:"+encodeURIComponent(ep0.epMail)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
+                          }} style={{ flex:1, padding:"9px 6px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"11px", cursor:"pointer", textAlign:"center" }}>
+                            ✉️ {label.split(" ").slice(0,2).join(" ")} per Mail
+                          </button>
+                        )}
+                        {ep0.epTel && (
+                          <button onClick={function(){
+                            var tel = ep0.epTel.replace(/[^0-9+]/g,"").replace(/^0/,"49");
+                            var msg = "Hallo "+(ep0.epVorname||"")+",\n\nbitte prüfe und unterschreibe die Anlage TBG für "+kindName+":\n\n"+sendURL+"\n\nViele Grüße, "+(d.antVorname||"")+" "+(d.antNachname||"");
+                            window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
+                          }} style={{ flex:1, padding:"9px 6px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"11px", cursor:"pointer", textAlign:"center" }}>
+                            📱 {label.split(" ").slice(0,2).join(" ")} WA
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize:"10px", color:"#888", marginTop:"2px" }}>💡 Leer = nur Link; Ausgefüllt = alle Felder vorausgefüllt; Teilausgefüllt = Kinder-Daten ohne Kalender</div>
                 </div>
               );
             })()}
 
-            <button onClick={absenden}
-              style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginTop:"2px" }}>
-              ✅ Angaben an Berater übermitteln
+            {/* ── Abschnitt: Zurücksenden an Berater ── */}
+            <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"6px", marginTop:"8px" }}>📤 An Berater zurücksenden</div>
+            <button onClick={function(){
+              // Speichert vollständige Daten in Supabase (antwort_daten enthält alles für Akten-Übernahme)
+              var vollDaten = Object.assign({}, d, {
+                kinder: kinder,
+                _exportiert: new Date().toISOString(),
+                _formVersion: "tbg_v2"
+              });
+              var url = sbUrl.replace(/\/+$/, "") + "/rest/v1/formulare?formular_id=eq." + encodeURIComponent(formularId);
+              fetch(url, {
+                method: "PATCH",
+                headers: { "apikey": sbKey, "Authorization": "Bearer " + sbKey, "Content-Type": "application/json", "Prefer": "return=minimal" },
+                body: JSON.stringify({ status: "beantwortet", antwort_daten: JSON.stringify(vollDaten), beantwortet_am: new Date().toISOString() })
+              })
+              .then(function(r) {
+                if(r.ok) {
+                  setStatus("gesendet");
+                  // Automatisch PDF erzeugen nach dem Senden
+                  setTimeout(function(){ erzeugeTbgPDF(sigData); }, 400);
+                } else { r.text().then(function(t){ alert("Fehler: "+t.slice(0,200)); }); }
+              })
+              .catch(function(e){ alert("Netzwerkfehler: "+e.message); });
+            }}
+              style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginBottom:"6px" }}>
+              ✅ Ausgefüllt an Berater zurücksenden
             </button>
+            <div style={{ fontSize:"10px", color:"#888", textAlign:"center" }}>Das Formular wird als PDF gespeichert und die Daten können in die Akte übernommen werden.</div>
           </div>
 
           {sigModal && <SigModal onSave={function(dataUrl){setSigData(dataUrl);setSigModal(false);}} onClose={function(){setSigModal(false);}} />}
