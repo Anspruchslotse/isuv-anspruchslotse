@@ -817,7 +817,34 @@ function App() {
           doc.text(String((k.kalender&&k.kalender.anderer&&k.kalender.anderer[mi])||"–"), margin+colW*2+2, y+4);
           y+=5.5;
         });
-        y+=3;
+        var sA=(k.kalender&&k.kalender.antragsteller||[]).reduce(function(s,x){return s+(parseInt(x)||0);},0);
+        var sB=(k.kalender&&k.kalender.anderer||[]).reduce(function(s,x){return s+(parseInt(x)||0);},0);
+        var sG=sA+sB;
+        // Gesamtzeile Kalender
+        if(sG>0){
+          doc.setFillColor(0,51,102); doc.rect(margin,y,cw,5.5,"F"); doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(8);
+          doc.text("Gesamt",margin+2,y+4); doc.text(String(sA),margin+colW+2,y+4); doc.text(String(sB),margin+colW*2+2,y+4);
+          doc.setTextColor(0,0,0); y+=8;
+        } else { y+=3; }
+        // Regelsatz-Berechnung
+        var ri = berechneRegelKind(k.kGeburt);
+        if(ri && sG>0){
+          if(y>265){ doc.addPage(); y=15; }
+          doc.setFillColor(232,245,233); doc.rect(margin,y,cw,sG>0?14:8,"F");
+          doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(27,94,32);
+          doc.text("Regelsatz 2025 (SGB II) – Kind "+ki+" ("+ri.alter+" J., Stufe "+ri.stufe+"): "+ri.betrag+" €/Monat", margin+3, y+5);
+          doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(85,85,85);
+          var antA2 = Math.round(sA/sG*100);
+          var antB2 = 100-antA2;
+          var rA = Math.round(ri.betrag * sA / sG);
+          var rB = ri.betrag - rA;
+          if(antA2>=43 && antA2<=57){
+            doc.text("Paritätisch: je "+Math.round(ri.betrag/2)+" €/Monat pro Elternteil", margin+3, y+10);
+          } else {
+            doc.text("Antragsteller*in ("+antA2+"%, "+sA+" Tage): "+rA+" €/Monat   ·   And. Elternteil ("+antB2+"%, "+sB+" Tage): "+rB+" €/Monat", margin+3, y+10);
+          }
+          doc.setTextColor(0,0,0); y+=17;
+        } else { y+=3; }
       });
       // Unterschriften
       if(y>230){ doc.addPage(); y=15; }
@@ -1200,12 +1227,49 @@ function App() {
                 if (!kontakt) { alert("Bitte zuerst die " + (kanal==="mail" ? "E-Mail-Adresse" : "Telefonnummer") + " des anderen Elternteils unter ② eintragen."); return; }
                 var sendURL = baueSendURL(modus);
                 var betreff = "Anlage TBG – "+kindName+" – bitte prüfen und unterschreiben";
+
+                // Feldliste je nach Modus
+                var feldliste = "";
+                if (modus === "leer") {
+                  feldliste = "\n\nFolgende Angaben werden benötigt:\n"
+                    + "① Deine persönlichen Daten (Name, Anschrift, Geburtsdatum, Telefon, E-Mail)\n"
+                    + "② Daten von "+kindName+" (Geburtsdatum) und meine Kontaktdaten\n"
+                    + "③ Betreuungsaufteilung (Wechselmodell / Residenz)\n"
+                    + "④ Umgangstage je Monat (Anzahl Tage pro Monat für "+new Date().getFullYear()+")\n"
+                    + "⑤ Kindergeld: wer bezieht es, wie viel?\n"
+                    + "⑥ Deine Unterschrift direkt im Formular";
+                } else if (modus === "teilausgefuellt") {
+                  feldliste = "\n\nDiese Felder sind bereits ausgefüllt:\n"
+                    + "✅ Deine Kontaktdaten und Kindesdaten\n"
+                    + "✅ Kindergeld-Empfänger\n\n"
+                    + "Bitte noch ausfüllen:\n"
+                    + "④ Umgangstage je Monat (Anzahl Tage für "+new Date().getFullYear()+" eintragen)\n"
+                    + "⑥ Deine Unterschrift direkt im Formular";
+                } else {
+                  feldliste = "\n\nDas Formular ist vollständig ausgefüllt inkl. Kalender und Regelsatz-Berechnung.\n"
+                    + "Bitte nur noch prüfen und unterschreiben:\n"
+                    + "⑥ Deine Unterschrift direkt im Formular";
+                }
+
+                var gruss = "\n\nViele Grüße,\n"+(d.antVorname||"")+" "+(d.antNachname||"");
+                var hinweis = "\n\n⚠️ Der Link lässt sich nur einmal öffnen – bitte alle Daten vorher bereitlegen.";
+
                 if (kanal === "mail") {
-                  var body = "Hallo "+(ep0.epVorname||"")+",\n\nbitte öffne den Link, prüfe die Umgangsvereinbarung (Anlage TBG) für "+kindName+" und unterschreibe direkt am Gerät:\n\n"+sendURL+"\n\nDas Dokument gilt mit beiden Unterschriften als Umgangsvereinbarung nach § 7 SGB II.\n\nViele Grüße,\n"+(d.antVorname||"")+" "+(d.antNachname||"");
+                  var body = "Hallo "+(ep0.epVorname||"")+",\n\n"
+                    + (d.antVorname||"")+" "+(d.antNachname||"")+" hat die Anlage TBG (Bürgergeld / Umgangsvereinbarung) für "+kindName+" vorbereitet.\n"
+                    + "Bitte öffne den Link, fülle die fehlenden Angaben aus und unterschreibe direkt am Gerät:"
+                    + feldliste + hinweis
+                    + "\n\n🔗 " + sendURL
+                    + "\n\nDas Dokument gilt mit beiden Unterschriften als Umgangsvereinbarung nach § 7 SGB II."
+                    + gruss;
                   window.open("mailto:"+encodeURIComponent(kontakt)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
                 } else {
                   var tel = kontakt.replace(/[^0-9+]/g,"").replace(/^0/,"49");
-                  var msg = "Hallo "+(ep0.epVorname||"")+",\n\nbitte prüfe und unterschreibe die Anlage TBG für "+kindName+":\n\n"+sendURL+"\n\nViele Grüße, "+(d.antVorname||"")+" "+(d.antNachname||"");
+                  var msg = "Hallo "+(ep0.epVorname||"")+",\n\n"
+                    + (d.antVorname||"")+" "+(d.antNachname||"")+" hat die Anlage TBG für "+kindName+" vorbereitet."
+                    + feldliste + hinweis
+                    + "\n\n🔗 " + sendURL
+                    + gruss;
                   window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
                 }
               };
