@@ -1017,7 +1017,7 @@ function App() {
             + Weiteres Kind hinzufügen
           </button>
 
-          {/* ── Umgangsvereinbarung: Versand + Unterschrift anderer Elternteil ── */}
+          {/* ── Umgangsvereinbarung: Unterschrift anderer Elternteil ── */}
           {(function(){
             var ep0 = kinder[0] || {};
             var epVollname = ((ep0.epVorname||"")+" "+(ep0.epNachname||"")).trim();
@@ -1027,66 +1027,28 @@ function App() {
               <div style={{ border:"2px solid #6a1b9a", borderRadius:"10px", padding:"14px", marginTop:"16px", marginBottom:"12px" }}>
                 <div style={{ fontWeight:"bold", fontSize:"13px", color:"#4a148c", marginBottom:"3px" }}>📋 Umgangsvereinbarung & Unterschrift anderer Elternteil</div>
                 <div style={{ fontSize:"11px", color:"#555", marginBottom:"12px", lineHeight:"1.6" }}>
-                  Mit beiden Unterschriften gilt die Anlage TBG gleichzeitig als <strong>verbindliche Umgangsvereinbarung</strong> (§ 7 SGB II). Der andere Elternteil kann das Formular per Link erhalten und direkt am Smartphone mit dem Finger unterschreiben.
+                  Mit beiden Unterschriften gilt die Anlage TBG gleichzeitig als <strong>verbindliche Umgangsvereinbarung</strong> (§ 7 SGB II). Der andere Elternteil kann das Formular per Link erhalten (siehe unten) und direkt am Smartphone unterschreiben – oder hier direkt vor Ort.
                 </div>
 
-                <div style={{ fontSize:"11px", fontWeight:"bold", color:"#4a148c", marginBottom:"6px" }}>📨 Formular-Link versenden:</div>
-                <div style={{ display:"flex", gap:"6px", marginBottom:"8px" }}>
-                  <div style={{ flex:1 }}>{lbl("E-Mail anderer Elternteil")}<input style={fi2} type="email" value={ep0.epMail||""} onChange={function(e){kindUpd(0,"epMail",e.target.value);}} placeholder="elternteil@mail.de" /></div>
-                  <div style={{ flex:1 }}>{lbl("WhatsApp / Telefon")}<input style={fi2} type="tel" value={ep0.epTel||""} onChange={function(e){kindUpd(0,"epTel",e.target.value);}} placeholder="+49170..." /></div>
+                {/* Unterschrift-Canvas anderer Elternteil */}
+                <div style={{ fontWeight:"bold", fontSize:"12px", color:"#4a148c", marginBottom:"6px" }}>
+                  ✍️ Unterschrift: {epVollname || "Anderer Elternteil"}
                 </div>
-
-                {(ep0.epMail||ep0.epTel) ? (
-                  <div style={{ display:"flex", flexDirection:"column", gap:"6px", marginBottom:"14px" }}>
-                    {ep0.epMail && (
-                      <button onClick={function(){
-                        var kindName = (ep0.kVorname||"")+" "+(ep0.kNachname||"");
-                        var betreff = "Anlage TBG / Umgangsvereinbarung für "+kindName+" – bitte unterschreiben";
-                        var body = "Hallo "+(ep0.epVorname||"")+",\n\n"+(d.antVorname||"")+" "+(d.antNachname||"")+" hat die Anlage TBG (Bürgergeldantrag / Umgangsvereinbarung) für "+kindName+" ausgefüllt.\n\nBitte öffne den Link, prüfe die Angaben und unterschreibe direkt am Smartphone:\n\n"+window.location.href+"\n\nMit beiden Unterschriften gilt das Dokument als Umgangsvereinbarung nach § 7 SGB II.\n\nViele Grüße, "+(d.antVorname||"")+" "+(d.antNachname||"");
-                        window.open("mailto:"+encodeURIComponent(ep0.epMail)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
-                      }} style={{ width:"100%", padding:"11px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
-                        ✉️ Formular-Link per E-Mail senden an {ep0.epMail}
-                      </button>
-                    )}
-                    {ep0.epTel && (
-                      <button onClick={function(){
-                        var tel = ep0.epTel.replace(/[^0-9+]/g,"").replace(/^0/,"49");
-                        var kindName = (ep0.kVorname||"")+" "+(ep0.kNachname||"");
-                        var msg = "Hallo "+(ep0.epVorname||"")+",\n\nbitte öffne die Anlage TBG für "+kindName+" und unterschreibe direkt am Handy mit dem Finger:\n\n"+window.location.href+"\n\nDas Dokument gilt mit beiden Unterschriften als Umgangsvereinbarung. Viele Grüße, "+(d.antVorname||"")+" "+(d.antNachname||"");
-                        window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
-                      }} style={{ width:"100%", padding:"11px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
-                        📱 Formular-Link per WhatsApp senden an {ep0.epTel}
-                      </button>
-                    )}
-                    <div style={{ fontSize:"10px", color:"#555", backgroundColor:"#f5f0ff", borderRadius:"6px", padding:"7px 10px", lineHeight:"1.5" }}>
-                      ℹ️ Der Link öffnet dieses Formular mit allen eingetragenen Daten. Der andere Elternteil kann direkt am Smartphone unterschreiben – danach bitte beide das PDF speichern.
+                {sigEp ? (
+                  <div>
+                    <img src={sigEp} style={{ border:"1px solid #ccc", borderRadius:"6px", width:"100%", maxHeight:"80px", objectFit:"contain", backgroundColor:"#fff" }} alt="Unterschrift and. Elternteil" />
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"4px" }}>
+                      <span style={{ fontSize:"10px", color:"#2e7d32", fontWeight:"bold" }}>✅ Unterschrift vorhanden – gilt als Umgangsvereinbarung</span>
+                      <button onClick={function(){upd("sigAndererElternteil","");}} style={{ fontSize:"11px", color:"#e53935", background:"none", border:"none", cursor:"pointer" }}>✕ Löschen</button>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ fontSize:"11px", color:"#999", marginBottom:"12px" }}>↑ E-Mail oder Telefon eintragen um den Formular-Link zu versenden.</div>
+                  <button onClick={function(){upd("_sigEpModal",true);}}
+                    style={{ width:"100%", padding:"12px", backgroundColor:"#fff", color:"#4a148c", border:"2px dashed #6a1b9a", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>
+                    ✍️ Hier unterschreiben – anderer Elternteil (Finger / Maus)
+                  </button>
                 )}
-
-                {/* Unterschrift-Canvas anderer Elternteil */}
-                <div style={{ borderTop:"1px dashed #ce93d8", paddingTop:"12px" }}>
-                  <div style={{ fontWeight:"bold", fontSize:"12px", color:"#4a148c", marginBottom:"6px" }}>
-                    ✍️ Unterschrift: {epVollname || "Anderer Elternteil"}
-                  </div>
-                  {sigEp ? (
-                    <div>
-                      <img src={sigEp} style={{ border:"1px solid #ccc", borderRadius:"6px", width:"100%", maxHeight:"80px", objectFit:"contain", backgroundColor:"#fff" }} alt="Unterschrift and. Elternteil" />
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"4px" }}>
-                        <span style={{ fontSize:"10px", color:"#2e7d32", fontWeight:"bold" }}>✅ Unterschrift vorhanden – gilt als Umgangsvereinbarung</span>
-                        <button onClick={function(){upd("sigAndererElternteil","");}} style={{ fontSize:"11px", color:"#e53935", background:"none", border:"none", cursor:"pointer" }}>✕ Löschen</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button onClick={function(){upd("_sigEpModal",true);}}
-                      style={{ width:"100%", padding:"12px", backgroundColor:"#fff", color:"#4a148c", border:"2px dashed #6a1b9a", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer" }}>
-                      ✍️ Hier unterschreiben – anderer Elternteil (Finger / Maus)
-                    </button>
-                  )}
-                  {showSigEpModal && <SigModal onSave={function(dataUrl){upd("sigAndererElternteil",dataUrl);upd("_sigEpModal",false);}} onClose={function(){upd("_sigEpModal",false);}} />}
-                </div>
+                {showSigEpModal && <SigModal titel={"Unterschrift: "+(epVollname||"Anderer Elternteil")} onSave={function(dataUrl){upd("sigAndererElternteil",dataUrl);upd("_sigEpModal",false);}} onClose={function(){upd("_sigEpModal",false);}} />}
               </div>
             );
           })()}
@@ -1191,13 +1153,14 @@ function App() {
               var baueSendURL = function(modus) {
                 var payload = {};
                 if(modus === "ausgefuellt") {
-                  // Nur die wichtigsten Felder – kein Kalender, keine Signaturen (macht URL kürzer)
+                  // Alle Daten inkl. Kalender und Unterschrift Antragsteller – URL kann länger sein aber vollständig
                   payload = {
                     antNachname: d.antNachname||"", antVorname: d.antVorname||"",
                     antGeburt: d.antGeburt||"", antStrasse: d.antStrasse||"",
                     antPlz: d.antPlz||"", antOrt: d.antOrt||"",
                     antTel: d.antTel||"", antMail: d.antMail||"",
                     antBGNr: d.antBGNr||"", ortDatum: d.ortDatum||"",
+                    sigAntragsteller: d.sigAntragsteller||"",
                     kinder: kinder.map(function(k){ return {
                       kNachname:k.kNachname||"", kVorname:k.kVorname||"", kGeburt:k.kGeburt||"",
                       epNachname:k.epNachname||"", epVorname:k.epVorname||"",
@@ -1206,7 +1169,7 @@ function App() {
                       aufteilungsWunsch:k.aufteilungsWunsch||"",
                       kgBerechtigt:k.kgBerechtigt||"", kgBetrag:k.kgBetrag||"",
                       kalenderjahr:k.kalenderjahr||"",
-                      kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }
+                      kalender: k.kalender || { antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }
                     };})
                   };
                 } else if(modus === "teilausgefuellt") {
