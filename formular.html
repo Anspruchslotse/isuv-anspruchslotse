@@ -1230,23 +1230,45 @@ function App() {
 
                 // Feldliste je nach Modus
                 var feldliste = "";
+                // Bereits gewähltes Betreuungsmodell (für ausgefuellt und teilausgefuellt)
+                var modellText = kinder[0] && kinder[0].aufteilungsWunsch === "paritaetisch"
+                  ? "✅ Paritätisches Wechselmodell (~50:50)"
+                  : kinder[0] && kinder[0].aufteilungsWunsch === "asymmetrisch"
+                  ? "✅ Asymmetrisches / Residenzmodell (2–12 Tage beim anderen ET)"
+                  : kinder[0] && kinder[0].aufteilungsWunsch === "keine"
+                  ? "✅ Keine Aufteilung (Kind lebt überwiegend bei Antragsteller*in)"
+                  : "";
+
                 if (modus === "leer") {
                   feldliste = "\n\nFolgende Angaben werden benötigt:\n"
-                    + "① Deine persönlichen Daten (Name, Anschrift, Geburtsdatum, Telefon, E-Mail)\n"
-                    + "② Daten von "+kindName+" (Geburtsdatum) und meine Kontaktdaten\n"
-                    + "③ Betreuungsaufteilung (Wechselmodell / Residenz)\n"
-                    + "④ Umgangstage je Monat (Anzahl Tage pro Monat für "+new Date().getFullYear()+")\n"
-                    + "⑤ Kindergeld: wer bezieht es, wie viel?\n"
+                    + "① Persönliche Daten (Name, Anschrift, Geburtsdatum, Telefon, E-Mail)\n"
+                    + "② Daten von "+kindName+" (Geburtsdatum) und Kontaktdaten des anderen Elternteils\n"
+                    + "③ Betreuungsaufteilung – bitte eine Option ankreuzen:\n"
+                    + "   ☐ Keine Aufteilung (Kind lebt überwiegend bei Antragsteller*in)\n"
+                    + "   ☐ Paritätisches Wechselmodell (~50:50)\n"
+                    + "   ☐ Asymmetrisches / Residenzmodell (2–12 Tage beim anderen ET)\n"
+                    + "④ Umgangstage je Monat eintragen (Anzahl Tage pro Monat für "+new Date().getFullYear()+")\n"
+                    + "⑤ Kindergeld:\n"
+                    + "   – Wer bezieht das Kindergeld?\n"
+                    + "   – Betrag (EUR/Monat)\n"
+                    + "   – ☐ Wird Kindergeld an den anderen Elternteil weitergeleitet?\n"
                     + "⑥ Deine Unterschrift direkt im Formular";
                 } else if (modus === "teilausgefuellt") {
                   feldliste = "\n\nDiese Felder sind bereits ausgefüllt:\n"
-                    + "✅ Deine Kontaktdaten und Kindesdaten\n"
-                    + "✅ Kindergeld-Empfänger\n\n"
-                    + "Bitte noch ausfüllen:\n"
+                    + "✅ Persönliche Daten und Kindesdaten\n"
+                    + "✅ Kindergeld-Empfänger und Betrag\n"
+                    + (modellText ? modellText+"\n" : "")
+                    + "\nBitte noch ausfüllen:\n"
+                    + (!modellText ? "③ Betreuungsaufteilung – bitte eine Option ankreuzen:\n"
+                    + "   ☐ Keine Aufteilung (Kind überwiegend bei Antragsteller*in)\n"
+                    + "   ☐ Paritätisches Wechselmodell (~50:50)\n"
+                    + "   ☐ Asymmetrisches / Residenzmodell\n" : "")
                     + "④ Umgangstage je Monat (Anzahl Tage für "+new Date().getFullYear()+" eintragen)\n"
+                    + "⑤ ☐ Wird Kindergeld an den anderen Elternteil weitergeleitet?\n"
                     + "⑥ Deine Unterschrift direkt im Formular";
                 } else {
                   feldliste = "\n\nDas Formular ist vollständig ausgefüllt inkl. Kalender und Regelsatz-Berechnung.\n"
+                    + (modellText ? modellText+"\n" : "")
                     + "Bitte nur noch prüfen und unterschreiben:\n"
                     + "⑥ Deine Unterschrift direkt im Formular";
                 }
