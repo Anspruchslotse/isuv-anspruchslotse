@@ -8188,7 +8188,24 @@ function App() {
                             var sbResult = await sbSaveFormular("tbg", "Anlage TBG", m, vf_tbg);
                             if (!sbResult) { alert("Supabase Fehler."); return; }
                             var betreff = "ISUV Anspruchslotse – Anlage TBG";
-                            var body = "Guten Tag " + (m.vorname||"") + ",\n\nbitte füllen Sie die Anlage TBG (Temporäre Bedarfsgemeinschaft) für Ihren Bürgergeldantrag aus:\n\n🔗 " + sbResult.url + "\n\nBei Fragen: " + (loginDaten.email||"") + "\n\n" + (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
+                            var feldliste = "\n\nFolgende Angaben werden benötigt:\n"
+                              + "① Persönliche Daten (Name, Anschrift, Geburtsdatum, Telefon, E-Mail)\n"
+                              + "② Daten der Kinder und des anderen Elternteils\n"
+                              + "③ Betreuungsaufteilung – bitte eine Option ankreuzen:\n"
+                              + "   ☐ Keine Aufteilung (Kind lebt überwiegend beim anderen Elternteil)\n"
+                              + "   ☐ Paritätisches Wechselmodell (~50:50)\n"
+                              + "   ☐ Asymmetrisches / Residenzmodell (2–12 Tage beim anderen ET)\n"
+                              + "④ Umgangstage je Monat (Anzahl Tage pro Monat für " + new Date().getFullYear() + " eintragen)\n"
+                              + "⑤ Kindergeld:\n"
+                              + "   – Wer bezieht das Kindergeld?\n"
+                              + "   – Betrag (EUR/Monat)\n"
+                              + "   – ☐ Wird Kindergeld an den anderen Elternteil weitergeleitet?\n"
+                              + "⑥ Unterschrift direkt im Formular\n"
+                              + "\n⚠️ Der Link lässt sich nur einmal öffnen – bitte alle Daten vorher bereitlegen.";
+                            var body = "Guten Tag " + (m.vorname||"") + ",\n\nbitte füllen Sie die Anlage TBG (Temporäre Bedarfsgemeinschaft) für Ihren Bürgergeldantrag aus:"
+                              + feldliste
+                              + "\n\n🔗 " + sbResult.url
+                              + "\n\nBei Fragen: " + (loginDaten.email||"") + "\n\n" + (loginDaten.leiter||"ISUV") + (loginDaten.ort ? " · " + loginDaten.ort : "");
                             window.open("mailto:" + encodeURIComponent(m.mail) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(body));
                             var jetzt = new Date();
                             var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
@@ -8214,7 +8231,21 @@ function App() {
                             var sbResult = await sbSaveFormular("tbg", "Anlage TBG", m, vf_tbg2);
                             if (!sbResult) { alert("Supabase Fehler."); return; }
                             var empfTel = m.tel.replace(/[^0-9]/g,"").replace(/^0/,"49");
-                            var msg = "Hallo " + (m.vorname||"") + ",\n\nbitte füllen Sie die Anlage TBG für Ihren Bürgergeldantrag aus:\n\n🔗 " + sbResult.url + "\n\n" + (loginDaten.leiter||"ISUV");
+                            var feldlisteWA = "\n\nFolgende Angaben werden benötigt:\n"
+                              + "① Persönliche Daten\n"
+                              + "② Daten der Kinder und des anderen Elternteils\n"
+                              + "③ Betreuungsaufteilung:\n"
+                              + "   ☐ Keine Aufteilung\n"
+                              + "   ☐ Paritätisches Wechselmodell (~50:50)\n"
+                              + "   ☐ Asymmetrisches / Residenzmodell\n"
+                              + "④ Umgangstage je Monat (" + new Date().getFullYear() + ")\n"
+                              + "⑤ Kindergeld (Empfänger, Betrag, Weiterleitung?)\n"
+                              + "⑥ Unterschrift im Formular\n"
+                              + "\n⚠️ Link nur einmal öffnen – Daten vorher bereitlegen.";
+                            var msg = "Hallo " + (m.vorname||"") + ",\n\nbitte füllen Sie die Anlage TBG für Ihren Bürgergeldantrag aus:"
+                              + feldlisteWA
+                              + "\n\n🔗 " + sbResult.url
+                              + "\n\n" + (loginDaten.leiter||"ISUV");
                             window.open("https://wa.me/" + empfTel + "?text=" + encodeURIComponent(msg));
                             var jetzt = new Date();
                             var ds = jetzt.toLocaleDateString("de-DE") + " " + String(jetzt.getHours()).padStart(2,"0") + ":" + String(jetzt.getMinutes()).padStart(2,"0");
