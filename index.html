@@ -3688,15 +3688,23 @@ function App() {
   const [selectedTerminId, setSelectedTerminId] = useState(null);
 
   const defaultMembers = [
-    { id: 1, vorname: "Sabine", name: "Landgraf", tel: "01701234567", mail: "s.landgraf@gmx.de", strasse: "Musterweg 1", plz: "12345", ort: "Musterstadt" },
-    { id: 2, vorname: "Markus", name: "Siedler", tel: "01729876543", mail: "m.siedler@web.de", strasse: "Feldstr. 12", plz: "54321", ort: "Beispielort" },
-    { id: 3, vorname: "Wolfgang", name: "Wechsel", tel: "01755556677", mail: "wolf@wechsel.de", strasse: "Hauptstr. 5", plz: "99887", ort: "Testdorf" },
-    { id: 4, vorname: "Susanne", name: "Vogel", tel: "01512223344", mail: "s.vogel@icloud.com", strasse: "Wiesenstr. 3", plz: "10203", ort: "Berlin" }
+    { id: 1, vorname: "Sabine",   name: "Landgraf", tel: "01701234567", mail: "s.landgraf@gmx.de",   strasse: "Musterweg 1",  plz: "12345", ort: "Musterstadt", geburt: "14.05.1983" },
+    { id: 2, vorname: "Markus",   name: "Siedler",  tel: "01729876543", mail: "m.siedler@web.de",    strasse: "Feldstr. 12",  plz: "54321", ort: "Beispielort",  geburt: "15.03.1982" },
+    { id: 3, vorname: "Wolfgang", name: "Wechsel",  tel: "01755556677", mail: "wolf@wechsel.de",     strasse: "Hauptstr. 5",  plz: "99887", ort: "Testdorf",      geburt: "22.08.1979" },
+    { id: 4, vorname: "Susanne",  name: "Vogel",    tel: "01512223344", mail: "s.vogel@icloud.com",  strasse: "Wiesenstr. 3", plz: "10203", ort: "Berlin",        geburt: "03.11.1990" }
   ];
   const [members, setMembers] = useState(() => {
     try {
       const saved = localStorage.getItem("isuv_members");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        // Geburtsdatum aus defaultMembers nachpflegen falls noch nicht vorhanden
+        return parsed.map(function(m) {
+          if (m.geburt) return m;
+          var def = defaultMembers.find(function(d) { return d.id === m.id; });
+          return def && def.geburt ? Object.assign({}, m, { geburt: def.geburt }) : m;
+        });
+      }
     } catch(e) {}
     return defaultMembers;
   });

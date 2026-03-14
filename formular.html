@@ -893,8 +893,7 @@ function App() {
                 <div style={{ backgroundColor:"#e8f0fb", border:"1px solid #90caf9", borderRadius:"7px", padding:"9px 12px", fontSize:"11px", color:"#003366", marginBottom:"10px", lineHeight:"1.75" }}>
                   <strong>§ 7 SGB II – Zählung der Umgangstage:</strong><br/>
                   Als Umgangstag zählt ein Tag nur, wenn das Kind <strong>mehr als 12 Stunden</strong> im Haushalt des Umgangsberechtigten verbringt.<br/>
-                  Bei <strong>genau 12 Stunden in beiden Haushalten</strong> gilt der Tag als Umgangstag bei dem Elternteil, bei dem das Kind <strong>übernachtet hat</strong>.<br/>
-                  <span style={{ color:"#777", fontSize:"10px" }}>Beispiel: Kind kommt 9 Uhr, geht 21 Uhr = genau 12h → zählt nur wenn Übernachtung stattfand.</span>
+                  Bei <strong>genau 12 Stunden in beiden Haushalten</strong> gilt der Tag als Umgangstag bei dem Elternteil, bei dem das Kind <strong>übernachtet hat</strong>.
                 </div>
                 <div style={{ marginBottom:"8px" }}>{lbl("Kalenderjahr")}<input style={{ ...fi2, width:"120px" }} value={kind.kalenderjahr||String(new Date().getFullYear())} onChange={function(e){kindUpd(idx,"kalenderjahr",e.target.value);}} /></div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 70px 70px", gap:"4px", marginTop:"6px" }}>
