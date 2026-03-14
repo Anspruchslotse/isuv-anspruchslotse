@@ -974,7 +974,20 @@ function App() {
                 </div>
                 {sumGes>0 && (
                   <div style={{ marginTop:"8px", backgroundColor:istParit?"#e8f5e9":"#fff3e0", border:"1px solid "+(istParit?"#a5d6a7":"#ffcc02"), borderRadius:"7px", padding:"8px 10px", fontSize:"11px" }}>
-                    {istParit ? "✅ Paritätisches Wechselmodell erkannt (43–57%)" : "📊 Asymmetrisch"} · Antragst. {anteilAnt}% ({sumAnt} Tage) · And. ET {100-anteilAnt}% ({sumAnd} Tage)
+                    <div>{istParit ? "✅ Paritätisches Wechselmodell erkannt (43–57%)" : "📊 Asymmetrisch"} · Antragst. {anteilAnt}% ({sumAnt} Tage) · And. ET {100-anteilAnt}% ({sumAnd} Tage)</div>
+                    {regelInfo && (
+                      <div style={{ marginTop:"5px", borderTop:"1px dashed "+(istParit?"#a5d6a7":"#ffcc02"), paddingTop:"5px", color:"#333" }}>
+                        <strong>Regelsatz Kind ({regelInfo.alter} J.):</strong> {regelInfo.betrag} €/Monat
+                        {!istParit && sumGes > 0 && (
+                          <span style={{ marginLeft:"8px", color:"#555" }}>
+                            → Antragst. <strong>{Math.round(regelInfo.betrag * anteilAnt / 100)} €</strong> · And. ET <strong>{Math.round(regelInfo.betrag * (100-anteilAnt) / 100)} €</strong>
+                          </span>
+                        )}
+                        {istParit && (
+                          <span style={{ marginLeft:"8px", color:"#555" }}>→ je Elternteil <strong>{Math.round(regelInfo.betrag / 2)} €</strong></span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1178,16 +1191,45 @@ function App() {
               var baueSendURL = function(modus) {
                 var payload = {};
                 if(modus === "ausgefuellt") {
-                  payload = Object.assign({}, d, { sigAntragsteller:"", sigAndererElternteil:"" });
+                  // Nur die wichtigsten Felder – kein Kalender, keine Signaturen (macht URL kürzer)
+                  payload = {
+                    antNachname: d.antNachname||"", antVorname: d.antVorname||"",
+                    antGeburt: d.antGeburt||"", antStrasse: d.antStrasse||"",
+                    antPlz: d.antPlz||"", antOrt: d.antOrt||"",
+                    antTel: d.antTel||"", antMail: d.antMail||"",
+                    antBGNr: d.antBGNr||"", ortDatum: d.ortDatum||"",
+                    kinder: kinder.map(function(k){ return {
+                      kNachname:k.kNachname||"", kVorname:k.kVorname||"", kGeburt:k.kGeburt||"",
+                      epNachname:k.epNachname||"", epVorname:k.epVorname||"",
+                      epStrasse:k.epStrasse||"", epPlz:k.epPlz||"", epOrt:k.epOrt||"",
+                      epMail:k.epMail||"", epTel:k.epTel||"",
+                      aufteilungsWunsch:k.aufteilungsWunsch||"",
+                      kgBerechtigt:k.kgBerechtigt||"", kgBetrag:k.kgBetrag||"",
+                      kalenderjahr:k.kalenderjahr||"",
+                      kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }
+                    };})
+                  };
                 } else if(modus === "teilausgefuellt") {
                   payload = {
                     antNachname: d.antNachname||"", antVorname: d.antVorname||"",
-                    kinder: kinder.map(function(k){ return Object.assign({},k,{ kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") } }); })
+                    antTel: d.antTel||"", antMail: d.antMail||"",
+                    kinder: kinder.map(function(k){ return {
+                      kNachname:k.kNachname||"", kVorname:k.kVorname||"", kGeburt:k.kGeburt||"",
+                      epNachname:k.epNachname||"", epVorname:k.epVorname||"",
+                      epMail:k.epMail||"", epTel:k.epTel||"",
+                      kgBerechtigt:k.kgBerechtigt||"", kgBetrag:k.kgBetrag||"",
+                      kalenderjahr:k.kalenderjahr||"",
+                      kalender:{ antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }
+                    };})
                   };
+                }
+                // leer: nur Kontakt des Antragstellers für Rücksendung
+                if (modus === "leer") {
+                  payload = { antTel: d.antTel||"", antMail: d.antMail||"", antVorname: d.antVorname||"", antNachname: d.antNachname||"" };
                 }
                 try {
                   return window.location.href.split("#")[0] + "#tbg=" + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-                } catch(e) { return window.location.href; }
+                } catch(e) { return window.location.href.split("#")[0]; }
               };
 
               var sende = function(kanal, modus) {
@@ -1286,7 +1328,7 @@ function App() {
                     var tel = (rueckTel||"").replace(/[^0-9+]/g,"").replace(/^0/,"49");
                     if (!tel) { tel = (window.prompt("Telefonnummer des Antragstellers (mit Ländervorwahl):")||"").replace(/[^0-9+]/g,"").replace(/^0/,"49"); }
                     if (tel) {
-                      var msg = "Hallo "+antName+",\n\nich habe die Anlage TBG für "+kindName+" ausgefüllt und unterschrieben. Das PDF kommt per E-Mail.\n\nViele Grüße, "+epEigenName;
+                      var msg = "Hallo "+antName+",\n\ndie Anlage TBG für "+kindName+" ist ausgefüllt und unterschrieben. Das PDF wird gleich separat als Anhang gesendet.\n\nViele Grüße, "+epEigenName;
                       window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
                     }
                   }
@@ -1315,9 +1357,12 @@ function App() {
 
                   {/* Direkt senden – WhatsApp */}
                   <button onClick={function(){ bauePdfUndSende("wa"); }}
-                    style={{ width:"100%", padding:"13px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"9px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"8px" }}>
-                    📱 PDF speichern & per WhatsApp zurücksenden{rueckTel ? " an "+rueckTel : ""}
+                    style={{ width:"100%", padding:"13px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"9px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"4px" }}>
+                    📱 PDF speichern & WhatsApp öffnen{rueckTel ? " an "+rueckTel : ""}
                   </button>
+                  <div style={{ fontSize:"10px", color:"#555", backgroundColor:"#f0f0f0", borderRadius:"6px", padding:"6px 8px", marginBottom:"8px", lineHeight:"1.5" }}>
+                    ℹ️ WhatsApp kann keine Dateien per Link empfangen. Das PDF wird zuerst gespeichert — bitte danach in WhatsApp als Anhang hinzufügen (📎-Symbol).
+                  </div>
 
                   {/* Nur PDF speichern */}
                   <button onClick={function(){ erzeugeTbgPDF(sigData); }}
