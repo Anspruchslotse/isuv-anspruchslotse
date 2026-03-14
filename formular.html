@@ -1242,8 +1242,8 @@ function App() {
               );
             })()}
 
-            {/* ── Abschnitt: Zurücksenden an Berater ── */}
-            <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"6px", marginTop:"8px" }}>📤 An Berater zurücksenden</div>
+            {/* ── Abschnitt: Zurücksenden an Berater / Antragsteller ── */}
+            <div style={{ fontSize:"10px", fontWeight:"bold", color:"#003366", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"6px", marginTop:"8px" }}>📤 Zurücksenden</div>
 
             {formularId ? (
               // ── Modus A: Supabase vorhanden → direkt zurücksenden ──
@@ -1262,64 +1262,75 @@ function App() {
                 .catch(function(e){ alert("Netzwerkfehler: "+e.message); });
               }}
                 style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginBottom:"6px" }}>
-                ✅ Ausgefüllt an Berater zurücksenden
+                ✅ Ausgefüllt an Anspruchslotse zurücksenden
               </button>
-            ) : (
-              // ── Modus B: Hash-Modus (kein Supabase) → PDF + E-Mail / WhatsApp ──
-              <div style={{ border:"1px solid #bbdefb", borderRadius:"10px", padding:"12px", backgroundColor:"#e3f2fd" }}>
-                <div style={{ fontSize:"12px", color:"#1565c0", marginBottom:"10px", lineHeight:"1.6" }}>
-                  <strong>So geht's:</strong> Speichere das Formular als PDF und schicke es direkt an den Berater zurück.
-                </div>
-                <button onClick={function(){ erzeugeTbgPDF(sigData); }}
-                  style={{ width:"100%", padding:"12px", backgroundColor:"#1565c0", color:"#fff", border:"none", borderRadius:"8px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"8px" }}>
-                  📄 Schritt 1: PDF speichern (mit Unterschrift)
-                </button>
-                {(function(){
-                  // Berater-Kontakt aus den Formulardaten oder Kinder-Daten herauslesen
-                  var beraterMail = d.antMail || (kinder[0] && kinder[0].epMail) || "";
-                  var beraterTel  = d.antTel  || (kinder[0] && kinder[0].epTel)  || "";
-                  var antName = ((d.antVorname||"")+" "+(d.antNachname||"")).trim() || "Antragsteller*in";
-                  var ep0 = kinder[0] || {};
-                  var epEigenName = ((ep0.epVorname||"")+" "+(ep0.epNachname||"")).trim() || "Anderer Elternteil";
-                  var kindName = ((ep0.kVorname||"")+" "+(ep0.kNachname||"")).trim() || "Kind";
-                  var betreff = "Anlage TBG – "+kindName+" – unterschrieben zurück";
-                  var body = "Hallo,\n\nerbei sende ich die unterschriebene Anlage TBG für "+kindName+" zurück.\n\nBitte die PDF-Datei im Anhang in die Akte übernehmen.\n\nViele Grüße,\n"+epEigenName;
-                  return (
-                    <div>
-                      <div style={{ fontSize:"11px", color:"#1565c0", marginBottom:"6px", fontWeight:"bold" }}>Schritt 2: PDF per E-Mail oder WhatsApp an {antName} schicken:</div>
-                      <div style={{ display:"flex", gap:"6px" }}>
-                        {beraterMail ? (
-                          <button onClick={function(){
-                            window.open("mailto:"+encodeURIComponent(beraterMail)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
-                          }} style={{ flex:1, padding:"10px 6px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
-                            ✉️ Per E-Mail an {beraterMail}
-                          </button>
-                        ) : (
-                          <button onClick={function(){
-                            var empfaenger = window.prompt("E-Mail-Adresse des Beraters / Antragstellers:");
-                            if(empfaenger) window.open("mailto:"+encodeURIComponent(empfaenger)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(body));
-                          }} style={{ flex:1, padding:"10px 6px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
-                            ✉️ Per E-Mail senden
-                          </button>
-                        )}
-                        {beraterTel && (
-                          <button onClick={function(){
-                            var tel = beraterTel.replace(/[^0-9+]/g,"").replace(/^0/,"49");
-                            var msg = "Hallo "+antName+",\n\nanlage TBG für "+kindName+" unterschrieben. PDF folgt per E-Mail.\n\nViele Grüße, "+epEigenName;
-                            window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
-                          }} style={{ flex:1, padding:"10px 6px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
-                            📱 WhatsApp
-                          </button>
-                        )}
-                      </div>
-                      <div style={{ fontSize:"10px", color:"#1565c0", marginTop:"8px", lineHeight:"1.5" }}>
-                        💡 Das PDF bitte als Anhang zur E-Mail hinzufügen. Der Berater kann die Daten dann direkt in die Akte übernehmen.
-                      </div>
+            ) : (function(){
+              // ── Modus B: Hash-Modus → Unterschrift + PDF + direkt senden ──
+              var ep0 = kinder[0] || {};
+              var kindName    = ((ep0.kVorname||"")+" "+(ep0.kNachname||"")).trim() || "Kind";
+              var antName     = ((d.antVorname||"")+" "+(d.antNachname||"")).trim() || "Antragsteller*in";
+              var epEigenName = ((ep0.epVorname||"")+" "+(ep0.epNachname||"")).trim() || "Anderer Elternteil";
+              // Kontakt des Antragstellers (= Empfänger des ausgefüllten Formulars)
+              var rueckMail = d.antMail || "";
+              var rueckTel  = d.antTel  || "";
+              var betreff = "Anlage TBG – "+kindName+" – ausgefüllt & unterschrieben";
+              var bodyMail = "Hallo "+antName+",\n\nanbei die ausgefüllte und unterschriebene Anlage TBG für "+kindName+".\n\nBitte PDF als Anhang beifügen und an den ISUV Anspruchslotse weiterleiten.\n\nViele Grüße,\n"+epEigenName;
+              var bauePdfUndSende = function(kanal) {
+                // Erst PDF erzeugen, dann Sende-Dialog öffnen
+                erzeugeTbgPDF(sigData);
+                setTimeout(function(){
+                  if (kanal === "mail") {
+                    var empf = rueckMail || window.prompt("E-Mail-Adresse des Antragstellers / Anspruchslotsen:");
+                    if (empf) window.open("mailto:"+encodeURIComponent(empf)+"?subject="+encodeURIComponent(betreff)+"&body="+encodeURIComponent(bodyMail));
+                  } else {
+                    var tel = (rueckTel||"").replace(/[^0-9+]/g,"").replace(/^0/,"49");
+                    if (!tel) { tel = (window.prompt("Telefonnummer des Antragstellers (mit Ländervorwahl):")||"").replace(/[^0-9+]/g,"").replace(/^0/,"49"); }
+                    if (tel) {
+                      var msg = "Hallo "+antName+",\n\nich habe die Anlage TBG für "+kindName+" ausgefüllt und unterschrieben. Das PDF kommt per E-Mail.\n\nViele Grüße, "+epEigenName;
+                      window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg));
+                    }
+                  }
+                }, 800);
+              };
+              return (
+                <div style={{ border:"2px solid #1565c0", borderRadius:"12px", padding:"14px", backgroundColor:"#e3f2fd" }}>
+                  <div style={{ fontWeight:"bold", fontSize:"13px", color:"#0d47a1", marginBottom:"8px" }}>📤 Ausgefüllt zurücksenden an {antName}</div>
+
+                  {/* Hinweis auf fehlende Unterschrift */}
+                  {!sigData && (
+                    <div style={{ backgroundColor:"#fff3e0", border:"1px solid #ffb300", borderRadius:"7px", padding:"8px 10px", fontSize:"12px", color:"#e65100", marginBottom:"10px" }}>
+                      ⚠️ Bitte zuerst <strong>unterschreiben</strong> (Abschnitt ⑥ oben), dann zurücksenden.
                     </div>
-                  );
-                })()}
-              </div>
-            )}
+                  )}
+
+                  <div style={{ fontSize:"11px", color:"#1565c0", marginBottom:"10px", lineHeight:"1.6" }}>
+                    Das Formular wird als <strong>PDF gespeichert</strong> und kann direkt per E-Mail oder WhatsApp zurückgeschickt werden. Bitte das PDF als Anhang beifügen.
+                  </div>
+
+                  {/* Direkt senden – E-Mail */}
+                  <button onClick={function(){ bauePdfUndSende("mail"); }}
+                    style={{ width:"100%", padding:"13px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"9px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"8px" }}>
+                    ✉️ PDF speichern & per E-Mail zurücksenden{rueckMail ? " an "+rueckMail : ""}
+                  </button>
+
+                  {/* Direkt senden – WhatsApp */}
+                  <button onClick={function(){ bauePdfUndSende("wa"); }}
+                    style={{ width:"100%", padding:"13px", backgroundColor:"#25d366", color:"#fff", border:"none", borderRadius:"9px", fontWeight:"bold", fontSize:"13px", cursor:"pointer", marginBottom:"8px" }}>
+                    📱 PDF speichern & per WhatsApp zurücksenden{rueckTel ? " an "+rueckTel : ""}
+                  </button>
+
+                  {/* Nur PDF speichern */}
+                  <button onClick={function(){ erzeugeTbgPDF(sigData); }}
+                    style={{ width:"100%", padding:"10px", backgroundColor:"#fff", color:"#1565c0", border:"1px solid #1565c0", borderRadius:"9px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
+                    📄 Nur PDF speichern (manuell weiterleiten)
+                  </button>
+
+                  <div style={{ fontSize:"10px", color:"#1565c0", marginTop:"8px", lineHeight:"1.5" }}>
+                    💡 Das PDF als Anhang zur E-Mail hinzufügen. Der ISUV Anspruchslotse übernimmt die Daten dann in die Akte.
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{ fontSize:"10px", color:"#888", textAlign:"center", marginTop:"6px" }}>Das Formular wird als PDF gespeichert und die Daten können in die Akte übernommen werden.</div>
           </div>
