@@ -3855,8 +3855,8 @@ function App() {
   const [editMemberDaten, setEditMemberDaten] = useState({});
   const [saveBestaetigung, setSaveBestaetigung] = useState(false);
   const [transferrierteIds, setTransferrierteIds] = useState(function() { try { return new Set(JSON.parse(localStorage.getItem("isuv_transfer_ids")||"[]")); } catch(e){ return new Set(); } });
-  const [showFamilienrechtFormulare, setShowFamilienrechtFormulare] = useState(true);
-  const [showSozialrechtFormulare, setShowSozialrechtFormulare] = useState(true);
+  const [showFamilienrechtFormulare, setShowFamilienrechtFormulare] = useState(false);
+  const [showSozialrechtFormulare, setShowSozialrechtFormulare] = useState(false);
   const [terminTyp, setTerminTyp] = useState("beratung");
 
   const [termine, setTermine] = useState([
