@@ -154,9 +154,8 @@ function App() {
         setFormTyp("tbg");
         setDaten(decoded);
         setStatus("formular");
-        // kein Supabase – formularId bleibt leer → absenden merkt das
       } catch(e) {
-        setFehler("Fehler beim Lesen der Formulardaten: " + e.message);
+        setFehler("Fehler beim Lesen der Formulardaten: " + e.message + ". Bitte den Absender um einen neuen Link bitten.");
         setStatus("fehler");
       }
       return;
@@ -169,7 +168,12 @@ function App() {
     var key = params.get("key");
 
     if (!id || !sb || !key) {
-      setFehler("Ungültiger Link – fehlende Parameter.");
+      // Wenn gar keine Parameter: hilfreiche Meldung statt ewigem Laden
+      if (!id && !sb && !key) {
+        setFehler("Diese Seite kann nur über einen gültigen Link geöffnet werden. Bitte den Link aus der E-Mail oder WhatsApp-Nachricht des ISUV Anspruchslotsen verwenden.");
+      } else {
+        setFehler("Ungültiger Link – fehlende Parameter (id=" + (id?"✅":"❌") + " sb=" + (sb?"✅":"❌") + " key=" + (key?"✅":"❌") + ").");
+      }
       setStatus("fehler");
       return;
     }
@@ -186,10 +190,19 @@ function App() {
         "Content-Type": "application/json"
       }
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) {
+        return r.text().then(function(t) {
+          setFehler("Supabase Fehler " + r.status + ": " + t.slice(0, 200));
+          setStatus("fehler");
+          throw new Error("http " + r.status);
+        });
+      }
+      return r.json();
+    })
     .then(function(rows) {
       if (!rows || rows.length === 0) {
-        setFehler("Formular nicht gefunden. Möglicherweise abgelaufen oder ungültiger Link.");
+        setFehler("Formular nicht gefunden (ID: " + id + "). Möglicherweise abgelaufen oder der Link wurde bereits genutzt.");
         setStatus("fehler");
         return;
       }
@@ -205,7 +218,8 @@ function App() {
       setStatus("formular");
     })
     .catch(function(e) {
-      setFehler("Netzwerkfehler beim Laden: " + e.message);
+      if (e.message && e.message.startsWith("http")) return; // bereits behandelt
+      setFehler("Netzwerkfehler: " + e.message + ". Bitte Internetverbindung prüfen und Seite neu laden.");
       setStatus("fehler");
     });
   }, []);
@@ -1214,14 +1228,14 @@ function App() {
               var baueSendURL = function(modus) {
                 var payload = {};
                 if(modus === "ausgefuellt") {
-                  // Alle Daten inkl. Kalender und Unterschrift Antragsteller – URL kann länger sein aber vollständig
+                  // Alle Daten inkl. Kalender – KEINE Signatur (zu groß für URL)
+                  // Signatur wird lokal gespeichert, nicht über den Link übertragen
                   payload = {
                     antNachname: d.antNachname||"", antVorname: d.antVorname||"",
                     antGeburt: d.antGeburt||"", antStrasse: d.antStrasse||"",
                     antPlz: d.antPlz||"", antOrt: d.antOrt||"",
                     antTel: d.antTel||"", antMail: d.antMail||"",
                     antBGNr: d.antBGNr||"", ortDatum: d.ortDatum||"",
-                    sigAntragsteller: d.sigAntragsteller||"",
                     kinder: kinder.map(function(k){ return {
                       kNachname:k.kNachname||"", kVorname:k.kVorname||"", kGeburt:k.kGeburt||"",
                       epNachname:k.epNachname||"", epVorname:k.epVorname||"",
@@ -1229,6 +1243,7 @@ function App() {
                       epMail:k.epMail||"", epTel:k.epTel||"",
                       aufteilungsWunsch:k.aufteilungsWunsch||"",
                       kgBerechtigt:k.kgBerechtigt||"", kgBetrag:k.kgBetrag||"",
+                      kgWeiterleitung:k.kgWeiterleitung||"", kgWeiterleitungBetrag:k.kgWeiterleitungBetrag||"",
                       kalenderjahr:k.kalenderjahr||"",
                       kalender: k.kalender || { antragsteller:Array(12).fill(""), anderer:Array(12).fill("") }
                     };})
