@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISUV – PDF Formular</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f7fa; display: flex; justify-content: center; padding: 20px; margin: 0; }
+    .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 450px; width: 100%; text-align: center; }
+    .sig-box { border: 2px dashed #ccc; height: 120px; margin: 20px 0; display: flex; align-items: center; justify-content: center; background: #fafafa; color: #999; border-radius: 8px; }
+    .btn { background: #00afad; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+function Formular() {
+  const params = new URLSearchParams(window.location.search);
+  const name = params.get('partner') || "Partner";
+  const tA = params.get('tageA') || "0";
+  const tB = params.get('tageB') || "0";
+
+  const savePDF = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const datum = new Date().toLocaleDateString('de-DE');
+
+    doc.setFontSize(20);
+    doc.setTextColor(0, 51, 102);
+    doc.text("Anlage TBG", 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Erstellt am: ${datum}`, 20, 40);
+    doc.text(`Anderer Elternteil: ${name}`, 20, 55);
+    doc.text(`Tage beim Antragsteller: ${tA}`, 20, 65);
+    doc.text(`Tage bei ${name}: ${tB}`, 20, 75);
+    
+    doc.setDrawColor(200);
+    doc.line(20, 110, 100, 110);
+    doc.text(`Unterschrift ${name}`, 20, 115);
+
+    const dateiname = `Anlage_TBG_${name.replace(/\s+/g, '_')}.pdf`;
+    doc.save(dateiname);
+  };
+
+  return (
+    <div className="container">
+      <h2 style={{color: "#003366"}}>Dokument für {name}</h2>
+      <div className="sig-box">Hier unterschreibt {name}</div>
+      <button className="btn" onClick={savePDF}>📄 Als PDF speichern</button>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Formular />);
+</script>
+</body>
+</html>
