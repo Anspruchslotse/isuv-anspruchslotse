@@ -4047,12 +4047,17 @@ function App() {
       // Stattdessen: neue Eingänge werden im neuF-Array gesammelt und können manuell bestätigt werden.
       // (WA-Bestätigungsbutton im Eingang-Detail-View verfügbar)
       setEingangFormulare(prev => {
+        // Immer aktuell aus localStorage lesen um Stale-Closure zu vermeiden
+        var aktuelleGeloeschteIds;
+        try { aktuelleGeloeschteIds = new Set(JSON.parse(localStorage.getItem("isuv_geloeschte_ids") || "[]")); } catch(e) { aktuelleGeloeschteIds = new Set(); }
         const existIds = new Set(prev.map(x => x.id));
-        const wirklichNeu = neu.filter(x => !existIds.has(x.id) && !geloeschteEingangIds.has(x.id));
+        const wirklichNeu = neu.filter(x => !existIds.has(x.id) && !aktuelleGeloeschteIds.has(x.id));
+        // Bereits vorhandene, aber inzwischen gelöschte Einträge auch entfernen
+        const gefiltertPrev = prev.filter(x => !aktuelleGeloeschteIds.has(x.id));
         if (wirklichNeu.length > 0) {
           setNeueEingaengeCount(c => c + wirklichNeu.length);
         }
-        return wirklichNeu.length > 0 ? [...wirklichNeu, ...prev] : prev;
+        return wirklichNeu.length > 0 ? [...wirklichNeu, ...gefiltertPrev] : gefiltertPrev;
       });
     } catch(e) { console.error("Supabase load error", e); }
   };
