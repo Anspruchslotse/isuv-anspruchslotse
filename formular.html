@@ -766,9 +766,11 @@ function App() {
       if(!jsPDF) { alert("PDF-Bibliothek nicht geladen."); return; }
       var doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
       var pw=210, margin=15, cw=pw-margin*2, y=15, heute=new Date().toLocaleDateString("de-DE");
-      // Header
+      // Header mit Logo
       doc.setFillColor(0,51,102);
       doc.rect(margin, y, cw, 18, "F");
+      // Logo rechts in Kopfzeile
+      try { doc.addImage(ISUV_LOGO, "PNG", margin+cw-28, y+1, 24, 16); } catch(e) {}
       doc.setTextColor(255,255,255);
       doc.setFontSize(13); doc.setFont("helvetica","bold");
       doc.text("Antrag auf Bürgergeld – Anlage TBG", margin+4, y+8);
@@ -1370,23 +1372,45 @@ function App() {
 
             {formularId ? (
               // ── Modus A: Supabase vorhanden → direkt zurücksenden ──
-              <button onClick={function(){
-                var vollDaten = Object.assign({}, d, { kinder:kinder, _exportiert:new Date().toISOString(), _formVersion:"tbg_v2" });
-                var url = sbUrl.replace(/\/+$/, "") + "/rest/v1/formulare?formular_id=eq." + encodeURIComponent(formularId);
-                fetch(url, {
-                  method: "PATCH",
-                  headers: { "apikey":sbKey, "Authorization":"Bearer "+sbKey, "Content-Type":"application/json", "Prefer":"return=minimal" },
-                  body: JSON.stringify({ status:"beantwortet", antwort_daten:JSON.stringify(vollDaten), beantwortet_am:new Date().toISOString() })
-                })
-                .then(function(r) {
-                  if(r.ok) { setStatus("gesendet"); setTimeout(function(){ erzeugeTbgPDF(sigData); }, 400); }
-                  else { r.text().then(function(t){ alert("Fehler: "+t.slice(0,200)); }); }
-                })
-                .catch(function(e){ alert("Netzwerkfehler: "+e.message); });
-              }}
-                style={{ width:"100%", padding:"14px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor:"pointer", marginBottom:"6px" }}>
-                ✅ Ausgefüllt an Anspruchslotse zurücksenden
-              </button>
+              (function(){
+                var [sbGesendet, setSbGesendet] = React.useState(false);
+                var [sbSenden, setSbSenden] = React.useState(false);
+                if (sbGesendet) {
+                  return (
+                    <div style={{ backgroundColor:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:"10px", padding:"14px", marginBottom:"8px", textAlign:"center" }}>
+                      <div style={{ fontSize:"22px", marginBottom:"4px" }}>✅</div>
+                      <div style={{ fontWeight:"bold", color:"#2e7d32", fontSize:"13px", marginBottom:"4px" }}>Erfolgreich an ISUV Anspruchslotse übermittelt</div>
+                      <div style={{ fontSize:"11px", color:"#555" }}>Das Formular kann weiterhin zum anderen Elternteil gesendet werden (siehe unten).</div>
+                      <button onClick={function(){ erzeugeTbgPDF(sigData); }}
+                        style={{ marginTop:"10px", padding:"10px 16px", backgroundColor:"#003366", color:"#fff", border:"none", borderRadius:"7px", fontWeight:"bold", fontSize:"12px", cursor:"pointer" }}>
+                        📄 PDF speichern
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <button onClick={function(){
+                    setSbSenden(true);
+                    var vollDaten = Object.assign({}, d, { kinder:kinder, _exportiert:new Date().toISOString(), _formVersion:"tbg_v2" });
+                    var url = sbUrl.replace(/\/+$/, "") + "/rest/v1/formulare?formular_id=eq." + encodeURIComponent(formularId);
+                    fetch(url, {
+                      method: "PATCH",
+                      headers: { "apikey":sbKey, "Authorization":"Bearer "+sbKey, "Content-Type":"application/json", "Prefer":"return=minimal" },
+                      body: JSON.stringify({ status:"beantwortet", antwort_daten:JSON.stringify(vollDaten), beantwortet_am:new Date().toISOString() })
+                    })
+                    .then(function(r) {
+                      setSbSenden(false);
+                      if(r.ok) { setSbGesendet(true); setTimeout(function(){ erzeugeTbgPDF(sigData); }, 400); }
+                      else { r.text().then(function(t){ alert("Fehler: "+t.slice(0,200)); }); }
+                    })
+                    .catch(function(e){ setSbSenden(false); alert("Netzwerkfehler: "+e.message); });
+                  }}
+                    disabled={sbSenden}
+                    style={{ width:"100%", padding:"14px", backgroundColor: sbSenden ? "#888" : "#003366", color:"#fff", border:"none", borderRadius:"10px", fontWeight:"bold", fontSize:"14px", cursor: sbSenden ? "default" : "pointer", marginBottom:"6px" }}>
+                    {sbSenden ? "⏳ Wird gesendet..." : "✅ Ausgefüllt an Anspruchslotse zurücksenden"}
+                  </button>
+                );
+              })()
             ) : (function(){
               // ── Modus B: Hash-Modus → Unterschrift + PDF + direkt senden ──
               var ep0 = kinder[0] || {};
