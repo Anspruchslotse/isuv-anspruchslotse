@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISUV Anspruchslotse – Anlage TBG</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.2/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin:0; padding:0; }
+        body { font-family: system-ui, -apple-system, Arial, sans-serif; background:#f5f7fa; color:#222; line-height:1.5; }
+        #root { max-width: 540px; margin: 0 auto; padding: 15px; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+        .highlight { background:#e8f5e9; border:3px solid #4caf50; border-radius:10px; padding:15px; margin:15px 0; text-align:center; font-size:1.18em; font-weight:bold; color:#2e7d32; white-space:pre-line; }
+        h1 { color:#1976d2; text-align:center; margin-bottom:25px; }
+        button { padding:14px 24px; font-size:1.1em; border:none; border-radius:8px; cursor:pointer; margin:10px 5px; width:100%; }
+        .btn-success { background:#4caf50; color:white; }
+        input, select, textarea { width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:6px; font-size:1em; }
+        .kalender-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin:10px 0; }
+        .kalender-tag { padding:8px; text-align:center; border:1px solid #ddd; border-radius:4px; cursor:pointer; }
+        .kalender-tag.selected { background:#4caf50; color:white; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+const ISUV_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAGggJ/lK3Q6wAAAABJRU5ErkJggg=="; // Dein originales Logo – bitte später ersetzen falls nötig
+
+// ====================== KORREKTE REGELSATZ-BERECHNUNG ======================
+const berechneRegelSatzKindAntragsteller = (kalenderArr, betreuungsModell = "asymmetrisch") => {
+    if (!Array.isArray(kalenderArr) || kalenderArr.length === 0) return 0;
+    const sumUmgang = kalenderArr.reduce((sum, val) => sum + (parseInt(val) || 0), 0);
+    const anteil = sumUmgang / 365;
+    const voll = 357;
+    if (betreuungsModell === "paritaetisch") return Math.round(voll * 0.5);
+    return Math.round(voll * anteil);
+};
+
+console.log("ISUV TBG Formular geladen – warte auf Teil 2...");
+// ====================== HAUPT-COMPONENT ======================
+function TBGFormular() {
+    const [kinder, setKinder] = useState([{
+        kVorname: "",
+        kNachname: "",
+        kalender: { antragsteller: new Array(31).fill(0) },
+        aufteilungsWunsch: "asymmetrisch",
+        regelSatzAktuell: 0,
+        sumUmgang: 0
+    }]);
+
+    const [regelSatzLive, setRegelSatzLive] = useState(0);
+    const [sumUmgangLive, setSumUmgangLive] = useState(0);
+
+    // Live-Berechnung des monatlichen Regelsatzes
+    useEffect(() => {
+        const k = kinder[0] || {};
+        const kal = k.kalender?.antragsteller || [];
+        const modell = k.aufteilungsWunsch || "asymmetrisch";
+        const wert = berechneRegelSatzKindAntragsteller(kal, modell);
+        const sum = kal.reduce((a, b) => a + (parseInt(b) || 0), 0);
+
+        setRegelSatzLive(wert);
+        setSumUmgangLive(sum);
+
+        setKinder(prev => prev.map((kind, i) => 
+            i === 0 ? { ...kind, regelSatzAktuell: wert, sumUmgang: sum } : kind
+        ));
+    }, [kinder]);
+
+    // ====================== PDF mit korrektem Regelsatz ======================
+    const erzeugeTbgPDF = useCallback(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const k = kinder[0] || {};
+        const regelSatz = k.regelSatzAktuell || regelSatzLive;
+        const sumU = k.sumUmgang || sumUmgangLive;
+
+        doc.setFontSize(16);
+        doc.text("Anlage TBG – Temporäre Bedarfsgemeinschaft", 20, 25);
+
+        doc.setFontSize(12);
+        doc.text(`Kind: ${k.kVorname || ""} ${k.kNachname || ""}`, 20, 45);
+
+        // Korrigierter Regelsatz (jetzt identisch mit Live-Anzeige)
+        doc.setFontSize(11);
+        doc.text("Regelsatz des Kindes beim Antragsteller*in (berechnet):", 20, 75);
+        doc.setFontSize(14);
+        doc.setTextColor(0, 128, 0);
+        doc.text(`${regelSatz} € pro Monat`, 115, 75);
+        doc.setTextColor(0);
+        doc.setFontSize(10);
+        doc.text(`(basierend auf ${sumU} Umgangstagen im Jahr)`, 20, 85);
+
+        const filename = `Anlage_TBG_${(k.kVorname || "Kind")}_${new Date().toISOString().slice(0,10)}.pdf`;
+        doc.save(filename);
+    }, [kinder, regelSatzLive, sumUmgangLive]);
+
+    // Einfacher Kalender-Handler (wird später erweitert)
+    const toggleUmgangstag = (tagIndex) => {
+        setKinder(prev => prev.map((kind, i) => {
+            if (i !== 0) return kind;
+            const newKal = [...kind.kalender.antragsteller];
+            newKal[tagIndex] = newKal[tagIndex] === 1 ? 0 : 1;
+            return { ...kind, kalender: { antragsteller: newKal } };
+        }));
+    };
+
+    return React.createElement('div', null,
+        React.createElement('h1', null, 'ISUV Anspruchslotse – Anlage TBG'),
+
+        React.createElement('div', { className: 'highlight' },
+            `Aktueller Regelsatz des Kindes beim Antragsteller:\n${regelSatzLive} € pro Monat\n(${sumUmgangLive} Umgangstage)`
+        ),
+
+        React.createElement('div', { className: 'card' },
+            React.createElement('h3', null, 'Kind 1'),
+            React.createElement('input', {
+                placeholder: "Vorname des Kindes",
+                value: kinder[0].kVorname,
+                onChange: (e) => setKinder(prev => prev.map((k,i) => i===0 ? {...k, kVorname: e.target.value} : k))
+            }),
+            React.createElement('input', {
+                placeholder: "Nachname des Kindes",
+                value: kinder[0].kNachname,
+                onChange: (e) => setKinder(prev => prev.map((k,i) => i===0 ? {...k, kNachname: e.target.value} : k))
+            }),
+            React.createElement('select', {
+                value: kinder[0].aufteilungsWunsch,
+                onChange: (e) => setKinder(prev => prev.map((k,i) => i===0 ? {...k, aufteilungsWunsch: e.target.value} : k))
+            },
+                React.createElement('option', {value: "asymmetrisch"}, "Asymmetrisch"),
+                React.createElement('option', {value: "paritaetisch"}, "Paritätisch (50/50)")
+            )
+        ),
+
+        React.createElement('div', { className: 'card' },
+            React.createElement('h3', null, 'Umgangstage (Antragsteller)'),
+            React.createElement('div', { className: 'kalender-grid' },
+                Array.from({ length: 31 }, (_, i) => 
+                    React.createElement('div', {
+                        key: i,
+                        className: `kalender-tag ${kinder[0].kalender.antragsteller[i] === 1 ? 'selected' : ''}`,
+                        onClick: () => toggleUmgangstag(i)
+                    }, i+1)
+                )
+            )
+        ),
+
+        React.createElement('button', {
+            className: 'btn-success',
+            onClick: erzeugeTbgPDF
+        }, 'PDF erstellen (mit korrektem Regelsatz)')
+    );
+}
+
+// ====================== RENDER ======================
+ReactDOM.render(
+    React.createElement(TBGFormular),
+    document.getElementById('root')
+);
+
+console.log("TBG Formular vollständig geladen – warte auf Teil 3 (falls nötig)");
+</script>
+</body>
+</html>
