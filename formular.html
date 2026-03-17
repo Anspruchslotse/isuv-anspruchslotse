@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISUV Anspruchslotse – Anlage TBG</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.2/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:system-ui,-apple-system,Arial,sans-serif;background:#f5f7fa;color:#222;line-height:1.5}
+        #root{max-width:540px;margin:0 auto;padding:15px}
+        .card{background:white;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:20px;margin-bottom:20px}
+        .highlight{background:#e8f5e9;border:3px solid #4caf50;border-radius:10px;padding:15px;margin:15px 0;text-align:center;font-size:1.18em;font-weight:bold;color:#2e7d32}
+        h1{color:#1976d2;text-align:center;margin-bottom:25px}
+        button{padding:12px 24px;font-size:1.05em;border:none;border-radius:8px;cursor:pointer;margin:8px 4px}
+        .btn-success{background:#4caf50;color:white}
+        input,select,textarea{width:100%;padding:10px;margin:8px 0;border:1px solid #ccc;border-radius:6px;font-size:1em}
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+const ISUV_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAGggJ/lK3Q6wAAAABJRU5ErkJggg=="; // Dein originales Logo (unverändert)
+
+const berechneRegelSatzKindAntragsteller = (kalenderArr, betreuungsModell = "asymmetrisch") => {
+    if (!Array.isArray(kalenderArr) || kalenderArr.length === 0) return 0;
+    const sumUmgang = kalenderArr.reduce((sum, val) => sum + (parseInt(val) || 0), 0);
+    const anteil = sumUmgang / 365;
+    const voll = 357;
+    if (betreuungsModell === "paritaetisch") return Math.round(voll * 0.5);
+    return Math.round(voll * anteil);
+};
+
+function TBGFormular() {
+    const [kinder, setKinder] = useState([{
+        kVorname: "",
+        kNachname: "",
+        kalender: { antragsteller: new Array(31).fill(0) },
+        aufteilungsWunsch: "asymmetrisch",
+        regelSatzAktuell: 0,
+        sumUmgang: 0
+    }]);
+
+    const [regelSatzLive, setRegelSatzLive] = useState(0);
+    const [sumUmgangLive, setSumUmgangLive] = useState(0);
+
+    useEffect(() => {
+        const k = kinder[0] || {};
+        const kal = k.kalender?.antragsteller || [];
+        const modell = k.aufteilungsWunsch || "asymmetrisch";
+        const wert = berechneRegelSatzKindAntragsteller(kal, modell);
+        const sum = kal.reduce((a,b) => a + (parseInt(b)||0), 0);
+
+        setRegelSatzLive(wert);
+        setSumUmgangLive(sum);
+
+        setKinder(prev => prev.map((kind,i) => i===0 ? {...kind, regelSatzAktuell: wert, sumUmgang: sum} : kind));
+    }, [kinder]);
+
+    const erzeugeTbgPDF = useCallback(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const k = kinder[0] || {};
+        const regelSatz = k.regelSatzAktuell || regelSatzLive;
+        const sumU = k.sumUmgang || sumUmgangLive;
+
+        doc.setFontSize(16);
+        doc.text("Anlage TBG – Temporäre Bedarfsgemeinschaft", 20, 25);
+        doc.setFontSize(12);
+        doc.text(`Kind: ${k.kVorname || ""} ${k.kNachname || ""}`, 20, 45);
+        doc.setFontSize(11);
+        doc.text("Regelsatz des Kindes beim Antragsteller*in (berechnet):", 20, 75);
+        doc.setFontSize(14);
+        doc.setTextColor(0, 128, 0);
+        doc.text(`${regelSatz} € pro Monat`, 115, 75);
+        doc.setTextColor(0);
+        doc.setFontSize(10);
+        doc.text(`(basierend auf ${sumU} Umgangstagen)`, 20, 85);
+
+        // Hier kannst du später deinen vollen originalen PDF-Code einfügen
+        const filename = `Anlage_TBG_${(k.kVorname||"Kind")}_${new Date().toISOString().slice(0,10)}.pdf`;
+        doc.save(filename);
+    }, [kinder, regelSatzLive, sumUmgangLive]);
+
+    return React.createElement('div', {className: 'card'},
+        React.createElement('h1', null, 'ISUV Anspruchslotse – Anlage TBG'),
+        React.createElement('div', {className: 'highlight'},
+            `Aktueller Regelsatz: ${regelSatzLive} € / Monat (${sumUmgangLive} Umgangstage)`
+        ),
+        React.createElement('button', {className: 'btn-success', onClick: erzeugeTbgPDF}, 'PDF erstellen')
+    );
+}
+
+ReactDOM.render(React.createElement(TBGFormular), document.getElementById('root'));
+</script>
+</body>
+</html>
