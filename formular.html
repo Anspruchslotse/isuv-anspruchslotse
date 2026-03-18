@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISUV Anspruchslotse – Anlage TBG</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.2/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin:0; padding:0; }
+        body { font-family: system-ui, -apple-system, Arial, sans-serif; background:#f5f7fa; color:#222; line-height:1.5; }
+        #root { max-width: 540px; margin: 0 auto; padding: 15px; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+        h1 { color:#1976d2; text-align:center; margin-bottom:25px; }
+        button { padding:14px 24px; font-size:1.1em; border:none; border-radius:8px; cursor:pointer; margin:10px 5px; width:100%; }
+        .btn-success { background:#4caf50; color:white; }
+        .btn-primary { background:#1976d2; color:white; }
+        input, select, textarea { width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:6px; font-size:1em; }
+        .kalender-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin:10px 0; }
+        .kalender-tag { padding:8px; text-align:center; border:1px solid #ddd; border-radius:4px; cursor:pointer; background:#f8f9fa; }
+        .kalender-tag.selected { background:#4caf50; color:white; font-weight:bold; }
+        .highlight { background:#fff3e0; padding:12px; border-radius:8px; margin:15px 0; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+function TBGFormular() {
+    const [kinder, setKinder] = useState([{
+        kVorname: "",
+        kNachname: "",
+        geburtsdatum: "",
+        kalender: { antragsteller: new Array(31).fill(0) },
+        aufteilungsWunsch: "asymmetrisch",
+        betreuungsModell: "asymmetrisch"
+    }]);
+
+    const [signaturAntragsteller, setSignaturAntragsteller] = useState(null);
+    const [signaturAnderer, setSignaturAnderer] = useState(null);
+    const [showSigModal, setShowSigModal] = useState(false);
+    const [currentSigRole, setCurrentSigRole] = useState("");
+
+    // ====================== HAUPT-LOGIK ======================
+    const toggleUmgangstag = (tagIndex) => {
+        setKinder(prev => prev.map((kind, i) => {
+            if (i !== 0) return kind;
+            const newKal = [...kind.kalender.antragsteller];
+            newKal[tagIndex] = newKal[tagIndex] === 1 ? 0 : 1;
+            return { ...kind, kalender: { antragsteller: newKal } };
+        }));
+    };
+
+    const erzeugeTbgPDF = useCallback(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        const k = kinder[0] || {};
+
+        doc.setFontSize(18);
+        doc.text("Anlage zur Erklärung über die temporäre Bedarfsgemeinschaft", 20, 20);
+        doc.setFontSize(11);
+        doc.text("gemäß § 7 SGB II", 20, 28);
+
+        doc.setFontSize(12);
+        doc.text(`Kind: ${k.kVorname || ""} ${k.kNachname || ""}`, 20, 45);
+
+        doc.setFontSize(11);
+        doc.text("Regelsatz des Kindes beim Antragsteller*in:", 20, 70);
+        doc.setFontSize(14);
+        doc.text("357 € pro Monat", 115, 70);
+
+        doc.setFontSize(10);
+        doc.text("Dieses Dokument wurde mit dem ISUV Anspruchslotse erstellt.", 20, 250);
+
+        const filename = `Anlage_TBG_${(k.kVorname || "Kind")}_${new Date().toISOString().slice(0,10)}.pdf`;
+        doc.save(filename);
+    }, [kinder]);
+
+    const generiereLink = () => {
+        const daten = { kinder, signaturAntragsteller, signaturAnderer, erstellt: new Date().toISOString() };
+        const base64 = btoa(unescape(encodeURIComponent(JSON.stringify(daten))));
+        return window.location.origin + window.location.pathname + "#tbg=" + base64;
+    };
+
+    const sendeWhatsApp = () => {
+        const link = generiereLink();
+        const text = `Hallo, hier ist der ausgefüllte TBG-Antrag für dich:\n\n${link}`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    };
+
+    const sendeEmail = () => {
+        const link = generiereLink();
+        window.location.href = `mailto:?subject=TBG Anlage - ISUV&body=${encodeURIComponent(link)}`;
+    };
+
+    // ====================== SIGNATUR-MODAL ======================
+    const SigPadModal = () => {
+        const canvasRef = useRef(null);
+        const [isDrawing, setIsDrawing] = useState(false);
+
+        const startDrawing = (e) => {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext("2d");
+            ctx.beginPath();
+            setIsDrawing(true);
+        };
+
+        const draw = (e) => {
+            if (!isDrawing) return;
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext("2d");
+            ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+            ctx.stroke();
+        };
+
+        const clearSig = () => {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        };
+
+        const saveSig = () => {
+            const canvas = canvasRef.current;
+            const dataURL = canvas.toDataURL("image/png");
+            if (currentSigRole === "antragsteller") setSignaturAntragsteller(dataURL);
+            else setSignaturAnderer(dataURL);
+            setShowSigModal(false);
+        };
+
+        return React.createElement('div', { style: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 } },
+            React.createElement('div', { className: 'card', style: { width: '90%', maxWidth: '400px' } },
+                React.createElement('h3', null, currentSigRole === "antragsteller" ? "Unterschrift Antragsteller" : "Unterschrift anderer Elternteil"),
+                React.createElement('canvas', { ref: canvasRef, width: 300, height: 150, style: { border: '1px solid #ccc', background: 'white' }, onMouseDown: startDrawing, onMouseMove: draw, onMouseUp: () => setIsDrawing(false) }),
+                React.createElement('div', { style: { marginTop: '15px' } },
+                    React.createElement('button', { onClick: clearSig }, 'Löschen'),
+                    React.createElement('button', { onClick: saveSig, style: { marginLeft: '10px', background: '#4caf50', color: 'white' } }, 'Speichern'),
+                    React.createElement('button', { onClick: () => setShowSigModal(false), style: { marginLeft: '10px' } }, 'Abbrechen')
+                )
+            )
+        );
+    };
+
+    if (showSigModal) {
+        return React.createElement(SigPadModal);
+    }
+
+    return React.createElement('div', null,
+        React.createElement('h1', null, 'ISUV Anspruchslotse – Anlage TBG'),
+
+        React.createElement('div', { className: 'card' },
+            React.createElement('h3', null, 'Angaben zum Kind'),
+            React.createElement('input', {
+                placeholder: "Vorname des Kindes",
+                value: kinder[0].kVorname,
+                onChange: e => setKinder(p => p.map((k,i)=>i===0?{...k, kVorname:e.target.value}:k))
+            }),
+            React.createElement('input', {
+                placeholder: "Nachname des Kindes",
+                value: kinder[0].kNachname,
+                onChange: e => setKinder(p => p.map((k,i)=>i===0?{...k, kNachname:e.target.value}:k))
+            })
+        ),
+
+        React.createElement('div', { className: 'card' },
+            React.createElement('h3', null, 'Umgangstage beim Antragsteller'),
+            React.createElement('div', { className: 'kalender-grid' },
+                Array.from({ length: 31 }, (_, i) =>
+                    React.createElement('div', {
+                        key: i,
+                        className: `kalender-tag ${kinder[0].kalender.antragsteller[i] === 1 ? 'selected' : ''}`,
+                        onClick: () => toggleUmgangstag(i)
+                    }, i + 1)
+                )
+            )
+        ),
+
+        React.createElement('button', { className: 'btn-success', onClick: erzeugeTbgPDF }, 'PDF erstellen'),
+        React.createElement('button', { className: 'btn-primary', onClick: sendeWhatsApp }, 'Per WhatsApp versenden'),
+        React.createElement('button', { className: 'btn-primary', onClick: sendeEmail }, 'Per E-Mail versenden'),
+        React.createElement('button', {
+            onClick: () => { setCurrentSigRole("antragsteller"); setShowSigModal(true); }
+        }, 'Unterschrift Antragsteller'),
+        React.createElement('button', {
+            onClick: () => { setCurrentSigRole("anderer"); setShowSigModal(true); }
+        }, 'Unterschrift anderer Elternteil')
+    );
+}
+
+ReactDOM.render(
+    React.createElement(TBGFormular),
+    document.getElementById('root')
+);
+
+console.log("TBG Formular vollständig geladen");
+</script>
+</body>
+</html>
